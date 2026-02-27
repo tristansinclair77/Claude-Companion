@@ -7,6 +7,7 @@
     "start": "node scripts/launch.js",
     "dev": "node scripts/launch.js --dev",
     "debug-viewer": "node scripts/launch-debug-viewer.js",
+    "char-builder": "node scripts/launch-char-builder.js",
     "rebuild": "electron-rebuild"
   },
   "keywords": [
@@ -23,6 +24,7 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2"
+    "better-sqlite3": "^12.6.2",
+    "kokoro-js": "^1.2.1"
   }
 }

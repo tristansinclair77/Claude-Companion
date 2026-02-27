@@ -11,11 +11,23 @@ const { captureScreen, cleanupScreenshot } = require('./screen-capture');
 const { openFilePicker, openFolderPicker } = require('./file-handler');
 const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
+const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
 const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP } = require('../shared/constants');
+const ttsEngine = require('./tts-engine');
 
-const CHARACTER_DIR = path.join(__dirname, '../../characters/default');
-const DB_PATH = path.join(CHARACTER_DIR, 'knowledge.db');
+const CHARACTERS_BASE = path.join(__dirname, '../../characters');
+const CONFIG_PATH     = path.join(__dirname, '../../config.json');
+
+function getActiveCharacterName() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')).activeCharacter || 'default';
+  } catch { return 'default'; }
+}
+
+const ACTIVE_CHARACTER = getActiveCharacterName();
+const CHARACTER_DIR    = path.join(CHARACTERS_BASE, ACTIVE_CHARACTER);
+const DB_PATH          = path.join(CHARACTER_DIR, 'knowledge.db');
 
 let mainWindow;
 let hotkeyManager;
@@ -114,19 +126,27 @@ function createWindow() {
 }
 
 const DEBUG_VIEWER_MODE = process.argv.includes('--debug-viewer');
+const CHAR_BUILDER_MODE = process.argv.includes('--char-builder');
 
 app.whenReady().then(() => {
   if (DEBUG_VIEWER_MODE) {
     // Standalone debug viewer — no companion window, no brain
     registerDebugViewerIPC(null, null);
-    // Open the debug viewer immediately
     ipcMain.emit('debug-viewer:open');
+    return;
+  }
+
+  if (CHAR_BUILDER_MODE) {
+    // Standalone character builder — no companion window, no brain
+    registerCharacterBuilderIPC(null);
+    ipcMain.emit('character-builder:open');
     return;
   }
 
   logger.init();
   loadCharacterPack();
   initBrain();
+  ttsEngine.startVitsServer();
 
   const win = createWindow();
 
@@ -134,6 +154,7 @@ app.whenReady().then(() => {
   hotkeyManager.register('F2');
 
   registerDebugViewerIPC(win, db);
+  registerCharacterBuilderIPC(win);
 
   win.webContents.on('did-finish-load', () => {
     win.webContents.send('app:init', {
@@ -173,6 +194,8 @@ ipcMain.on('window:close', () => mainWindow?.close());
 
 ipcMain.handle('claude:send-message', async (event, payload) => {
   const { message, userEmotion, attachments } = payload;
+  // Stop any in-progress TTS before processing the new message
+  mainWindow?.webContents.send('tts:stop');
   try {
     sessionManager.addMessage('user', message, userEmotion);
     db.insertMessage({ role: 'user', content: message, emotion: userEmotion });
@@ -216,6 +239,15 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
         next: { V: Math.round(newState.valence), A: Math.round(newState.arousal), S: Math.round(newState.social), P: Math.round(newState.physical) },
         target: { V: target.V, A: target.A, S: target.S, P: target.P },
       });
+    }
+
+    // Fire TTS synthesis in parallel — don't await, send audio when ready
+    if (response.dialogue) {
+      ttsEngine.synthesize(response.dialogue).then(audioBuf => {
+        if (audioBuf) {
+          mainWindow?.webContents.send('tts:audio', audioBuf.toString('base64'));
+        }
+      }).catch(err => console.warn('[TTS] synthesis error:', err.message));
     }
 
     const sumCheck = sessionManager.checkForSummarization();
@@ -317,7 +349,6 @@ ipcMain.handle('conversation:save', async () => {
 });
 
 ipcMain.on('debug-viewer:open-from-main', () => {
-  // Triggered by the main window renderer to open the debug viewer
   ipcMain.emit('debug-viewer:open');
 });
 
@@ -378,7 +409,57 @@ ipcMain.handle('emotional-state:reset', () => {
   return { state: defaultState };
 });
 
-// Push live updates to the emotional state window after each response
+// ── TTS IPC ───────────────────────────────────────────────────────────────────
+
+ipcMain.handle('tts:get-settings', () => ttsEngine.getSettings());
+ipcMain.handle('tts:get-voices',   () => ttsEngine.getVoices());
+
+ipcMain.handle('tts:set-enabled', (event, val) => {
+  ttsEngine.setEnabled(val);
+  return ttsEngine.getSettings();
+});
+ipcMain.handle('tts:set-voice', (event, voiceName) => {
+  ttsEngine.setVoice(voiceName);
+  return ttsEngine.getSettings();
+});
+ipcMain.handle('tts:set-rate', (event, rate) => {
+  ttsEngine.setRate(rate);
+  return ttsEngine.getSettings();
+});
+
+// ── Character management ──────────────────────────────────────────────────────
+
+ipcMain.handle('character:list', () => {
+  try {
+    return fs.readdirSync(CHARACTERS_BASE)
+      .filter((d) => {
+        const stat = fs.statSync(path.join(CHARACTERS_BASE, d));
+        const hasChar = fs.existsSync(path.join(CHARACTERS_BASE, d, 'character.json'));
+        return stat.isDirectory() && hasChar;
+      })
+      .map((d) => {
+        const char = JSON.parse(fs.readFileSync(path.join(CHARACTERS_BASE, d, 'character.json'), 'utf-8'));
+        return { id: d, name: char.name, active: d === ACTIVE_CHARACTER };
+      });
+  } catch (e) {
+    console.error('[Character] list error:', e.message);
+    return [];
+  }
+});
+
+ipcMain.handle('character:switch', (_event, charId) => {
+  try {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ activeCharacter: charId }, null, 2));
+    app.relaunch();
+    app.quit();
+    return { success: true };
+  } catch (e) {
+    console.error('[Character] switch error:', e.message);
+    return { success: false, error: e.message };
+  }
+});
+
+// ── Push live updates to the emotional state window after each response ───────
 function pushEmotionalStateUpdate(state, emotionId) {
   if (!emotionalStateWindow || emotionalStateWindow.isDestroyed()) return;
   _lastEmotionId = emotionId || _lastEmotionId;

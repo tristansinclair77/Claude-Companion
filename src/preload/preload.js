@@ -29,11 +29,24 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Open the emotional axis monitor pop-out
   openEmotionalState: () => ipcRenderer.send('emotional-state:open'),
 
-  // Event listeners (renderer → receives from main)
+  // Character management
+  listCharacters:  ()       => ipcRenderer.invoke('character:list'),
+  switchCharacter: (charId) => ipcRenderer.invoke('character:switch', charId),
+
+  // TTS controls
+  ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
+  ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
+  ttsSetEnabled:  (val)       => ipcRenderer.invoke('tts:set-enabled', val),
+  ttsSetVoice:    (voiceName) => ipcRenderer.invoke('tts:set-voice', voiceName),
+  ttsSetRate:     (rate)      => ipcRenderer.invoke('tts:set-rate', rate),
+
+  // Event listeners (renderer ← receives from main)
   on: (channel, callback) => {
     const allowed = [
       'hotkey:mic-toggle',
       'app:init',
+      'tts:audio',
+      'tts:stop',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));

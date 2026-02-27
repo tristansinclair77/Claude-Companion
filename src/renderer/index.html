@@ -17,8 +17,15 @@
   <!-- Custom title bar -->
   <div id="title-bar">
     <div id="title-bar-left">
-      <span class="app-name">COMPANION <span class="version">v0.1</span></span>
+      <button id="char-selector" class="char-selector" title="Switch character">
+        <span class="char-selector-diamond">◈</span>
+        <span id="char-name">···</span>
+        <span class="char-selector-arrow">▾</span>
+      </button>
+      <span class="version">v0.1</span>
     </div>
+    <!-- Character picker dropdown (positioned absolute, anchored to title-bar-left) -->
+    <div id="char-picker" class="hidden"></div>
     <div id="source-indicators">
       <span id="badge-filler" class="source-badge badge-filler" title="Filler response">FILLER ●</span>
       <span id="badge-local"  class="source-badge badge-local"  title="Local brain response">LOCAL ●</span>
@@ -65,6 +72,18 @@
       <button id="btn-send">SEND</button>
     </div>
 
+    <!-- TTS playbar: replay, scrub, time, volume -->
+    <div id="tts-playbar">
+      <button id="btn-replay" title="Replay last audio" disabled>↺ REPLAY</button>
+      <div id="tts-progress-wrap">
+        <input type="range" id="tts-seek" min="0" max="100" value="0" step="0.1" disabled />
+      </div>
+      <span id="tts-time">0:00</span>
+      <span class="tts-sep">│</span>
+      <span class="tts-vol-label">VOL</span>
+      <input type="range" id="tts-volume" min="0" max="1" value="1" step="0.02" title="Volume" />
+    </div>
+
     <!-- 4 action buttons -->
     <div id="action-buttons">
       <button class="action-btn" id="btn-mic"     title="Mic toggle (F2)">🎤 MIC</button>
@@ -72,8 +91,14 @@
       <button class="action-btn" id="btn-screen"  title="Capture screen">👁 SCREEN</button>
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-save-chat" title="Save this conversation to Aria's long-term memory">💾 SAVE CHAT</button>
-      <button class="action-btn" id="btn-axis"     title="View Aria's persistent emotional axis state">💠 AXIS</button>
+      <button class="action-btn" id="btn-axis"         title="View Aria's persistent emotional axis state">💠 AXIS</button>
+<div class="voice-btn-group">
+        <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
+      </div>
     </div>
+
+    <!-- Voice picker popup -->
+    <div id="voice-picker" class="hidden"></div>
 
     <!-- Attachment bar -->
     <div id="attachment-bar" class="hidden">
@@ -103,6 +128,7 @@
   <script src="js/file-attach.js"></script>
   <script src="js/screen-capture-ui.js"></script>
   <script src="js/mic-controller.js"></script>
+  <script src="js/tts-controller.js"></script>
   <script src="js/chat-controller.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -1,0 +1,18 @@
+# VITS TTS Server dependencies
+# Install with: pip install -r requirements.txt
+#
+# PyTorch: install the CPU-only wheel to save ~2 GB of disk space:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Then install the rest:
+#   pip install -r requirements.txt --no-deps torch
+#
+# Or install everything at once (downloads full CUDA torch if CUDA is present):
+#   pip install -r requirements.txt
+
+torch
+flask
+scipy
+numpy
+argostranslate
+unidecode
+pyopenjtalk
