@@ -414,7 +414,7 @@ html, body {
   margin-bottom: 4px;
 }
 
-#btn-replay {
+#btn-replay, #btn-stop, #btn-pause {
   background: none;
   border: 1px solid var(--border-glow);
   color: var(--cyan-dim);
@@ -429,6 +429,10 @@ html, body {
 }
 #btn-replay:not(:disabled):hover { border-color: var(--cyan); color: var(--cyan); }
 #btn-replay:disabled { opacity: 0.3; cursor: default; }
+#btn-stop  { color: #ff4444; border-color: #ff444433; }
+#btn-stop:hover  { border-color: #ff4444; color: #ff6666; }
+#btn-pause { color: var(--cyan-dim); }
+#btn-pause:hover { border-color: var(--cyan); color: var(--cyan); }
 
 #tts-progress-wrap {
   flex: 1;
@@ -503,6 +507,27 @@ html, body {
   box-shadow: 0 0 6px var(--green);
   cursor: pointer;
   border-radius: 0;
+}
+
+/* SYNC toggle button */
+#btn-tts-sync {
+  background: none;
+  border: 1px solid var(--border-glow);
+  color: var(--cyan-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, text-shadow 0.15s;
+}
+#btn-tts-sync:hover { border-color: var(--cyan); color: var(--cyan); }
+#btn-tts-sync.active {
+  border-color: var(--green);
+  color: var(--green);
+  text-shadow: 0 0 6px var(--green);
 }
 
 /* Emotion picker popup */

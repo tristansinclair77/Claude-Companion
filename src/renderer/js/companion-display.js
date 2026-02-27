@@ -7,7 +7,9 @@ var CompanionDisplay = (() => {
   const emotionEl   = document.getElementById('emotion-badge');
   const portraitEl  = document.getElementById('companion-portrait');
 
-  let typewriterTimer = null;
+  let typewriterTimer  = null;
+  let _pendingDialogue = null;
+  let _audioWaitTimer  = null;
   let characterDir = '../../characters/default'; // default; updated from app.js
 
   // ── All 38 single emotions ─────────────────────────────────────────────────
@@ -144,7 +146,26 @@ var CompanionDisplay = (() => {
     characterDir = dir;
   }
 
+  // ── Audio-sync helpers ─────────────────────────────────────────────────────
+
+  function _cancelAudioWait() {
+    if (_audioWaitTimer) { clearTimeout(_audioWaitTimer); _audioWaitTimer = null; }
+    document.removeEventListener('tts:audio-ready', _onAudioReady);
+    _pendingDialogue = null;
+  }
+
+  function _onAudioReady() {
+    if (_audioWaitTimer) { clearTimeout(_audioWaitTimer); _audioWaitTimer = null; }
+    if (_pendingDialogue !== null) {
+      typewriterText(dialogueEl, _pendingDialogue, 22);
+      _pendingDialogue = null;
+    }
+  }
+
   function showResponse({ dialogue, thoughts, emotion, source, emotionalState }) {
+    // Cancel any previous audio-sync wait (new message arrived)
+    _cancelAudioWait();
+
     // Stop any running typewriter
     if (typewriterTimer) clearTimeout(typewriterTimer);
 
@@ -154,9 +175,6 @@ var CompanionDisplay = (() => {
     // Update emotion badge and portrait
     setEmotion(emotion || 'neutral');
 
-    // Typewriter for dialogue
-    typewriterText(dialogueEl, dialogue || '', 22);
-
     // Flash neon effect
     dialogueEl.classList.remove('new-response');
     void dialogueEl.offsetWidth; // force reflow
@@ -164,6 +182,27 @@ var CompanionDisplay = (() => {
 
     // Update meter bars if emotional state provided
     if (emotionalState) updateMeters(emotionalState);
+
+    // Decide whether to wait for audio before typing
+    const syncEnabled = window._ttsState?.waitForAudio && window._ttsState?.voiceEnabled;
+    if (syncEnabled && dialogue) {
+      // Hold typewriter — show waiting cursor, start typing on tts:audio-ready
+      dialogueEl.textContent = '';
+      dialogueEl.classList.add('typewriter-cursor');
+      _pendingDialogue = dialogue;
+      document.addEventListener('tts:audio-ready', _onAudioReady, { once: true });
+      // Safety fallback: if audio never arrives (synthesis error, disabled, etc.)
+      // type the text after 45 seconds so it's never stuck blank
+      _audioWaitTimer = setTimeout(() => {
+        document.removeEventListener('tts:audio-ready', _onAudioReady);
+        if (_pendingDialogue !== null) {
+          typewriterText(dialogueEl, _pendingDialogue, 22);
+          _pendingDialogue = null;
+        }
+      }, 45000);
+    } else {
+      typewriterText(dialogueEl, dialogue || '', 22);
+    }
   }
 
   function setEmotion(emotionId) {

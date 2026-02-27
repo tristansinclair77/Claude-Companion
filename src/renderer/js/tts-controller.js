@@ -13,6 +13,9 @@
   const ttsSeek        = document.getElementById('tts-seek');
   const ttsTime        = document.getElementById('tts-time');
   const ttsVolume      = document.getElementById('tts-volume');
+  const btnTtsSync     = document.getElementById('btn-tts-sync');
+  const btnStop        = document.getElementById('btn-stop');
+  const btnPause       = document.getElementById('btn-pause');
 
   let currentAudio    = null;
   let lastAudioBase64 = null;
@@ -20,6 +23,15 @@
   let currentVoiceId  = 'af_heart';
   let _volume         = 1.0;
   let _seeking        = false;
+  let _waitForAudio   = false;
+  let _isPlaying      = false;
+  let _isPaused       = false;
+
+  // Expose state for companion-display.js to read
+  window._ttsState = {
+    get waitForAudio() { return _waitForAudio; },
+    get voiceEnabled()  { return voiceEnabled;  },
+  };
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -39,8 +51,24 @@
   }
 
   function setPlaybarEnabled(enabled) {
-    if (btnReplay) btnReplay.disabled = !enabled;
-    if (ttsSeek)   ttsSeek.disabled   = !enabled;
+    if (ttsSeek) ttsSeek.disabled = !enabled;
+  }
+
+  function _updatePlayControls() {
+    const hasAudio = !!lastAudioBase64;
+    if (_isPlaying) {
+      if (btnReplay) btnReplay.classList.add('hidden');
+      if (btnStop)   btnStop.classList.remove('hidden');
+      if (btnPause) {
+        btnPause.classList.remove('hidden');
+        btnPause.textContent = _isPaused ? '▶' : '⏸';
+        btnPause.title       = _isPaused ? 'Resume audio' : 'Pause audio';
+      }
+    } else {
+      if (btnReplay) { btnReplay.classList.remove('hidden'); btnReplay.disabled = !hasAudio; }
+      if (btnStop)   btnStop.classList.add('hidden');
+      if (btnPause)  btnPause.classList.add('hidden');
+    }
   }
 
   function updateTime(current, duration) {
@@ -80,20 +108,34 @@
       }
       updateTime(audio.duration, audio.duration);
       currentAudio = null;
+      _isPlaying = false;
+      _isPaused  = false;
+      _updatePlayControls();
     });
   }
 
-  function stopCurrentAudio() {
+  function stopCurrentAudio(_internal = false) {
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.src = '';
       currentAudio = null;
     }
+    if (!_internal) {
+      _isPlaying = false;
+      _isPaused  = false;
+      _updatePlayControls();
+    }
   }
 
   function playAudio(base64, startPct) {
-    stopCurrentAudio();
-    if (!voiceEnabled && startPct === undefined) return; // replay always allowed
+    stopCurrentAudio(true); // internal — don't flip controls yet
+    if (!voiceEnabled && startPct === undefined) {
+      // Voice off and not a manual replay — reset controls cleanly
+      _isPlaying = false;
+      _isPaused  = false;
+      _updatePlayControls();
+      return;
+    }
     const audio = new Audio('data:audio/wav;base64,' + base64);
     audio.volume = _volume;
     currentAudio = audio;
@@ -108,11 +150,19 @@
       audio.play().catch(err => console.warn('[TTS] play error:', err.message));
     }
 
+    _isPlaying = true;
+    _isPaused  = false;
+    _updatePlayControls();
     setPlaybarEnabled(true);
   }
 
   window.claudeAPI.on('tts:audio', (base64) => {
     lastAudioBase64 = base64;
+    // If sync mode is on, notify companion-display BEFORE playing so the
+    // typewriter starts at the same moment audio begins.
+    if (_waitForAudio) {
+      document.dispatchEvent(new CustomEvent('tts:audio-ready'));
+    }
     playAudio(base64);
   });
 
@@ -130,6 +180,24 @@
       voiceEnabled = true;
       playAudio(lastAudioBase64);
       voiceEnabled = saved;
+    });
+  }
+
+  if (btnStop) {
+    btnStop.addEventListener('click', () => stopCurrentAudio());
+  }
+
+  if (btnPause) {
+    btnPause.addEventListener('click', () => {
+      if (!currentAudio) return;
+      if (_isPaused) {
+        currentAudio.play().catch(err => console.warn('[TTS] resume error:', err.message));
+        _isPaused = false;
+      } else {
+        currentAudio.pause();
+        _isPaused = true;
+      }
+      _updatePlayControls();
     });
   }
 
@@ -240,6 +308,26 @@
     }
   }
 
+  // ── SYNC toggle ─────────────────────────────────────────────────────────────
+
+  function updateSyncBtn() {
+    if (!btnTtsSync) return;
+    if (_waitForAudio) {
+      btnTtsSync.classList.add('active');
+      btnTtsSync.title = 'SYNC ON — text waits for audio to begin (click to disable)';
+    } else {
+      btnTtsSync.classList.remove('active');
+      btnTtsSync.title = 'SYNC: wait for audio to begin before text starts typing';
+    }
+  }
+
+  if (btnTtsSync) {
+    btnTtsSync.addEventListener('click', () => {
+      _waitForAudio = !_waitForAudio;
+      updateSyncBtn();
+    });
+  }
+
   // ── Init ────────────────────────────────────────────────────────────────────
 
   async function init() {
@@ -255,6 +343,7 @@
       voiceEnabled = true;
     }
     updateBtn();
+    updateSyncBtn();
     // Initialise slider fills
     if (ttsVolume) updateSliderFill(ttsVolume);
     if (ttsSeek)   updateSliderFill(ttsSeek);

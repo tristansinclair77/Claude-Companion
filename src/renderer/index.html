@@ -75,6 +75,8 @@
     <!-- TTS playbar: replay, scrub, time, volume -->
     <div id="tts-playbar">
       <button id="btn-replay" title="Replay last audio" disabled>↺ REPLAY</button>
+      <button id="btn-stop"  class="hidden" title="Stop audio">■</button>
+      <button id="btn-pause" class="hidden" title="Pause audio">⏸</button>
       <div id="tts-progress-wrap">
         <input type="range" id="tts-seek" min="0" max="100" value="0" step="0.1" disabled />
       </div>
@@ -82,6 +84,8 @@
       <span class="tts-sep">│</span>
       <span class="tts-vol-label">VOL</span>
       <input type="range" id="tts-volume" min="0" max="1" value="1" step="0.02" title="Volume" />
+      <span class="tts-sep">│</span>
+      <button id="btn-tts-sync" title="SYNC: wait for audio to begin before text starts typing">SYNC</button>
     </div>
 
     <!-- 4 action buttons -->
