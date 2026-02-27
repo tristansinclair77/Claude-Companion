@@ -1,0 +1,27 @@
+{
+  "name": "claude-companion",
+  "version": "0.1.0",
+  "description": "Desktop AI Companion with cyberpunk anime UI — powered by Claude Code CLI",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "node scripts/launch.js",
+    "dev": "node scripts/launch.js --dev",
+    "rebuild": "electron-rebuild"
+  },
+  "keywords": [
+    "ai",
+    "companion",
+    "electron",
+    "claude"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "electron": "^40.6.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2"
+  }
+}

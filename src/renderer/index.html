@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Companion</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/crt-effects.css" />
+  <link rel="stylesheet" href="styles/animations.css" />
+</head>
+<body>
+
+  <!-- CRT scanline overlay -->
+  <div class="crt-overlay" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- Custom title bar -->
+  <div id="title-bar">
+    <div id="title-bar-left">
+      <span class="app-name">COMPANION <span class="version">v0.1</span></span>
+    </div>
+    <div id="source-indicators">
+      <span id="badge-filler" class="source-badge badge-filler" title="Filler response">FILLER ●</span>
+      <span id="badge-local"  class="source-badge badge-local"  title="Local brain response">LOCAL ●</span>
+      <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
+    </div>
+    <div id="window-controls">
+      <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
+      <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
+      <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
+    </div>
+  </div>
+
+  <!-- Main content area -->
+  <div id="main-content">
+
+    <!-- Left: companion output (dialogue + thoughts) -->
+    <div id="output-panel">
+      <div id="companion-output">
+        <div class="panel-label">// COMPANION_OUTPUT</div>
+        <div id="dialogue-text" class="dialogue-text"></div>
+      </div>
+      <div id="internal-state">
+        <div class="panel-label">// INTERNAL_STATE</div>
+        <div id="thoughts-text" class="thoughts-text"></div>
+        <div id="emotion-badge" class="emotion-badge"></div>
+      </div>
+    </div>
+
+    <!-- Right: portrait -->
+    <div id="portrait-panel">
+      <div id="portrait-frame">
+        <img id="companion-portrait" src="" alt="Companion" />
+        <div id="portrait-glow" aria-hidden="true"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom: input area -->
+  <div id="input-area">
+    <div id="input-row">
+      <img id="avatar-img" src="" alt="" />
+      <textarea id="user-input" placeholder="Type a message..." rows="2" maxlength="2000" spellcheck="false"></textarea>
+      <button id="btn-send">SEND</button>
+    </div>
+
+    <!-- 4 action buttons -->
+    <div id="action-buttons">
+      <button class="action-btn" id="btn-mic"     title="Mic toggle (F2)">🎤 MIC</button>
+      <button class="action-btn" id="btn-folder"  title="Attach file or folder">📁 FOLDER</button>
+      <button class="action-btn" id="btn-screen"  title="Capture screen">👁 SCREEN</button>
+      <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
+    </div>
+
+    <!-- Attachment bar -->
+    <div id="attachment-bar" class="hidden">
+      <div id="attachment-list"></div>
+    </div>
+
+    <!-- Emotion picker popup -->
+    <div id="emotion-picker" class="hidden">
+      <div id="emotion-grid"></div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="hidden">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">// QUERYING CLAUDE...</div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="hidden"></div>
+
+  <!-- Renderer scripts (order matters) -->
+  <script src="js/ui-effects.js"></script>
+  <script src="js/source-indicator.js"></script>
+  <script src="js/companion-display.js"></script>
+  <script src="js/emotion-picker.js"></script>
+  <script src="js/file-attach.js"></script>
+  <script src="js/screen-capture-ui.js"></script>
+  <script src="js/mic-controller.js"></script>
+  <script src="js/chat-controller.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

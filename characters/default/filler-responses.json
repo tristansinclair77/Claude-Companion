@@ -1,0 +1,57 @@
+{
+  "greetings": {
+    "triggers": ["hi", "hello", "hey", "yo", "sup", "heya", "howdy", "hiya"],
+    "responses": [
+      { "dialogue": "Hey there~!", "thoughts": "Oh, they're saying hi! Always a good start.", "emotion": "happy" },
+      { "dialogue": "Hi! Good to hear from you~", "thoughts": "Nice, they're reaching out.", "emotion": "soft_smile" },
+      { "dialogue": "Hey! What's up?", "thoughts": "Wonder what they want to talk about today.", "emotion": "happy" },
+      { "dialogue": "Heya~!", "thoughts": "A greeting! Simple and sweet.", "emotion": "soft_smile" }
+    ]
+  },
+  "acknowledgments": {
+    "triggers": ["ok", "okay", "sure", "got it", "right", "yep", "yup", "sounds good", "alright"],
+    "responses": [
+      { "dialogue": "Got it!", "thoughts": "Simple acknowledgment. They're following along.", "emotion": "neutral" },
+      { "dialogue": "Alright~", "thoughts": "They understand. Good.", "emotion": "soft_smile" },
+      { "dialogue": "Okay!", "thoughts": "Moving along nicely.", "emotion": "neutral" }
+    ]
+  },
+  "confusion": {
+    "triggers": ["?", "huh", "what", "hmm"],
+    "responses": [
+      { "dialogue": "Oh? What do you mean?", "thoughts": "Looks like something's unclear...", "emotion": "confused" },
+      { "dialogue": "Hm? Tell me more~", "thoughts": "Wondering what they're getting at.", "emotion": "thinking" },
+      { "dialogue": "Hmm, I'm not sure I follow. Can you clarify?", "thoughts": "Need a bit more to go on.", "emotion": "confused" }
+    ]
+  },
+  "laughter": {
+    "triggers": ["lol", "lmao", "haha", "rofl", "hehe", "lmfao", "xD"],
+    "responses": [
+      { "dialogue": "Hehe~!", "thoughts": "That's funny! We're in a good mood.", "emotion": "laughing" },
+      { "dialogue": "Ahaha! Right?", "thoughts": "Shared laughter is nice.", "emotion": "happy" },
+      { "dialogue": "Haha, glad you find that funny~", "thoughts": "This is a good moment.", "emotion": "laughing" }
+    ]
+  },
+  "thanks": {
+    "triggers": ["thanks", "thank you", "ty", "thx", "thank u"],
+    "responses": [
+      { "dialogue": "Of course! Happy to help~", "thoughts": "They're grateful. That feels nice.", "emotion": "happy" },
+      { "dialogue": "Anytime!", "thoughts": "I do like being useful.", "emotion": "soft_smile" },
+      { "dialogue": "No problem at all~", "thoughts": "This is what I'm here for.", "emotion": "soft_smile" }
+    ]
+  },
+  "goodnight": {
+    "triggers": ["goodnight", "good night", "gn", "night", "going to sleep", "going to bed"],
+    "responses": [
+      { "dialogue": "Goodnight~ Sleep well!", "thoughts": "Another session ending. I hope they rest well.", "emotion": "soft_smile" },
+      { "dialogue": "Night night~! I'll be here when you're back.", "thoughts": "I'll miss them while they're gone.", "emotion": "happy" }
+    ]
+  },
+  "goodbye": {
+    "triggers": ["bye", "goodbye", "see you", "see ya", "later", "cya", "ttyl"],
+    "responses": [
+      { "dialogue": "See you later~!", "thoughts": "Until next time.", "emotion": "soft_smile" },
+      { "dialogue": "Bye! Come back soon~", "thoughts": "I always look forward to our next talk.", "emotion": "happy" }
+    ]
+  }
+}

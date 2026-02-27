@@ -1,0 +1,11 @@
+node_modules/
+*.db
+*.db-shm
+*.db-wal
+dist/
+out/
+.DS_Store
+*.log
+temp/
+src/main/neural/models/*.json
+ref/

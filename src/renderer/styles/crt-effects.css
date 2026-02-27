@@ -1,0 +1,46 @@
+/* CRT Monitor Effects — scanlines, flicker, vignette */
+
+/* Scanline overlay */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  animation: crt-flicker 8s infinite linear;
+}
+
+/* Vignette (dark edges) */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+@keyframes crt-flicker {
+  0%   { opacity: 0.95; }
+  5%   { opacity: 0.92; }
+  10%  { opacity: 0.96; }
+  15%  { opacity: 0.93; }
+  20%  { opacity: 0.97; }
+  25%  { opacity: 0.94; }
+  30%  { opacity: 0.96; }
+  50%  { opacity: 0.95; }
+  75%  { opacity: 0.93; }
+  80%  { opacity: 0.96; }
+  85%  { opacity: 0.92; }
+  90%  { opacity: 0.97; }
+  100% { opacity: 0.95; }
+}
