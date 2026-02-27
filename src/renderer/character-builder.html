@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Character Builder</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/crt-effects.css" />
+  <style>
+    :root { --cb-tab-h: 34px; --cb-status-h: 26px; }
+
+    /* ── Tab bar ─────────────────────────────────────────────────────────── */
+    #cb-tabs {
+      height: var(--cb-tab-h);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-glow);
+      display: flex;
+      align-items: flex-end;
+      padding: 0 10px;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    .cb-tab {
+      background: none;
+      border: 1px solid transparent;
+      border-bottom: none;
+      color: var(--cyan-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 4px 14px 5px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      margin-right: 2px;
+    }
+    .cb-tab:hover { color: var(--cyan); border-color: var(--border-glow); }
+    .cb-tab.active {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+      border-color: var(--cyan-dim);
+      background: #00ffcc0d;
+    }
+
+    /* ── Content area ────────────────────────────────────────────────────── */
+    #cb-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 20px 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--cyan-dim) transparent;
+    }
+    .cb-pane { display: none; }
+    .cb-pane.active { display: block; }
+
+    /* ── Status bar ──────────────────────────────────────────────────────── */
+    #cb-status {
+      height: var(--cb-status-h);
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-glow);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #335544;
+      flex-shrink: 0;
+      gap: 14px;
+    }
+    #cb-status-path { color: #335544; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #cb-status-msg { color: var(--cyan-dim); flex-shrink: 0; }
+    #cb-status-dirty { color: #ffaa44; flex-shrink: 0; display: none; }
+
+    /* ── Section headers ─────────────────────────────────────────────────── */
+    .cb-section { margin-bottom: 24px; }
+    .cb-section-title {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--cyan-dim);
+      border-bottom: 1px solid var(--border-glow);
+      padding-bottom: 5px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Form rows ───────────────────────────────────────────────────────── */
+    .cb-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+    .cb-label {
+      width: 160px;
+      flex-shrink: 0;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--cyan-dim);
+      padding-top: 5px;
+      text-align: right;
+    }
+    .cb-label.top { padding-top: 6px; }
+    .cb-input, .cb-textarea, .cb-select {
+      flex: 1;
+      background: var(--bg-mid);
+      border: 1px solid var(--cyan-dim);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 4px 7px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .cb-input:focus, .cb-textarea:focus, .cb-select:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 6px #00ffcc33;
+    }
+    .cb-textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+    .cb-textarea.tall { min-height: 90px; }
+    .cb-select { height: 28px; cursor: pointer; }
+    .cb-select option { background: var(--bg-panel); }
+
+    /* ── Pick-file row (input + button inline) ───────────────────────────── */
+    .cb-file-row { display: flex; gap: 6px; flex: 1; }
+    .cb-file-row .cb-input { flex: 1; }
+
+    /* ── List editor (likes, dislikes, rules, etc.) ──────────────────────── */
+    .cb-list-editor { flex: 1; }
+    .cb-list-items { display: flex; flex-direction: column; gap: 4px; margin-bottom: 5px; }
+    .cb-list-item {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .cb-list-item .cb-input { flex: 1; }
+    .cb-remove-btn {
+      background: none;
+      border: 1px solid #ff224433;
+      color: #ff224466;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .cb-remove-btn:hover { background: #ff224422; color: #ff4466; border-color: #ff4466; }
+
+    /* ── Small add button ─────────────────────────────────────────────────── */
+    .cb-add-btn {
+      background: none;
+      border: 1px solid var(--border-glow);
+      color: var(--cyan-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 2px 10px;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .cb-add-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ── Filler category card ─────────────────────────────────────────────── */
+    .filler-category {
+      border: 1px solid var(--border-glow);
+      margin-bottom: 12px;
+      background: #0d0d18;
+    }
+    .filler-cat-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: #0a0a14;
+      border-bottom: 1px solid var(--border-glow);
+      cursor: pointer;
+      user-select: none;
+    }
+    .filler-cat-toggle { color: var(--cyan-dim); font-size: 11px; flex-shrink: 0; }
+    .filler-cat-key-input {
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--cyan-dim);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      width: 180px;
+      padding: 1px 3px;
+      outline: none;
+    }
+    .filler-cat-key-input:focus { border-color: var(--cyan); }
+    .filler-cat-body { padding: 10px 12px; }
+    .filler-cat-body.collapsed { display: none; }
+
+    .filler-triggers-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 8px; }
+    .filler-trigger-label { font-size: 10px; letter-spacing: 1px; color: #aa44ff; flex-shrink: 0; padding-top: 5px; width: 60px; }
+    .filler-triggers-area { flex: 1; }
+    .filler-trigger-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+    .filler-trigger-tag {
+      background: #aa44ff11;
+      border: 1px solid #aa44ff44;
+      color: #aa44ffcc;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 1px 7px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+    }
+    .filler-trigger-tag .del { cursor: pointer; color: #ff224466; font-size: 10px; }
+    .filler-trigger-tag .del:hover { color: #ff4466; }
+    .filler-trigger-input {
+      background: var(--bg-mid);
+      border: 1px solid #aa44ff44;
+      color: #aa44ffcc;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      width: 160px;
+      outline: none;
+    }
+    .filler-trigger-input::placeholder { color: #aa44ff33; }
+    .filler-trigger-input:focus { border-color: #aa44ff; }
+
+    .filler-response-card {
+      border: 1px solid #00ffcc1a;
+      background: #0a0f14;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .filler-response-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 5px; }
+    .filler-response-label { font-size: 10px; letter-spacing: 1px; color: var(--cyan-dim); width: 70px; flex-shrink: 0; padding-top: 5px; }
+    .filler-response-card .cb-textarea { min-height: 40px; font-size: 11px; }
+    .filler-response-card .cb-select { height: 26px; font-size: 11px; }
+    .filler-response-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .filler-response-num { font-size: 10px; letter-spacing: 1px; color: #335544; }
+
+    /* ── Portraits grid ──────────────────────────────────────────────────── */
+    .portraits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .portrait-slot {
+      border: 1px solid var(--border-glow);
+      background: #0a0a14;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .portrait-slot-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--cyan-dim);
+      text-align: center;
+    }
+    .portrait-slot-preview {
+      width: 100px;
+      height: 100px;
+      border: 1px solid #00ffcc1a;
+      background: #060609;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .portrait-slot-preview img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .portrait-slot-preview .no-img {
+      font-size: 10px;
+      color: #335544;
+      letter-spacing: 1px;
+    }
+    .portrait-slot-path {
+      font-size: 9px;
+      color: #224433;
+      text-align: center;
+      word-break: break-all;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 150px;
+    }
+    .portrait-slot-btns { display: flex; gap: 4px; }
+
+    /* ── Main title bar buttons (NEW / LOAD / SAVE) ───────────────────────── */
+    .cb-action-btn {
+      background: none;
+      border: 1px solid var(--border-glow);
+      color: var(--cyan-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 2px 12px;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .cb-action-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .cb-action-btn.save { border-color: #00ffcc66; color: var(--cyan); }
+    .cb-action-btn.save:hover { background: #00ffcc18; }
+
+    #cb-char-path {
+      font-size: 10px;
+      color: #2a4433;
+      letter-spacing: 1px;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      -webkit-app-region: drag;
+    }
+
+    /* ── Appearance sub-sections ─────────────────────────────────────────── */
+    .cb-subsection { margin-bottom: 18px; padding-left: 8px; border-left: 1px solid #00ffcc1a; }
+    .cb-subsection-title { font-size: 10px; letter-spacing: 2px; color: #006644; margin-bottom: 9px; }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #cb-toast {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0d1e18;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 6px 18px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #cb-toast.error { border-color: #ff4466; color: #ff4466; background: #1e0d10; }
+    #cb-toast.show { opacity: 1; }
+
+    /* Force full-height layout */
+    html, body { height: 100%; }
+    body { display: flex; flex-direction: column; }
+    #cb-tabs { flex-shrink: 0; }
+    #cb-content { flex: 1; min-height: 0; }
+    #cb-status { flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+  <div class="crt-overlay" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- Title bar -->
+  <div id="title-bar">
+    <div id="title-bar-left" style="-webkit-app-region:drag;display:flex;align-items:center;gap:10px;">
+      <span class="app-name">CHARACTER <span class="version">BUILDER</span></span>
+      <span id="cb-char-path">— no character loaded —</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag;">
+      <button class="cb-action-btn" id="cb-btn-new"  title="Start a new blank character">NEW</button>
+      <button class="cb-action-btn" id="cb-btn-load" title="Load a character from disk">LOAD</button>
+      <button class="cb-action-btn save" id="cb-btn-save" title="Save current character to disk">SAVE</button>
+      <div id="window-controls">
+        <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
+        <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
+        <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="cb-tabs">
+    <button class="cb-tab active" data-tab="identity">IDENTITY</button>
+    <button class="cb-tab"        data-tab="rules">RULES</button>
+    <button class="cb-tab"        data-tab="filler">FILLER</button>
+    <button class="cb-tab"        data-tab="appearance">APPEARANCE</button>
+    <button class="cb-tab"        data-tab="portraits">PORTRAITS</button>
+  </div>
+
+  <!-- Tab content -->
+  <div id="cb-content">
+
+    <!-- ── IDENTITY ─────────────────────────────────────────────────── -->
+    <div class="cb-pane active" id="pane-identity">
+
+      <div class="cb-section">
+        <div class="cb-section-title">// IDENTITY</div>
+        <div class="cb-row"><span class="cb-label">name</span>
+          <input class="cb-input" id="id-name" type="text" placeholder="Aria" />
+        </div>
+        <div class="cb-row"><span class="cb-label">full_name</span>
+          <input class="cb-input" id="id-full-name" type="text" placeholder="Aria-7 Synthetic Companion Unit" />
+        </div>
+        <div class="cb-row"><span class="cb-label">age_appearance</span>
+          <input class="cb-input" id="id-age" type="text" placeholder="early 20s" />
+        </div>
+        <div class="cb-row"><span class="cb-label">initial_emotion</span>
+          <select class="cb-select" id="id-initial-emotion"></select>
+        </div>
+        <div class="cb-row"><span class="cb-label top">greeting</span>
+          <textarea class="cb-textarea" id="id-greeting" placeholder="Hey! I'm Aria~ What's on your mind today?"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">initial_thoughts</span>
+          <textarea class="cb-textarea" id="id-initial-thoughts" placeholder="A new session begins..."></textarea>
+        </div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// PERSONALITY</div>
+        <div class="cb-row"><span class="cb-label top">personality_summary</span>
+          <textarea class="cb-textarea tall" id="id-personality"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">speech_style</span>
+          <textarea class="cb-textarea tall" id="id-speech-style"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">backstory</span>
+          <textarea class="cb-textarea tall" id="id-backstory"></textarea>
+        </div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// TRAITS</div>
+        <div class="cb-row">
+          <span class="cb-label top">likes</span>
+          <div class="cb-list-editor" id="editor-likes"></div>
+        </div>
+        <div class="cb-row">
+          <span class="cb-label top">dislikes</span>
+          <div class="cb-list-editor" id="editor-dislikes"></div>
+        </div>
+        <div class="cb-row">
+          <span class="cb-label top">quirks</span>
+          <div class="cb-list-editor" id="editor-quirks"></div>
+        </div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// FILES</div>
+        <div class="cb-row"><span class="cb-label">character_reference_image</span>
+          <input class="cb-input" id="id-ref-image" type="text" placeholder="character_reference.png" />
+        </div>
+        <div class="cb-row"><span class="cb-label">appearance_file</span>
+          <input class="cb-input" id="id-appearance-file" type="text" placeholder="appearance.json" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RULES ─────────────────────────────────────────────────────── -->
+    <div class="cb-pane" id="pane-rules">
+      <div class="cb-section">
+        <div class="cb-section-title">// RULES</div>
+        <div class="cb-row"><span class="cb-label">character</span>
+          <input class="cb-input" id="rules-character" type="text" />
+        </div>
+        <div class="cb-row"><span class="cb-label">version</span>
+          <input class="cb-input" id="rules-version" type="text" placeholder="1.0.0" style="max-width:120px;" />
+        </div>
+        <div class="cb-row">
+          <span class="cb-label top">rules</span>
+          <div class="cb-list-editor" id="editor-rules"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FILLER ─────────────────────────────────────────────────────── -->
+    <div class="cb-pane" id="pane-filler">
+      <div class="cb-section">
+        <div class="cb-section-title">// FILLER RESPONSES
+          <button class="cb-add-btn" id="filler-add-cat" style="margin-left:12px;">+ ADD CATEGORY</button>
+        </div>
+        <div id="filler-categories"></div>
+      </div>
+    </div>
+
+    <!-- ── APPEARANCE ─────────────────────────────────────────────────── -->
+    <div class="cb-pane" id="pane-appearance">
+      <div class="cb-section">
+        <div class="cb-section-title">// PHYSICAL</div>
+        <div class="cb-row"><span class="cb-label">height</span>
+          <input class="cb-input" id="app-height" type="text" />
+        </div>
+        <div class="cb-row"><span class="cb-label top">build</span>
+          <textarea class="cb-textarea" id="app-build"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">hair</span>
+          <textarea class="cb-textarea" id="app-hair"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">eyes</span>
+          <textarea class="cb-textarea" id="app-eyes"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">skin</span>
+          <textarea class="cb-textarea" id="app-skin"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">face</span>
+          <textarea class="cb-textarea" id="app-face"></textarea>
+        </div>
+        <div class="cb-row"><span class="cb-label top">self_description</span>
+          <textarea class="cb-textarea tall" id="app-self-desc"></textarea>
+        </div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// OUTFIT</div>
+        <div class="cb-row"><span class="cb-label top">top</span>      <textarea class="cb-textarea" id="app-outfit-top"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">harness</span>  <textarea class="cb-textarea" id="app-outfit-harness"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">tie</span>      <textarea class="cb-textarea" id="app-outfit-tie"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">shorts</span>   <textarea class="cb-textarea" id="app-outfit-shorts"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">legwear</span>  <textarea class="cb-textarea" id="app-outfit-legwear"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">boots</span>    <textarea class="cb-textarea" id="app-outfit-boots"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">gloves</span>   <textarea class="cb-textarea" id="app-outfit-gloves"></textarea></div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// ACCESSORIES</div>
+        <div class="cb-row"><span class="cb-label top">headset</span>        <textarea class="cb-textarea" id="app-acc-headset"></textarea></div>
+        <div class="cb-row"><span class="cb-label top">harness_detail</span> <textarea class="cb-textarea" id="app-acc-harness"></textarea></div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// COLOR PALETTE</div>
+        <div class="cb-row"><span class="cb-label">primary</span>        <input class="cb-input" id="app-col-primary" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">secondary</span>      <input class="cb-input" id="app-col-secondary" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">accent_tech</span>    <input class="cb-input" id="app-col-tech" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">accent_identity</span><input class="cb-input" id="app-col-identity" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">hair</span>           <input class="cb-input" id="app-col-hair" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">eyes</span>           <input class="cb-input" id="app-col-eyes" type="text" /></div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// VISUAL NOTES</div>
+        <div class="cb-row">
+          <span class="cb-label top">visual_notes</span>
+          <div class="cb-list-editor" id="editor-visual-notes"></div>
+        </div>
+      </div>
+
+      <div class="cb-section">
+        <div class="cb-section-title">// ART REFERENCES</div>
+        <div class="cb-row"><span class="cb-label">character_reference</span>       <input class="cb-input" id="app-art-ref" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">character_reference_sheet</span> <input class="cb-input" id="app-art-sheet" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">front_body</span>               <input class="cb-input" id="app-art-front" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">back</span>                     <input class="cb-input" id="app-art-back" type="text" /></div>
+        <div class="cb-row"><span class="cb-label">side_face</span>                <input class="cb-input" id="app-art-side" type="text" /></div>
+      </div>
+    </div>
+
+    <!-- ── PORTRAITS ──────────────────────────────────────────────────── -->
+    <div class="cb-pane" id="pane-portraits">
+      <div class="cb-section">
+        <div class="cb-section-title">// BASE EMOTIONS (38)</div>
+        <div class="portraits-grid" id="portraits-base-grid"></div>
+      </div>
+      <div class="cb-section">
+        <div class="cb-section-title">// COMBINED EMOTIONS (27)</div>
+        <div class="portraits-grid" id="portraits-combined-grid"></div>
+      </div>
+    </div>
+
+  </div><!-- /cb-content -->
+
+  <!-- Status bar -->
+  <div id="cb-status">
+    <span id="cb-status-path">no character loaded</span>
+    <span id="cb-status-dirty">● UNSAVED CHANGES</span>
+    <span id="cb-status-msg"></span>
+  </div>
+
+  <!-- Toast -->
+  <div id="cb-toast"></div>
+
+  <script src="js/character-builder.js"></script>
+</body>
+</html>
