@@ -1,4 +1,4 @@
-const { EMOTION_MAP, RESPONSE_MARKERS } = require('./constants');
+const { EMOTION_MAP, COMBINED_EMOTION_MAP, RESPONSE_MARKERS } = require('./constants');
 
 /**
  * Parses a raw Claude response string into structured parts.
@@ -32,7 +32,7 @@ function parseResponse(raw) {
   let emotion = 'neutral';
   if (emotionMatch) {
     const candidate = emotionMatch[1].toLowerCase().trim();
-    if (EMOTION_MAP[candidate]) {
+    if (EMOTION_MAP[candidate] || COMBINED_EMOTION_MAP[candidate]) {
       emotion = candidate;
     }
   }

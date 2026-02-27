@@ -6,6 +6,7 @@ const path = require('path');
 const { CONFIDENCE_THRESHOLD, SOURCES } = require('../shared/constants');
 const { normalizeText } = require('./knowledge-db');
 const { sendToClaude } = require('./claude-bridge');
+const logger = require('./debug-logger');
 
 const VISUAL_INTENT_EXPLICIT = new Set([
   'look at this', 'see this', 'check this out', 'what do you think of this',
@@ -64,9 +65,17 @@ class LocalBrain {
     const normalized = normalizeText(userMessage);
     const lower = userMessage.toLowerCase().trim();
 
+    logger.log('user_message', {
+      message: userMessage,
+      emotion: userEmotion,
+      attachmentTypes: attachments.map((a) => a.type),
+      normalizedPattern: normalized,
+    });
+
     // ── Tier 1: Filler check ────────────────────────────────────────────────
     const filler = this._checkFiller(lower);
     if (filler) {
+      logger.log('route_filler', { trigger: lower, dialogue: filler.dialogue, emotion: filler.emotion });
       this._lastResponse = { source: SOURCES.FILLER, id: null };
       return { ...filler, source: SOURCES.FILLER, id: null };
     }
@@ -84,6 +93,7 @@ class LocalBrain {
     if (!attachments.length) { // Skip local brain if attachments need Claude analysis
       const localResult = this._checkLocalBrain(normalized, userEmotion);
       if (localResult) {
+        logger.log('route_local_hit', { dialogue: localResult.dialogue, emotion: localResult.emotion, id: localResult.id });
         this.db.recordUsage(localResult.id, 0, 'neutral');
         this._lastResponse = { source: SOURCES.LOCAL, id: localResult.id };
         return { ...localResult, source: SOURCES.LOCAL };
@@ -101,6 +111,7 @@ class LocalBrain {
     let claudeResult;
 
     try {
+      const emotionalState = this.db.getEmotionalState ? this.db.getEmotionalState() : null;
       claudeResult = await sendToClaude({
         userMessage,
         character: this.character,
@@ -112,6 +123,7 @@ class LocalBrain {
         detectedEmotion: userEmotion,
         attachments,
         relatedContext,
+        emotionalState,
       });
     } catch (err) {
       throw err;
@@ -151,8 +163,15 @@ class LocalBrain {
         this.db.insertMemory({ category: fact.category, content: fact.content, source: 'companion_self' });
         this.sessionManager.addMemory(fact.category, fact.content, 'companion_self');
       }
+
+      logger.log('memory_ops', {
+        newMemories: (claudeResult.memories || []).map((m) => ({ category: m.category, content: m.content })),
+        memoryUpdates: (claudeResult.memoryUpdates || []).map((m) => ({ category: m.category, content: m.content })),
+        selfFacts: (claudeResult.selfFacts || []).map((m) => ({ category: m.category, content: m.content })),
+      });
     } catch (err) {
       console.error('[LocalBrain] DB insert error:', err.message);
+      logger.log('error', { context: 'memory_ops', message: err.message });
     }
 
     return { ...claudeResult, source: SOURCES.CLAUDE, id: null };
@@ -233,6 +252,12 @@ class LocalBrain {
         id: best.id,
       };
     }
+
+    logger.log('route_local_miss', {
+      bestScore: Math.round(bestScore * 1000) / 1000,
+      threshold: CONFIDENCE_THRESHOLD,
+      candidateCount: candidates.length,
+    });
     return null;
   }
 

@@ -126,9 +126,23 @@ class KnowledgeDB {
         times_confirmed INTEGER DEFAULT 0
       );
 
+      CREATE TABLE IF NOT EXISTS emotional_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        valence  REAL DEFAULT 50,
+        arousal  REAL DEFAULT 40,
+        social   REAL DEFAULT 50,
+        physical REAL DEFAULT 70,
+        last_updated TEXT DEFAULT (datetime('now'))
+      );
+
       -- Ensure master_summary row exists
       INSERT OR IGNORE INTO master_summary (id, summary) VALUES (1, '');
+      -- Ensure emotional_state row exists (default neutral-positive baseline)
+      INSERT OR IGNORE INTO emotional_state (id) VALUES (1);
     `);
+
+    // Schema migration: add messages_json column to conversation_sessions if not yet present
+    try { this.db.exec('ALTER TABLE conversation_sessions ADD COLUMN messages_json TEXT'); } catch {}
 
     // Seed emotion lexicon if empty
     const count = this.db.prepare('SELECT COUNT(*) as n FROM emotion_lexicon').get();
@@ -393,6 +407,44 @@ class KnowledgeDB {
     const out = {};
     for (const r of rows) out[r.key] = JSON.parse(r.value);
     return out;
+  }
+
+  // ── Emotional State (persistent axis values) ──────────────────────────────
+
+  getEmotionalState() {
+    const row = this.db.prepare('SELECT valence, arousal, social, physical FROM emotional_state WHERE id = 1').get();
+    return row || { valence: 50, arousal: 40, social: 50, physical: 70 };
+  }
+
+  setEmotionalState({ valence, arousal, social, physical }) {
+    this.db.prepare(
+      "UPDATE emotional_state SET valence = ?, arousal = ?, social = ?, physical = ?, last_updated = datetime('now') WHERE id = 1"
+    ).run(
+      Math.max(0, Math.min(100, valence)),
+      Math.max(0, Math.min(100, arousal)),
+      Math.max(0, Math.min(100, social)),
+      Math.max(0, Math.min(100, physical))
+    );
+  }
+
+  // ── Saved Conversations ───────────────────────────────────────────────────
+
+  insertConversationSession({ startedAt, endedAt, messageCount, summary, messagesJson }) {
+    const info = this.db.prepare(`
+      INSERT INTO conversation_sessions (started_at, ended_at, message_count, summary, messages_json)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(startedAt || null, endedAt || null, messageCount || 0, summary || '', messagesJson || '[]');
+    return info.lastInsertRowid;
+  }
+
+  getAllConversationSessions() {
+    return this.db.prepare(
+      'SELECT id, started_at, ended_at, message_count, summary FROM conversation_sessions ORDER BY id DESC'
+    ).all();
+  }
+
+  getConversationSessionById(id) {
+    return this.db.prepare('SELECT * FROM conversation_sessions WHERE id = ?').get(id);
   }
 }
 

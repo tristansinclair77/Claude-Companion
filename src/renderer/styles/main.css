@@ -31,7 +31,7 @@ html, body {
   background: var(--bg-dark);
   color: var(--cyan);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: clamp(13px, 1vw, 17px);
   line-height: 1.5;
   user-select: none;
 }
@@ -117,7 +117,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
+  padding: clamp(12px, 1.5vh, 28px) clamp(14px, 1.5vw, 32px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--cyan-dim) transparent;
@@ -129,15 +129,15 @@ html, body {
 
 .panel-label {
   color: var(--cyan-dim);
-  font-size: 10px;
+  font-size: clamp(10px, 0.8vw, 13px);
   letter-spacing: 2px;
-  margin-bottom: 6px;
+  margin-bottom: clamp(6px, 0.6vh, 12px);
   text-transform: uppercase;
 }
 
 .dialogue-text {
   color: var(--cyan);
-  font-size: 14px;
+  font-size: clamp(14px, 1.15vw, 20px);
   line-height: 1.65;
   min-height: 40px;
   text-shadow: 0 0 4px #00ffcc44;
@@ -148,7 +148,7 @@ html, body {
 .thoughts-text {
   color: #558866;
   font-style: italic;
-  font-size: 12px;
+  font-size: clamp(12px, 0.95vw, 16px);
   line-height: 1.55;
   min-height: 24px;
 }
@@ -164,21 +164,26 @@ html, body {
   text-transform: uppercase;
 }
 
-/* Portrait panel (right, ~40%) */
+/* Portrait panel (right, scales with viewport) */
 #portrait-panel {
-  width: 260px;
+  width: clamp(260px, 30vw, 540px);
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 12px;
+  gap: 0;
   border-left: 1px solid var(--border-glow);
 }
 
 #portrait-frame {
   position: relative;
-  width: 220px;
-  height: 290px;
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  width: auto;
+  max-width: 100%;
   border: 2px solid var(--cyan-dim);
   box-shadow: 0 0 16px #00ffcc22, inset 0 0 16px #00ffcc08;
   overflow: hidden;
@@ -189,8 +194,9 @@ html, body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top center;
   display: block;
-  image-rendering: pixelated;
+  image-rendering: auto;
 }
 
 #portrait-glow {

@@ -18,6 +18,32 @@ var ChatController = (() => {
         sendMessage();
       }
     });
+
+    const btnSaveChat = document.getElementById('btn-save-chat');
+    if (btnSaveChat) btnSaveChat.addEventListener('click', saveChat);
+  }
+
+  async function saveChat() {
+    const btn = document.getElementById('btn-save-chat');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ SAVING...'; }
+    try {
+      const result = await window.claudeAPI.saveConversation();
+      _showToast(result.success
+        ? 'Conversation saved to memory!'
+        : `Save failed: ${result.error || 'unknown error'}`);
+    } catch (err) {
+      _showToast(`Error: ${err.message}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 SAVE CHAT'; }
+    }
+  }
+
+  function _showToast(msg) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3500);
   }
 
   async function sendMessage() {
@@ -59,6 +85,7 @@ var ChatController = (() => {
           thoughts: response.thoughts,
           emotion: response.emotion,
           source: response.source,
+          emotionalState: response.emotionalState || null,
         });
 
         // Update source indicator
@@ -71,8 +98,8 @@ var ChatController = (() => {
           loadingEl.classList.add('hidden');
         }
 
-        // Clear emotion after use (optional: keep for multi-turn context)
-        // EmotionPicker.clear();
+        // Clear emotion after each send
+        EmotionPicker.clear();
 
         // Clear attachments after sending
         FileAttach.clear();

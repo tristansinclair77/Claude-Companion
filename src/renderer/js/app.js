@@ -27,10 +27,15 @@
 
   ChatController.init();
 
+  // Emotional axis monitor pop-out
+  document.getElementById('btn-axis').addEventListener('click', () => {
+    window.claudeAPI.openEmotionalState();
+  });
+
   // Handle app:init event from main process (character data, memories, etc.)
   window.claudeAPI.on('app:init', (data) => {
     if (data && data.character) {
-      CompanionDisplay.setGreeting(data.character);
+      CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
     }
   });
 

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node scripts/launch.js",
     "dev": "node scripts/launch.js --dev",
+    "debug-viewer": "node scripts/launch-debug-viewer.js",
     "rebuild": "electron-rebuild"
   },
   "keywords": [

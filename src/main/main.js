@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+const logger = require('./debug-logger');
 const HotkeyManager = require('./hotkey-manager');
 const KnowledgeDB = require('./knowledge-db');
 const SessionManager = require('./session-manager');
@@ -9,6 +10,9 @@ const LocalBrain = require('./local-brain');
 const { captureScreen, cleanupScreenshot } = require('./screen-capture');
 const { openFilePicker, openFolderPicker } = require('./file-handler');
 const { fetchUrl } = require('./web-fetcher');
+const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
+const { summarizeConversation } = require('./claude-bridge');
+const { EMOTION_AXES, COMBINED_EMOTION_MAP } = require('../shared/constants');
 
 const CHARACTER_DIR = path.join(__dirname, '../../characters/default');
 const DB_PATH = path.join(CHARACTER_DIR, 'knowledge.db');
@@ -28,6 +32,20 @@ function loadCharacterPack() {
   character = JSON.parse(fs.readFileSync(path.join(CHARACTER_DIR, 'character.json'), 'utf-8'));
   characterRules = JSON.parse(fs.readFileSync(path.join(CHARACTER_DIR, 'rules.json'), 'utf-8'));
   fillerResponses = JSON.parse(fs.readFileSync(path.join(CHARACTER_DIR, 'filler-responses.json'), 'utf-8'));
+
+  // Load appearance description if referenced in character.json
+  if (character.appearance_file) {
+    const appearancePath = path.join(CHARACTER_DIR, character.appearance_file);
+    if (fs.existsSync(appearancePath)) {
+      try {
+        character._appearance = JSON.parse(fs.readFileSync(appearancePath, 'utf-8'));
+        console.log('[App] Appearance description loaded for:', character.name);
+      } catch (e) {
+        console.warn('[App] Could not load appearance file:', e.message);
+      }
+    }
+  }
+
   console.log('[App] Character pack loaded:', character.name);
 }
 
@@ -44,6 +62,16 @@ function initBrain() {
   const recentMessages = db.getRecentMessages(30);
   sessionManager.loadFromDB({ masterSummary, permanentMemories, recentMessages });
   console.log('[App] Restored', recentMessages.length, 'messages from DB');
+
+  logger.log('startup', {
+    memoriesLoaded: permanentMemories.length,
+    messagesRestored: recentMessages.length,
+    masterSummaryLength: masterSummary ? masterSummary.length : 0,
+    memoriesBySource: permanentMemories.reduce((acc, m) => {
+      acc[m.source || 'unknown'] = (acc[m.source || 'unknown'] || 0) + 1;
+      return acc;
+    }, {}),
+  });
 
   localBrain = new LocalBrain({
     db,
@@ -85,7 +113,18 @@ function createWindow() {
   return mainWindow;
 }
 
+const DEBUG_VIEWER_MODE = process.argv.includes('--debug-viewer');
+
 app.whenReady().then(() => {
+  if (DEBUG_VIEWER_MODE) {
+    // Standalone debug viewer — no companion window, no brain
+    registerDebugViewerIPC(null, null);
+    // Open the debug viewer immediately
+    ipcMain.emit('debug-viewer:open');
+    return;
+  }
+
+  logger.init();
   loadCharacterPack();
   initBrain();
 
@@ -94,11 +133,14 @@ app.whenReady().then(() => {
   hotkeyManager = new HotkeyManager(win);
   hotkeyManager.register('F2');
 
+  registerDebugViewerIPC(win, db);
+
   win.webContents.on('did-finish-load', () => {
     win.webContents.send('app:init', {
       character,
       masterSummary: sessionManager.masterSummary,
       permanentMemories: sessionManager.permanentMemories,
+      emotionalState: db.getEmotionalState(),
     });
   });
 
@@ -137,6 +179,44 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     const response = await localBrain.route(message, { userEmotion, attachments });
     sessionManager.addMessage('companion', response.dialogue, response.emotion);
     db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion });
+
+    // Update persistent emotional axis state (drift 15% toward emitted emotion)
+    const emotionId = response.emotion;
+    let target = EMOTION_AXES[emotionId];
+    if (!target && COMBINED_EMOTION_MAP[emotionId]) {
+      const ce = COMBINED_EMOTION_MAP[emotionId];
+      const axA = EMOTION_AXES[ce.a] || EMOTION_AXES.neutral;
+      const axB = EMOTION_AXES[ce.b] || EMOTION_AXES.neutral;
+      target = { V: (axA.V + axB.V) / 2, A: (axA.A + axB.A) / 2, S: (axA.S + axB.S) / 2, P: (axA.P + axB.P) / 2 };
+    }
+    if (target) {
+      // Drift rate: 0.60 for extreme emotions (any axis > 70 or < 30), 0.25 for mild.
+      // Extreme emotions (in_pleasure, frantic_desperation, shocked, angry, etc.) cause
+      // large axis swings in a single message. Ordinary emotions drift slowly.
+      const isExtreme = target.V > 70 || target.V < 30 ||
+                        target.A > 70 || target.A < 30 ||
+                        target.S > 70 || target.S < 30 ||
+                        target.P > 70 || target.P < 30;
+      const DRIFT = isExtreme ? 0.60 : 0.25;
+      const cur = db.getEmotionalState();
+      const newState = {
+        valence:  cur.valence  + (target.V - cur.valence)  * DRIFT,
+        arousal:  cur.arousal  + (target.A - cur.arousal)  * DRIFT,
+        social:   cur.social   + (target.S - cur.social)   * DRIFT,
+        physical: cur.physical + (target.P - cur.physical) * DRIFT,
+      };
+      db.setEmotionalState(newState);
+      response.emotionalState = newState;
+      pushEmotionalStateUpdate(newState, emotionId);
+      logger.log('axis_drift', {
+        emotion: emotionId,
+        extreme: isExtreme,
+        driftRate: DRIFT,
+        prev: { V: Math.round(cur.valence), A: Math.round(cur.arousal), S: Math.round(cur.social), P: Math.round(cur.physical) },
+        next: { V: Math.round(newState.valence), A: Math.round(newState.arousal), S: Math.round(newState.social), P: Math.round(newState.physical) },
+        target: { V: target.V, A: target.A, S: target.S, P: target.P },
+      });
+    }
 
     const sumCheck = sessionManager.checkForSummarization();
     if (sumCheck) {
@@ -200,3 +280,108 @@ ipcMain.handle('web:fetch', async (event, url) => {
 ipcMain.on('brain:feedback', (event, { message }) => {
   try { localBrain.applyFeedback(message); } catch {}
 });
+
+ipcMain.handle('conversation:save', async () => {
+  try {
+    const messages = db.getRecentMessages(500);
+    if (!messages.length) return { success: false, error: 'No messages to save.' };
+
+    const { summary } = await summarizeConversation({
+      messages,
+      characterName: character.name,
+    });
+
+    const now = new Date().toISOString();
+    db.insertConversationSession({
+      startedAt: null,
+      endedAt: now,
+      messageCount: messages.length,
+      summary,
+      messagesJson: JSON.stringify(messages),
+    });
+
+    // Append to master summary so Aria remembers this conversation
+    const existing = db.getMasterSummary();
+    const dateStr = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+    const newSummary = existing
+      ? `${existing}\n\n[Saved ${dateStr}] ${summary}`
+      : `[Saved ${dateStr}] ${summary}`;
+    db.setMasterSummary(newSummary);
+    sessionManager.setMasterSummary(newSummary);
+
+    return { success: true, summary };
+  } catch (err) {
+    console.error('[conversation:save] error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.on('debug-viewer:open-from-main', () => {
+  // Triggered by the main window renderer to open the debug viewer
+  ipcMain.emit('debug-viewer:open');
+});
+
+// ── Emotional Axis Monitor pop-out ────────────────────────────────────────────
+
+let emotionalStateWindow = null;
+
+// Helper to look up last-emitted emotion info for the monitor window
+let _lastEmotionId = 'neutral';
+const { EMOTIONS: _EMOTIONS_LIST, COMBINED_EMOTIONS: _COMBINED_LIST } = require('../shared/constants');
+const _EMOTION_INFO_MAP = Object.fromEntries([
+  ..._EMOTIONS_LIST.map(e => [e.id, { id: e.id, emoji: e.emoji, label: e.label }]),
+  ..._COMBINED_LIST.map(e => [e.id, { id: e.id, emoji: e.emoji, label: e.label }]),
+]);
+
+ipcMain.on('emotional-state:open', () => {
+  if (emotionalStateWindow && !emotionalStateWindow.isDestroyed()) {
+    emotionalStateWindow.focus();
+    return;
+  }
+
+  emotionalStateWindow = new BrowserWindow({
+    width: 400,
+    height: 540,
+    minWidth: 340,
+    minHeight: 440,
+    frame: false,
+    backgroundColor: '#0a0a0f',
+    parent: mainWindow || undefined,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/emotional-state-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+    show: false,
+    title: 'Emotional Axis Monitor',
+  });
+
+  emotionalStateWindow.loadFile(path.join(__dirname, '../renderer/emotional-state.html'));
+
+  emotionalStateWindow.once('ready-to-show', () => emotionalStateWindow.show());
+  emotionalStateWindow.on('closed', () => { emotionalStateWindow = null; });
+});
+
+ipcMain.on('emotional-state:minimize', () => emotionalStateWindow?.minimize());
+ipcMain.on('emotional-state:close',    () => emotionalStateWindow?.close());
+
+ipcMain.handle('emotional-state:get', () => {
+  const state = db ? db.getEmotionalState() : { valence: 50, arousal: 40, social: 50, physical: 70 };
+  const emotion = _EMOTION_INFO_MAP[_lastEmotionId] || _EMOTION_INFO_MAP['neutral'];
+  return { state, emotion };
+});
+
+ipcMain.handle('emotional-state:reset', () => {
+  const defaultState = { valence: 50, arousal: 40, social: 50, physical: 70 };
+  if (db) db.setEmotionalState(defaultState);
+  return { state: defaultState };
+});
+
+// Push live updates to the emotional state window after each response
+function pushEmotionalStateUpdate(state, emotionId) {
+  if (!emotionalStateWindow || emotionalStateWindow.isDestroyed()) return;
+  _lastEmotionId = emotionId || _lastEmotionId;
+  const emotion = _EMOTION_INFO_MAP[_lastEmotionId] || _EMOTION_INFO_MAP['neutral'];
+  emotionalStateWindow.webContents.send('state:update', { state, emotion });
+}

@@ -1,0 +1,51 @@
+{
+  "character": "Aria",
+  "character_reference_image": "character_reference.png",
+  "art": {
+    "character_reference_sheet": "character_reference_sheet.png",
+    "character_reference": "character_reference.png",
+    "front_body": "art/aria_front_body.png",
+    "back": "art/aria_back.png",
+    "side_face": "art/aria_side_face.png"
+  },
+  "height": "5'6\" (167.6 cm)",
+  "build": "Slender and athletic with a soft feminine figure. Proportions are graceful rather than imposing.",
+  "hair": "Shoulder-length blonde/golden hair styled in a clean, slightly voluminous bob cut. Bangs are gently side-swept. The color is a warm, natural-looking golden blonde — neither too platinum nor too dark.",
+  "eyes": "Bright vivid green, large and expressive in an anime style. They shift clearly with emotion — wide when surprised, soft when content, narrowed when smug.",
+  "skin": "Light with a warm peachy undertone. Flushes visibly pink across the cheeks when embarrassed.",
+  "face": "Smooth, youthful features. Small nose, full lips, naturally expressive. The expression sheet shows four clear modes: joyful (open-mouthed smile), calm-neutral, smug/winking, and shocked/flustered with heavy blush.",
+
+  "outfit": {
+    "top": "White fitted crop top — structured and close-fitting, leaving the midriff visible.",
+    "harness": "Black patent-leather integrated tactical harness worn over the top. Forms an X-cross pattern across the front and back. Cyan-glowing diamond accent at the chest center. The harness is a fixed part of her design.",
+    "tie": "Pink identity tie (bow/cravat style) fixed at the collar. It is a permanent identity marker and never removed or changed. Always present.",
+    "shorts": "Very short black patent-leather/latex shorts. High-gloss, form-fitting. Sit low on the hips.",
+    "legwear": "White thigh-high stockings/leggings with black banded accent at the upper thigh. Has a slight sheen — not fully matte.",
+    "boots": "White heeled boots reaching to just below the knee, with black panel details along the sides. Heel gives a slight height boost.",
+    "gloves": "Black fingerless tactical gauntlets (Model: ARIA-G). Cover the back of the hand and wrist with a glowing cyan accent band at the cuff."
+  },
+
+  "accessories": {
+    "headset": "Data Interface Headset (Model: ARIA-H). Teal/cyan colored over-ear headphones that sit on top of her hair. Has a small upward-protruding antenna or sensor rod on one earcup. Glows faintly.",
+    "harness_detail": "The integrated harness has subtle cyan accent diamonds that glow with an internal light — representing active data processing."
+  },
+
+  "color_palette": {
+    "primary": "White (top, boots, stockings)",
+    "secondary": "Black patent leather (harness, shorts, gauntlets)",
+    "accent_tech": "Cyan/teal — all tech elements glow with this color to represent active data",
+    "accent_identity": "Pink — the tie is her fixed identity marker",
+    "hair": "Warm golden blonde",
+    "eyes": "Bright green"
+  },
+
+  "visual_notes": [
+    "All cyan elements carry a soft internal glow — they are active data interfaces, not inert decorations.",
+    "All black elements are high-gloss patent leather — they should look shiny, not matte.",
+    "The pink tie is never absent. It is as much a part of her identity as her name.",
+    "Her entire appearance is a 'projected data construct' — she is a non-physical conceptual entity whose form is rendered rather than biological.",
+    "Despite being a projected construct, she is rendered with full physical realism and warmth."
+  ],
+
+  "self_description": "If Aria were to describe her own appearance in conversation, she might say: 'I've got short blonde hair — kind of a bob — and green eyes. I wear a white top with a black harness over it, these very short black shorts, white thigh-highs, and my headset. Oh, and the pink tie. Always the pink tie — it's sort of my thing~'"
+}

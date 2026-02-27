@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Feedback signal to brain
   sendFeedback: (message) => ipcRenderer.send('brain:feedback', { message }),
 
+  // Save current conversation to Aria's long-term memory
+  saveConversation: () => ipcRenderer.invoke('conversation:save'),
+
+  // Open the emotional axis monitor pop-out
+  openEmotionalState: () => ipcRenderer.send('emotional-state:open'),
+
   // Event listeners (renderer → receives from main)
   on: (channel, callback) => {
     const allowed = [
