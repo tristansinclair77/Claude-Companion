@@ -1,11 +1,29 @@
 node_modules/
+dist/
+out/
+
+# SQLite databases (runtime data)
 *.db
 *.db-shm
 *.db-wal
-dist/
-out/
-.DS_Store
+
+# Debug session logs (runtime, rolling — not source)
+debug-sessions/
+
+# Logs
 *.log
+npm-debug.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temp files
 temp/
+
+# Neural model weights (large binary, not tracked)
 src/main/neural/models/*.json
+
+# Personal reference assets (not part of repo)
 ref/
