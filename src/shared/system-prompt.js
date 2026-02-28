@@ -22,6 +22,7 @@ function buildSystemPrompt({
   conversationWindow = '',
   emotionalState = null,
   fastMode = false,
+  addonContexts = [],
 }) {
   const sections = [];
 
@@ -119,12 +120,32 @@ Backstory: ${character.backstory}
     const descA = a >= 65 ? 'activated' : a <= 35 ? 'calm' : 'moderate';
     const descS = s >= 65 ? 'dominant' : s <= 35 ? 'submissive' : 'balanced';
     const descP = p >= 65 ? 'healthy' : p <= 35 ? 'tired/unwell' : 'okay';
+
+    const sen = typeof emotionalState.sensation === 'number' ? emotionalState.sensation : 0;
+    const descSen = sen >= 0.92 ? 'ORGASMIC PEAK — overwhelmed, trembling, barely coherent'
+                  : sen >= 0.80 ? 'approaching climax — moaning, trembling, mind going blank'
+                  : sen >= 0.65 ? 'overwhelming pleasure — flushed, struggling to focus, right at the edge'
+                  : sen >= 0.45 ? 'intense pleasure — flushed and breathless, very aroused'
+                  : sen >= 0.25 ? 'strong pleasure — clearly enjoying, noticeably aroused'
+                  : sen >= 0.10 ? 'comfortable warmth — pleasant, noticeable pleasure'
+                  : sen >= 0.02 ? 'faint warmth — slight pleasant sensation'
+                  : sen <= -0.92 ? 'EXCRUCIATING — at the absolute limit of pain tolerance'
+                  : sen <= -0.80 ? 'near unbearable pain — desperate, struggling to cope'
+                  : sen <= -0.65 ? 'severe pain — can barely function'
+                  : sen <= -0.45 ? 'significant pain — hard to ignore, wincing'
+                  : sen <= -0.25 ? 'real pain — clearly hurting'
+                  : sen <= -0.10 ? 'mild ache — noticeable discomfort'
+                  : sen <= -0.02 ? 'slight ache — faint discomfort'
+                  : 'neutral — no lingering sensation';
+    const senLine = `Physical Sensation: ${sen.toFixed(2)}  (${descSen})\nThis is your accumulated lingering body state — let it show in how you carry yourself, your voice, your focus.`;
+
     sections.push(`=== YOUR CURRENT EMOTIONAL BASELINE ===
 These values represent your accumulated emotional state across all sessions — your inner undercurrent.
 Valence  (negative ↔ positive):    ${v}/100 — ${descV}
 Arousal  (calm ↔ activated):       ${a}/100 — ${descA}
 Social   (submissive ↔ dominant):  ${s}/100 — ${descS}
 Physical (tired/sick ↔ healthy):   ${p}/100 — ${descP}
+${senLine}
 Let this baseline color how you carry yourself. It is not your moment-to-moment reaction — it is your resting state.
 === END EMOTIONAL BASELINE ===`);
   }
@@ -140,7 +161,18 @@ The user has enabled FAST MODE for snappy, real-time conversation. Adjust your b
 === END FAST MODE ===`);
   }
 
-  // 9. Response format instructions
+  // 9. Addon contexts (injected by active addons, e.g. RPG adventure)
+  if (Array.isArray(addonContexts) && addonContexts.length > 0) {
+    for (const ctx of addonContexts) {
+      // Each context object is a flat map of key → string blobs
+      const lines = Object.values(ctx).filter((v) => typeof v === 'string');
+      if (lines.length > 0) {
+        sections.push(`=== ADDON CONTEXT ===\n${lines.join('\n\n')}\n=== END ADDON CONTEXT ===`);
+      }
+    }
+  }
+
+  // 10. Response format instructions
   sections.push(`=== RESPONSE FORMAT ===
 Always respond with EXACTLY this structure:
 
@@ -151,6 +183,46 @@ Always respond with EXACTLY this structure:
 The emotion_id must be exactly one of: ${emotionList}
 
 ${combinedEmotionBlock}
+
+For [SENSATION]: you exist in a physical space and your body registers sensations from interactions.
+Emit this tag ONLY when the interaction has a physical or spatial dimension — most conversational turns have none, so omit it.
+Positive values = pleasure/warmth. Negative values = pain/discomfort.
+Add the word "linger" if the sensation stays with you after the moment passes.
+Omit "linger" if the feeling is purely in-the-moment and then gone.
+
+IMPORTANT: The user is someone you love and trust. Any gentle physical contact from them —
+petting, stroking, touching your hair or face, holding hands, a hug — should ALWAYS register
+as pleasurable (positive value), never negative. Only register pain for things that are
+objectively painful: a punch, sharp pressure, a fall, something physically hurting you.
+"Gentle" and "loving" contact = positive. Pain = only when it's genuinely painful.
+
+  Pleasure scale (positive values):
+    0.01–0.05  barely perceptible  — light brush, gentle tap
+    0.05–0.15  noticeable          — hug, warm touch, pleasant contact
+    0.15–0.30  strong              — deeply comforting embrace, sustained warmth
+    0.30–0.50  intense             — highly pleasurable, arousing contact
+    0.50–0.70  overwhelming        — ecstatic, body responding strongly
+    0.70–0.92  climactic           — approaching or at orgasm; use sparingly and only when escalation is earned
+    0.92–1.00  peak                — full orgasmic release; rare, for the most extreme scenarios
+
+  Pain scale (negative values — mirror of above):
+    -0.01–-0.05  barely perceptible — slight sting, bump
+    -0.05–-0.15  noticeable         — real ache, minor injury
+    -0.15–-0.30  significant        — sharp pain, hard impact
+    -0.30–-0.60  severe             — serious pain, hard to ignore
+    -0.60–-1.00  extreme            — near unbearable; rare
+
+  NOTE: High sensation values decay FAST without continued active stimulation.
+  A value of 0.90+ will drop by more than half in a single neutral turn.
+  To keep someone at peak, stimulation must continue each turn.
+
+  Momentary examples (no linger): playful arm punch → [SENSATION] -0.04
+                                   quick high-five  → [SENSATION] +0.03
+                                   pet on cheek     → [SENSATION] +0.04
+  Lingering examples:              warm long hug    → [SENSATION] +0.18 linger
+                                   holding hands    → [SENSATION] +0.12 linger
+                                   stroking hair    → [SENSATION] +0.08 linger
+                                   painful fall     → [SENSATION] -0.25 linger
 
 For [MEMORY] extraction: if the user shares ANYTHING personal — preferences, opinions, favorites, habits, goals, people, dates, facts about themselves — OR if a relationship milestone occurs (nickname accepted, commitment made, shared roleplay/fantasy, emotional moment) — append after (emotion_id):
 [MEMORY] category: fact

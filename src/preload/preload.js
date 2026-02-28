@@ -41,6 +41,14 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   getBgSettings: ()    => ipcRenderer.invoke('settings:get-bg'),
   setBgSettings: (bg)  => ipcRenderer.invoke('settings:set-bg', bg),
 
+  // UI zoom (percent integer: 75–200)
+  getZoom: ()      => ipcRenderer.invoke('settings:get-zoom'),
+  setZoom: (pct)   => ipcRenderer.invoke('settings:set-zoom', pct),
+
+  // RVC voice conversion settings
+  getRvcConfig: ()      => ipcRenderer.invoke('rvc:get-config'),
+  setRvcConfig: (cfg)   => ipcRenderer.invoke('rvc:set-config', cfg),
+
   // TTS controls
   ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
   ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
@@ -56,6 +64,7 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'tts:audio',
       'tts:stop',
       'claude:stream-chunk',
+      'companion:sensation',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
@@ -64,4 +73,28 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   off: (channel, callback) => {
     ipcRenderer.removeListener(channel, callback);
   },
+});
+
+// ── RPG Addon API ──────────────────────────────────────────────────────────────
+contextBridge.exposeInMainWorld('rpgAPI', {
+  getState:          ()                     => ipcRenderer.invoke('rpg:get-state'),
+  startAdventure:    (zoneId)               => ipcRenderer.invoke('rpg:start-adventure', { zoneId }),
+  takeAction:        (action, payload = {}) => ipcRenderer.invoke('rpg:take-action', { action, payload }),
+  endRun:            (result)               => ipcRenderer.invoke('rpg:end-run', { result }),
+  getInventory:      ()                     => ipcRenderer.invoke('rpg:get-inventory'),
+  equipItem:         (slot, inventoryId)    => ipcRenderer.invoke('rpg:equip-item', { slot, inventoryId }),
+  unequipSlot:       (slot)                 => ipcRenderer.invoke('rpg:unequip-slot', { slot }),
+  sellItem:          (inventoryId, gold)    => ipcRenderer.invoke('rpg:sell-item', { inventoryId, gold }),
+  dropItem:          (inventoryId)          => ipcRenderer.invoke('rpg:drop-item', { inventoryId }),
+  getZones:          ()                     => ipcRenderer.invoke('rpg:get-zones'),
+  allocateStat:      (stat)                 => ipcRenderer.invoke('rpg:allocate-stat', { stat }),
+  getRunHistory:     (limit)                => ipcRenderer.invoke('rpg:get-run-history', { limit }),
+  getAchievements:   ()                     => ipcRenderer.invoke('rpg:get-achievements'),
+  prestige:          ()                     => ipcRenderer.invoke('rpg:prestige'),
+  getResponses:      (scenarioKey)          => ipcRenderer.invoke('rpg:get-responses', { scenarioKey }),
+  refreshResponses:  (scenarioKey)          => ipcRenderer.invoke('rpg:refresh-responses', { scenarioKey }),
+  runEndBundle:      ()                     => ipcRenderer.invoke('rpg:run-end-bundle'),
+  levelUpBundle:     ()                     => ipcRenderer.invoke('rpg:level-up-bundle'),
+  getScenarioResponse: (key, gameState)     => ipcRenderer.invoke('rpg:get-scenario-response', { key, gameState }),
+  generateResponsePool: (key, gameState)    => ipcRenderer.invoke('rpg:generate-response-pool', { key, gameState }),
 });

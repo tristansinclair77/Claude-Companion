@@ -61,7 +61,7 @@ class LocalBrain {
    * @param {Array}  [opts.attachments]
    * @returns {Promise<{dialogue, thoughts, emotion, source, id: number|null}>}
    */
-  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false } = {}) {
+  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false, sensation = 0, addonContexts = [] } = {}) {
     const normalized = normalizeText(userMessage);
     const lower = userMessage.toLowerCase().trim();
 
@@ -111,7 +111,8 @@ class LocalBrain {
     let claudeResult;
 
     try {
-      const emotionalState = this.db.getEmotionalState ? this.db.getEmotionalState() : null;
+      const _rawState = this.db.getEmotionalState ? this.db.getEmotionalState() : null;
+      const emotionalState = _rawState ? { ..._rawState, sensation } : null;
       claudeResult = await sendToClaude({
         userMessage,
         character: this.character,
@@ -126,6 +127,7 @@ class LocalBrain {
         emotionalState,
         onStreamChunk,
         fastMode,
+        addonContexts,
       });
     } catch (err) {
       throw err;

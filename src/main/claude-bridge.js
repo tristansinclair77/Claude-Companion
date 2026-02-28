@@ -88,6 +88,7 @@ async function sendToClaude({
   emotionalState = null,
   onStreamChunk = null,
   fastMode = false,
+  addonContexts = [],
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -97,6 +98,7 @@ async function sendToClaude({
     userProfile,
     emotionalState,
     fastMode,
+    addonContexts,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -157,7 +159,14 @@ async function sendToClaude({
     userPromptLength: fullPrompt.length,
   });
 
+  // Write system prompt to a temp file to avoid ENAMETOOLONG on Windows
+  // (Windows CreateProcessW has a 32767-char total command-line limit).
+  const sysTmpPath = path.join(require('os').tmpdir(), `cc_sys_${Date.now()}.txt`);
+  fs.writeFileSync(sysTmpPath, systemPrompt, 'utf8');
+
   return new Promise((resolve, reject) => {
+    const _cleanup = () => { try { fs.unlinkSync(sysTmpPath); } catch {} };
+
     const { cmd, prefix, shell } = resolveClaudeSpawn();
 
     // Always use stream-json stdin mode — the user prompt travels through the pipe
@@ -169,7 +178,7 @@ async function sendToClaude({
       '--output-format', 'stream-json',
       '--verbose',
       '--model', 'claude-haiku-4-5-20251001',
-      '--system-prompt', systemPrompt,
+      '--system-prompt-file', sysTmpPath,
       '--dangerously-skip-permissions',
     ];
 
@@ -259,6 +268,7 @@ async function sendToClaude({
 
     claudeProcess.on('close', (code) => {
       clearTimeout(timer);
+      _cleanup();
 
       if (code !== 0 && !stdout) {
         const msg = `Claude CLI exited with code ${code}`;
@@ -299,6 +309,7 @@ async function sendToClaude({
 
     claudeProcess.on('error', (err) => {
       clearTimeout(timer);
+      _cleanup();
       reject(new Error(`Failed to spawn Claude CLI: ${err.message}`));
     });
   });
@@ -376,13 +387,18 @@ async function summarizeConversation({ messages, characterName }) {
   delete cleanEnv.VSCODE_HANDLES_UNCAUGHT_ERRORS;
   delete cleanEnv.VSCODE_NLS_CONFIG;
 
+  const sysTmp = path.join(require('os').tmpdir(), `cc_sum_${Date.now()}.txt`);
+  fs.writeFileSync(sysTmp, systemPrompt, 'utf8');
+
   return new Promise((resolve, reject) => {
+    const _cleanup = () => { try { fs.unlinkSync(sysTmp); } catch {} };
+
     const args = [
       ...prefix,
       '-p', userPrompt,
       '--output-format', 'json',
       '--model', 'claude-haiku-4-5-20251001',
-      '--system-prompt', systemPrompt,
+      '--system-prompt-file', sysTmp,
       '--dangerously-skip-permissions',
     ];
 
@@ -408,6 +424,7 @@ async function summarizeConversation({ messages, characterName }) {
 
     proc.on('close', (code) => {
       clearTimeout(timer);
+      _cleanup();
       if (code !== 0 && !stdout) {
         reject(new Error(`Summarization failed (code ${code}): ${stderr.slice(0, 300)}`));
         return;
@@ -418,6 +435,7 @@ async function summarizeConversation({ messages, characterName }) {
 
     proc.on('error', (err) => {
       clearTimeout(timer);
+      _cleanup();
       reject(new Error(`Failed to spawn Claude for summarization: ${err.message}`));
     });
   });
@@ -462,13 +480,18 @@ async function extractMemories({ messages, characterName }) {
   delete cleanEnv.VSCODE_HANDLES_UNCAUGHT_ERRORS;
   delete cleanEnv.VSCODE_NLS_CONFIG;
 
+  const memTmp = path.join(require('os').tmpdir(), `cc_mem_${Date.now()}.txt`);
+  fs.writeFileSync(memTmp, systemPrompt, 'utf8');
+
   const rawText = await new Promise((resolve, reject) => {
+    const _cleanup = () => { try { fs.unlinkSync(memTmp); } catch {} };
+
     const args = [
       ...prefix,
       '-p', userPrompt,
       '--output-format', 'json',
       '--model', 'claude-haiku-4-5-20251001',
-      '--system-prompt', systemPrompt,
+      '--system-prompt-file', memTmp,
       '--dangerously-skip-permissions',
     ];
 
@@ -493,6 +516,7 @@ async function extractMemories({ messages, characterName }) {
 
     proc.on('close', (code) => {
       clearTimeout(timer);
+      _cleanup();
       if (code !== 0 && !stdout) {
         reject(new Error(`Memory extraction failed (code ${code}): ${stderr.slice(0, 300)}`));
         return;
@@ -502,6 +526,7 @@ async function extractMemories({ messages, characterName }) {
 
     proc.on('error', (err) => {
       clearTimeout(timer);
+      _cleanup();
       reject(new Error(`Failed to spawn Claude for memory extraction: ${err.message}`));
     });
   });

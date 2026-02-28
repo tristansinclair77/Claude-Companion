@@ -13,10 +13,11 @@ const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
 const { summarizeConversation } = require('./claude-bridge');
-const { EMOTION_AXES, COMBINED_EMOTION_MAP } = require('../shared/constants');
+const { EMOTION_AXES, COMBINED_EMOTION_MAP, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
 const ttsEngine = require('./tts-engine');
 
 const CHARACTERS_BASE = path.join(__dirname, '../../characters');
+const ADDONS_BASE     = path.join(__dirname, '../../addons');
 const CONFIG_PATH     = path.join(__dirname, '../../config.json');
 
 function readConfig() {
@@ -45,6 +46,8 @@ let character;
 let characterRules;
 let fillerResponses;
 let _fastMode = false;
+let _addonContexts = []; // merged context blobs from loaded addons
+let _currentSensation = 0; // Session-only pleasure/pain accumulator; resets on app restart
 
 // ── App Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -102,6 +105,47 @@ function initBrain() {
   });
 }
 
+function loadAddons() {
+  _addonContexts = [];
+  if (!fs.existsSync(ADDONS_BASE)) return;
+
+  const addonDirs = fs.readdirSync(ADDONS_BASE).filter((d) => {
+    const manifestPath = path.join(ADDONS_BASE, d, 'manifest.json');
+    return fs.existsSync(manifestPath);
+  });
+
+  for (const dir of addonDirs) {
+    const addonDir     = path.join(ADDONS_BASE, dir);
+    const manifestPath = path.join(addonDir, 'manifest.json');
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+      // Load addon context file (appended to system prompt)
+      if (manifest.contextFile) {
+        const ctxPath = path.join(addonDir, manifest.contextFile);
+        if (fs.existsSync(ctxPath)) {
+          const ctx = JSON.parse(fs.readFileSync(ctxPath, 'utf-8'));
+          _addonContexts.push(ctx);
+        }
+      }
+
+      // Register IPC handlers
+      if (manifest.ipcModule) {
+        const ipcModulePath = path.join(addonDir, manifest.ipcModule);
+        if (fs.existsSync(ipcModulePath)) {
+          const addonIpc = require(ipcModulePath);
+          if (typeof addonIpc.register === 'function') {
+            addonIpc.register({ ipcMain, characterDir: CHARACTER_DIR });
+            console.log('[App] Addon loaded:', manifest.name, manifest.version);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[App] Failed to load addon in', dir + ':', e.message);
+    }
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 900,
@@ -154,6 +198,7 @@ app.whenReady().then(() => {
   logger.init();
   loadCharacterPack();
   initBrain();
+  loadAddons();
   ttsEngine.startVitsServer();
 
   // Configure and start RVC voice conversion server
@@ -180,6 +225,10 @@ app.whenReady().then(() => {
   registerCharacterBuilderIPC(win);
 
   win.webContents.on('did-finish-load', () => {
+    // Apply saved zoom factor immediately so text is the right size from the first frame
+    const savedZoom = readConfig().zoom || 100;
+    win.webContents.setZoomFactor(savedZoom / 100);
+
     win.webContents.send('app:init', {
       character,
       masterSummary: sessionManager.masterSummary,
@@ -226,7 +275,7 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     const onStreamChunk = (partialDialogue) => {
       mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
     };
-    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode });
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
@@ -268,6 +317,26 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
         prev: { V: Math.round(cur.valence), A: Math.round(cur.arousal), S: Math.round(cur.social), P: Math.round(cur.physical) },
         next: { V: Math.round(newState.valence), A: Math.round(newState.arousal), S: Math.round(newState.social), P: Math.round(newState.physical) },
         target: { V: target.V, A: target.A, S: target.S, P: target.P },
+      });
+    }
+
+    // Update session sensation state (decay existing, accumulate if lingering)
+    // Decay rate is steeper at high intensities — peak pleasure/pain cannot be sustained passively.
+    const sensationDelta = response.sensation || 0;
+    const _absS = Math.abs(_currentSensation);
+    const _decayRate = _absS >= 0.90 ? 0.40   // peak: hard crash without active stimulation
+                     : _absS >= 0.70 ? 0.58   // overwhelming: fades quickly
+                     : _absS >= 0.50 ? 0.74   // intense: noticeably faster
+                     : SENSATION_DECAY;        // normal (0.88)
+    _currentSensation *= _decayRate;
+    if (response.sensationLingers && sensationDelta !== 0) {
+      _currentSensation = Math.max(-SENSATION_MAX, Math.min(SENSATION_MAX, _currentSensation + sensationDelta));
+    }
+    if (sensationDelta !== 0) {
+      mainWindow?.webContents.send('companion:sensation', {
+        delta: sensationDelta,
+        lingers: !!response.sensationLingers,
+        current: _currentSensation,
       });
     }
 
@@ -474,6 +543,17 @@ ipcMain.handle('settings:set-fast-mode', (_event, val) => {
   return _fastMode;
 });
 
+// ── UI zoom IPC ────────────────────────────────────────────────────────────
+
+ipcMain.handle('settings:get-zoom', () => readConfig().zoom || 100);
+
+ipcMain.handle('settings:set-zoom', (_event, pct) => {
+  const clamped = Math.max(50, Math.min(300, Math.round(pct)));
+  writeConfig({ zoom: clamped });
+  mainWindow?.webContents.setZoomFactor(clamped / 100);
+  return clamped;
+});
+
 // ── Background / display settings IPC ─────────────────────────────────────
 
 ipcMain.handle('settings:get-bg', () => {
@@ -483,6 +563,20 @@ ipcMain.handle('settings:get-bg', () => {
 ipcMain.handle('settings:set-bg', (_event, bg) => {
   writeConfig({ background: bg });
   return bg;
+});
+
+// ── RVC voice conversion settings ─────────────────────────────────────────────
+
+ipcMain.handle('rvc:get-config', () => {
+  return readConfig().rvc || {};
+});
+
+ipcMain.handle('rvc:set-config', (_event, cfg) => {
+  const current = readConfig();
+  const merged  = { ...(current.rvc || {}), ...cfg };
+  writeConfig({ rvc: merged });
+  ttsEngine.setRvcConfig(merged);
+  return merged;
 });
 
 // ── Character management ──────────────────────────────────────────────────────

@@ -833,6 +833,108 @@ const FORCE_CLAUDE_KEYS = new Set([
   'challenge_zone_clear',
 ]);
 
+// ── Slot Stat Pools (which stats can roll on each slot) ───────────────────────
+// Used by the loot generator to pick stats for a generated item.
+const SLOT_STAT_POOLS = {
+  weapon:  ['atk', 'str', 'int', 'lck', 'agi'],
+  head:    ['int', 'agi', 'lck', 'str'],
+  chest:   ['vit', 'def', 'str', 'int'],
+  hands:   ['str', 'atk', 'lck', 'agi'],
+  feet:    ['agi', 'vit', 'lck'],
+  belt:    ['vit', 'str', 'lck', 'agi'],
+  ring:    ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
+  amulet:  ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
+  trinket: ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
+};
+
+// ── Item Name Generation Banks ────────────────────────────────────────────────
+// Source: docs/rpg/GEAR_NAMES.md
+const NAME_BANKS = {
+  prefixes: {
+    common:   ['Iron', 'Copper', 'Bronze', 'Wooden', 'Bone', 'Leather', 'Stone', 'Crude', 'Worn',
+               'Sturdy', 'Sharp', 'Heavy', 'Light', 'Cracked', 'Weathered', 'Polished', 'Rough', 'Plain'],
+    uncommon: ['Steel', 'Silver', 'Gilded', 'Runed', 'Carved', 'Blessed', 'Enchanted', 'Ancient', 'Cursed',
+               'Shadow', 'Storm', 'Ember', 'Frost', "Veteran's", 'Thorned', 'Barbed', 'Hollow', 'Tempered'],
+    rare:     ['Dragon-Forged', 'Void-Touched', 'Sacred', 'Arcane', 'Dread', 'Infernal', 'Seraphic', 'Runic',
+               'Ancestral', 'Mystic', 'Dark', 'Crimson', 'Obsidian', 'Bone-Carved', 'Eldritch', "Warden's",
+               'Death-Touched', 'Consecrated'],
+    epic:     ['God-Forged', 'Primordial', 'Celestial', 'Eternal', 'Undying', 'World-Shatter',
+               'Divine', 'Abyssal', 'Sovereign', 'Conquest', 'Last', 'Forsaken', 'Fallen',
+               "Dragon-Emperor's", 'Void-Sovereign', "Godslayer's", 'First-Age', 'Tomb-Risen'],
+  },
+  suffixes: {
+    common:   ['of the Wolf', 'of the Bear', 'of the Boar', 'of Strength', 'of the Hunt', 'of the Blade',
+               'of the Road', 'of Endurance', 'of the Forest', 'of Stone', 'of Blood', 'of the Wanderer',
+               'of the Frontier', 'of Iron', 'of Speed', 'of the Soldier', 'of the Watchman', 'of Ruin'],
+    uncommon: ['of the Champion', 'of the Fallen', 'of the Wilds', 'of Valor', 'of Courage',
+               'of Flame', 'of Frost', 'of Thunder', 'of the Depths', 'of the Night',
+               'of the Mountains', 'of the Knight', 'of the Exile', 'of the Forsaken',
+               'of the Ruin', 'of Ash', 'of the Blade-Saint', 'of the Old Kingdom'],
+    rare:     ['of the Dragon', 'of the Abyss', 'of the Undying', 'of Ancient Kings', 'of Eternity',
+               'of the Demon', 'of Sacred Flame', 'of the Warlord', 'of Twilight', 'of the Void',
+               'of Slaughter', 'of the Pact', 'of the Elder Gods', 'of Lost Kingdoms', 'of Corruption',
+               'of the Bound', 'of the Lich', 'of the Sunken King'],
+    epic:     ["of the Ages", "of the World's End", 'of Transcendence', 'of the Final Frontier',
+               "of Dragon's Wrath", 'of the Dying God', 'of the Undying King', 'of the Breaking World',
+               'of the Eternal Flame', "of Creation's End", 'of the Conqueror', "of Dawn's Reckoning",
+               'of the Last Stand', 'of the Elder World', 'of Infinite Sorrow', 'of the Shattered Realm',
+               "of the God's Rest", 'of Oblivion'],
+  },
+  // Item types per gear slot — pulled from GEAR_NAMES.md
+  itemTypes: {
+    weapon:  ['Sword', 'Greatsword', 'Longsword', 'Dagger', 'Dirk', 'Axe', 'Greataxe', 'Hammer', 'Warhammer',
+              'Spear', 'Halberd', 'Glaive', 'Staff', 'Wand', 'Tome', 'Grimoire', 'Bow', 'Longbow',
+              'Crossbow', 'Scythe', 'Mace', 'Morningstar', 'Claws', 'Rapier', 'Falchion'],
+    head:    ['Helm', 'Helmet', 'Crown', 'Circlet', 'Hood', 'Coif', 'Visor', 'Cap', 'Great Helm'],
+    chest:   ['Plate Armor', 'Chainmail', 'Breastplate', 'Cuirass', 'Scale Mail', 'Brigandine',
+              'Leather Jerkin', 'Robe', 'Vestment', 'Hauberk', 'Coat'],
+    hands:   ['Gauntlets', 'Bracers', 'Gloves', 'Grips', 'Wraps', 'Vambraces'],
+    feet:    ['Boots', 'Greaves', 'Sabatons', 'Treads', 'War Boots', 'Iron Boots'],
+    belt:    ['Belt', 'Girdle', 'Sash', 'War Belt', 'Studded Belt'],
+    ring:    ['Ring', 'Band', 'Signet Ring', 'Seal Ring', 'Carved Ring'],
+    amulet:  ['Amulet', 'Pendant', 'Necklace', 'Torc', 'Talisman', 'Medallion'],
+    trinket: ['Trinket', 'Charm', 'Relic', 'Fetish', 'Sigil Stone', 'Focus Crystal', 'Ancient Coin', 'Runed Token'],
+  },
+};
+
+// ── Random Boss Name Parts (every 3rd boss is procedurally named) ─────────────
+// Source: docs/rpg/ENEMIES.md "Random Boss Generator"
+const BOSS_NAME_PARTS = {
+  honorifics: ['Ancient', 'Cursed', 'Fallen', 'Undying', 'Dread', 'Elder', 'Forsaken', 'Hollow',
+               'Vile', 'Corrupted', 'Grim', 'The Last', 'Blood-Soaked', 'Iron', 'Pale'],
+  names:      ['Gorrath', 'Malvek', 'Skareth', 'Vargos', 'Thraxis', 'Keldros', 'Morven', 'Ashrak',
+               'Zervian', 'Caldrath', 'Vexis', 'Korroth', 'Sindrak', 'Dravos', 'Relthar', 'Vorath',
+               'Grimbane', 'Phareth', 'Caldor', 'Morvex', 'Therin', 'Elrath', 'Durash', 'Zareth',
+               'Hexan', 'Valkor', 'Skallen', 'Morten', 'Umbral', 'Draeven'],
+  titles:     ['the Unyielding', 'the Betrayer', 'Blood-Drinker', 'of the Deep', 'the Forgotten',
+               'Iron-Bone', 'Grave-Walker', 'Soul-Eater', 'the Corrupted', 'the Undying',
+               'Stone-Heart', 'of the Abyss', 'the Shattered', 'the Ancient', 'of Eternal Night',
+               'the Relentless', 'Pale-King', 'Ash-Born', 'Storm-Caller', 'the Forsaken'],
+};
+
+// ── Runtime Enemy Name Generation Data ───────────────────────────────────────
+// Source: docs/rpg/ENEMIES.md "Enemy Naming Conventions"
+const ENEMY_NAME_DATA = {
+  tierPrefixes: {
+    1:  ['Forest', 'Hill', 'Cave', 'Wild', 'Marsh', 'Beach', 'Shore', 'Hollow'],
+    2:  ['Cursed', 'Darkling', 'Fell', 'Blood', 'Dire', 'Iron', 'Stone', 'Bog'],
+    3:  ['Shadow', 'Void-Touched', 'Wrath', 'Dread', 'Vile', 'Bone', 'Spectral'],
+    4:  ['Shadow', 'Dread', 'Vile', 'Bone', 'Spectral', 'Ruined', 'Forsaken'],
+    5:  ['Elder', 'Forsaken', 'Corrupted', 'Eternal', 'Grim', 'Lost', 'Pale'],
+    6:  ['Elder', 'Forsaken', 'Corrupted', 'Eternal', 'Grim', 'Sunken'],
+    7:  ['Elder', 'Forsaken', 'Corrupted', 'Eternal', 'Grim', 'Lost', 'Pale', 'Sunken'],
+    8:  ['Undying', 'Primordial', 'Abyssal', 'Elder', 'God-Touched'],
+    9:  ['Undying', 'Primordial', 'Abyssal', 'God-Touched', 'True', 'Final'],
+    10: ['Undying', 'Primordial', 'Abyssal', 'God-Touched', 'Ascendant', 'True', 'Final'],
+  },
+  archetypeWords: ['Knight', 'Warrior', 'Hunter', 'Walker', 'Stalker', 'Shade', 'Warden', 'Guardian',
+                   'Ravager', 'Slayer', 'Reaper', 'Specter', 'Spawn', 'Golem', 'Horror', 'Beast',
+                   'Wraith', 'Brute', 'Drake', 'Fiend', 'Broodling', 'Sentinel', 'Marauder', 'Revenant'],
+  suffixes: ['the Ancient', 'the Fallen', 'the Forsaken', 'the Unyielding', 'the Eternal',
+             'Bonecrusher', 'Ironside', 'Skullcleave', 'Darkbane', 'Doomhide', 'the Cursed',
+             'Ashborn', 'the Relentless', 'the Hollow'],
+};
+
 module.exports = {
   BRACKETS,
   ARCHETYPE_DISTRIBUTIONS,
@@ -851,4 +953,8 @@ module.exports = {
   SCENARIO_KEYS,
   TIER_COUNTS,
   FORCE_CLAUDE_KEYS,
+  SLOT_STAT_POOLS,
+  NAME_BANKS,
+  BOSS_NAME_PARTS,
+  ENEMY_NAME_DATA,
 };

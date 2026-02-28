@@ -76,11 +76,63 @@ All design documents finalized. Classic fantasy theme applied throughout. All fi
 - `src/main/claude-bridge.js` — `sendToClaude()` accepts + forwards `addonContexts`
 - `src/shared/system-prompt.js` — `buildSystemPrompt()` accepts `addonContexts`; injects as `=== ADDON CONTEXT ===` section
 
+## ✅ PHASE 2 + 3 COMPLETE
+
+**Phase 2: Combat Engine + Phase 3: IPC Surface** — implemented together.
+
+### Files Written/Modified
+- `addons/rpg_adventure/src/rpg-constants.js` — APPENDED: SLOT_STAT_POOLS, NAME_BANKS, BOSS_NAME_PARTS, ENEMY_NAME_DATA
+- `addons/rpg_adventure/src/rpg-engine.js` — REWRITTEN: full combat engine, loot generator, run state machine, all formulas
+- `addons/rpg_adventure/src/rpg-ipc.js` — REWRITTEN: full run state machine, all IPC handlers
+- `src/preload/preload.js` — PATCHED: `rpgAPI` contextBridge with all rpg:* handlers
+
+### Architecture (locked)
+- **Run state**: in-memory `activeRun` in rpg-ipc.js. DB commit at run end.
+- **Level-ups**: applied to DB mid-run (persist across crashes).
+- **Loot/gold**: accumulate in run bag, committed only on success/extract (lost on death).
+- **Phase model**: `combat` | `floor_complete` | `merchant` | `run_complete`
+- **Actions**: `fight` | `flee` | `use_item` | `continue` | `extract` | `buy_item`
+- **Gear totals**: computed at run start from equipped items, fixed for run duration.
+- **IPC surface**: `window.rpgAPI.*` in renderer — all rpg:* handlers exposed.
+
+### Key engine functions
+- `startRun(char, zone, equipped, bonusData)` → run state + first-room events
+- `resolveFloorRoom(runState)` → room resolution events (combat/treasure/rest/trap/merchant/etc.)
+- `runCombatTurn(runState, action)` → { runState, events, levelUps }
+- `generateEnemy(zone, zoneLevel, bracketId, isShiny, isMini)`
+- `generateBoss(zone, zoneLevel, bossCount)`
+- `generateGearItem(zoneLevel, rarity, slot)` / `rollLootDrop(...)`
+- `computeGearTotals(equippedRows)` — sums gear bonuses
+
+## ✅ PHASE 4 COMPLETE
+
+**Phase 4: Companion Narrative** — rpg-narrator.js fully implemented.
+
+### Files Written/Modified
+- `addons/rpg_adventure/src/rpg-narrator.js` — REWRITTEN: full response system
+- `addons/rpg_adventure/src/rpg-ipc.js` — PATCHED: narrator init + 2 new IPC handlers
+- `src/preload/preload.js` — PATCHED: `getScenarioResponse` + `generateResponsePool` added to rpgAPI
+
+### Architecture (locked)
+- **Pool-first**: Claude only called when pool empty (first trigger per key) or for Force-Claude keys
+- **Force-Claude keys**: 8 keys always get real-time generation (`companion_comments_legendary`, `companion_comments_boss_death`, `companion_debrief_success`, `companion_debrief_death`, `first_legendary`, `prestige_1`, `level_milestone_100`, `level_milestone_200`)
+- **Tier targets**: HIGH=40, MED=20, LOW=10 responses per pool
+- **Fallback**: 5 hardcoded responses per category (battle/loot/zone/level/companion) ship with app
+- **Response rotation**: picks from pool avoiding 5 most-recently-used
+- **Wipe-to-regenerate**: `rpg:refresh-responses` wipes pool; next trigger regenerates cleanly
+
+### Key API
+- `narrator.init(db, charDir)` — called in `register()`, sets DB + character dir references
+- `narrator.getResponse(scenarioKey, gameState)` — main entry point; returns `{ dialogue, emotion, thoughts }`
+- `narrator.generateResponsePool(scenarioKey, gameState)` — bulk Claude generation, stores to DB
+- `window.rpgAPI.getScenarioResponse(key, gameState)` — renderer entry point
+- `window.rpgAPI.generateResponsePool(key, gameState)` — explicit pool pre-generation
+
 ### Next Step
-**Begin Phase 2: Combat Engine**
-See `docs/rpg/GAMEPLAN.md` Phase 2 for task list.
-Implement run state machine in `rpg-ipc.js`/`rpg-engine.js`: run generation, floor loop, room resolution, combat turn loop.
-All math functions already exist in `rpg-engine.js`.
+**Phase 5: UI** — implement the RPG panel drawer.
+See `docs/rpg/GAMEPLAN.md` Phase 5 for task list.
+Files: `addons/rpg_adventure/ui/rpg-panel.html`, `rpg-panel.js`, `rpg-inventory.js`, `rpg.css`
+Screens: zone select → combat → floor summary → run summary → inventory → character → achievements
 
 ---
 
