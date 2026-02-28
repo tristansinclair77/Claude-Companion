@@ -8,6 +8,16 @@ Last updated: 2026-02-27
 
 ---
 
+## WORKFLOW RULE: RESUME_INSTRUCTIONS.md
+
+After completing a batch of steps, **immediately update `RESUME_INSTRUCTIONS.md`** to reflect:
+- What was just completed (mark as done)
+- What the **next** planned steps are (so a new session can pick up cleanly)
+
+Do this **before** pausing for user confirmation. The file must always describe what comes next, not what is currently in progress.
+
+---
+
 ## THE GAME
 
 **Type**: Turn-based fantasy adventure RPG minigame embedded in Claude Companion.
