@@ -27,10 +27,26 @@
 
   ChatController.init();
   BackgroundSettings.init();
+  RvcSettings.init();
 
   // Emotional axis monitor pop-out
   document.getElementById('btn-axis').addEventListener('click', () => {
     window.claudeAPI.openEmotionalState();
+  });
+
+  // Tracker popup toggle
+  const btnTrackers    = document.getElementById('btn-trackers');
+  const trackerPopup   = document.getElementById('tracker-popup');
+  btnTrackers?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    trackerPopup?.classList.toggle('hidden');
+  });
+  document.addEventListener('click', (e) => {
+    if (!trackerPopup?.classList.contains('hidden') &&
+        !trackerPopup?.contains(e.target) &&
+        e.target !== btnTrackers) {
+      trackerPopup?.classList.add('hidden');
+    }
   });
 
   // Fast mode toggle
@@ -92,6 +108,20 @@
     if (data && data.fastMode !== undefined) {
       _applyFastBtn(data.fastMode);
     }
+    if (data && data.trackers) {
+      CompanionDisplay.updateTrackers(data.trackers);
+    }
+  });
+
+  // Tracker update — Aria decided to record something
+  window.claudeAPI.on('companion:trackers', (data) => {
+    CompanionDisplay?.updateTrackers?.(data.trackers);
+  });
+
+  // Sensation pulse — flash indicator near portrait on physical sensation events
+  window.claudeAPI.on('companion:sensation', (data) => {
+    CompanionDisplay?.showSensationPulse?.(data.delta, data.lingers);
+    CompanionDisplay?.updateSensationReadout?.(data.current);
   });
 
   // Focus input on load

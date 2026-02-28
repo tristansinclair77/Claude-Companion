@@ -131,6 +131,11 @@ const EMOTION_AXES = {
   frantic_desperation:  { V: 15, A: 92, S: 22, P: 50 },
 };
 
+// Sensation system — pleasure/pain accumulator
+// Per-message decay toward 0 (lingering sensations fade over subsequent turns).
+const SENSATION_DECAY = 0.88;
+const SENSATION_MAX   = 1.0;
+
 // Local brain confidence threshold — above this, use local response instead of Claude.
 // Score = jaccard × confidence × recencyBonus × emotionBonus.
 // Default confidence is 0.5, same-day recency bonus is 1.2 → max score ~0.66 for perfect match.
@@ -166,4 +171,6 @@ module.exports = {
   SUMMARIZE_CHUNK_SIZE,
   SOURCES,
   RESPONSE_MARKERS,
+  SENSATION_DECAY,
+  SENSATION_MAX,
 };

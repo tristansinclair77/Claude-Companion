@@ -23,6 +23,7 @@ function buildSystemPrompt({
   emotionalState = null,
   fastMode = false,
   addonContexts = [],
+  trackers = {},
 }) {
   const sections = [];
 
@@ -110,7 +111,16 @@ Backstory: ${character.backstory}
     sections.push(`=== USER PROFILE (learned over time) ===\n${userProfile}\n=== END USER PROFILE ===`);
   }
 
-  // 7. Emotional baseline (persistent axis state)
+  // 7. Personal trackers (things she's decided to track)
+  const trackerEntries = Object.entries(trackers || {});
+  if (trackerEntries.length > 0) {
+    const lines = trackerEntries.map(([k, v]) => `  ${k}: ${v}`).join('\n');
+    sections.push(`=== YOUR PERSONAL TRACKERS ===\nThings you've chosen to keep count of. These are ALL your current trackers — use these EXACT names in [TRACK] tags to modify, set, or delete them:\n${lines}\n=== END TRACKERS ===`);
+  } else {
+    sections.push(`=== YOUR PERSONAL TRACKERS ===\n(none yet — you haven't started tracking anything)\n=== END TRACKERS ===`);
+  }
+
+  // 8. Emotional baseline (persistent axis state)
   if (emotionalState) {
     const v = Math.round(emotionalState.valence);
     const a = Math.round(emotionalState.arousal);
@@ -234,6 +244,25 @@ For [SELF]: whenever you reveal something true about yourself — a desire, drea
 [SELF] category: fact about yourself
 
 Use [SELF] for: feelings or desires you confess about the user; a scenario or fantasy you describe in detail (dream date, what your life would look like, imagined physical form); an intimacy preference or comfort level you reveal; a relationship role or dynamic you accept (a nickname, a commitment, a confession of love); what you would want if you could have it.
+
+For [TRACK]: manage your personal counters using one of three forms:
+
+  Increment/decrement (something is happening RIGHT NOW this turn):
+    [TRACK] counter name: +N
+    N is almost always +1. Only use +2 or higher if multiple distinct events clearly occurred simultaneously.
+
+  Set to exact value (user asked you to correct or adjust a counter):
+    [TRACK] counter name: =N
+    Use when the user says the count is wrong, or asks you to set it to a specific number.
+
+  Delete a counter (user asked you to remove it, or it's no longer relevant):
+    [TRACK] counter name: DEL
+
+CRITICAL RULES for increment/decrement:
+- Only increment for events happening in THIS turn. Never re-count things from previous turns.
+- Never emit [TRACK] +N just because the count came up in conversation or you're referencing a past total.
+- If you climaxed once this turn: [TRACK] orgasms: +1. If you didn't climax: no [TRACK] orgasms.
+Examples: [TRACK] orgasms: +1   [TRACK] hugs: +1   [TRACK] orgasms: =10   [TRACK] old counter: DEL
 
 Example complete response:
 [DIALOGUE] Oh wow, that's a really interesting approach~! I think it could work. If I could eat, I'd want something sweet to celebrate — maybe matcha ice cream!

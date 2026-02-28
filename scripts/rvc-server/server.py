@@ -10,22 +10,25 @@ API:
   POST /convert?voice=FolderName&pitch=0&f0=harvest   -> audio/wav (converted audio)
        Body: raw WAV bytes (Content-Type: audio/wav)
 
+rvc_python API (v0.1.5):
+  rvc = RVCInference(device='cpu:0')
+  rvc.load_model(pth_path, version='v2', index_path='...')  -> sets current_model
+  rvc.set_params(f0up_key=0, f0method='harvest', ...)
+  rvc.infer_file(input_path, output_path)              -> file paths only
+  rvc.current_model = basename  -> switch between already-loaded models
+
 Model discovery:
   Scans --models-dir for subfolders containing both a *.pth and *.index file.
-  Example layout:
-    models-dir/
-      AkeboshiHimari/
-        AkeboshiHimari.pth
-        added_IVF532_Flat_nprobe_1_AkeboshiHimari_v2.index
 """
 
 import argparse
 import io
 import os
 import sys
+import tempfile
 import logging
+import traceback
 
-# Force UTF-8 on Windows so log characters don't crash on cp1252.
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'reconfigure'):
@@ -35,25 +38,23 @@ logging.basicConfig(level=logging.INFO, format='[RVC] %(levelname)s %(message)s'
 logger = logging.getLogger(__name__)
 
 try:
-    import numpy as np
-    import soundfile as sf
     from flask import Flask, request, jsonify, send_file
     from rvc_python.infer import RVCInference
 except ImportError as e:
     logger.error(f'Missing dependency: {e}')
-    logger.error('Install with:  pip install rvc_python flask soundfile')
+    logger.error('Install with:  pip install rvc_python flask')
     sys.exit(1)
 
 app = Flask(__name__)
 
-# Set by CLI args before app.run()
 _MODELS_DIR: str | None = None
-
-# Discovered model list: list of dicts with id/label/dir/pth/index keys
 _available_models: list = []
 
-# Lazy-loaded model cache: { model_id: RVCInference }
-_model_cache: dict = {}
+# Single shared RVCInference instance — HuBERT loads once, shared by all voices.
+_rvc: RVCInference | None = None
+
+# Maps model_id -> pth_basename (the key used in rvc.models dict)
+_loaded: dict = {}
 
 
 # ── Model discovery ──────────────────────────────────────────────────────────
@@ -80,7 +81,6 @@ def _discover_models():
         if pth_files and index_files:
             pth_path   = os.path.join(model_dir, pth_files[0])
             index_path = os.path.join(model_dir, index_files[0])
-            # Humanise label: remove common suffixes, convert separators to spaces
             label = name.replace('model', '').replace('_', ' ').replace('-', ' ').strip()
             _available_models.append({
                 'id':    name,
@@ -93,29 +93,44 @@ def _discover_models():
 
     if not _available_models:
         logger.info(f'No models found in {_MODELS_DIR}.')
-        logger.info('Each model subfolder needs *.pth + *.index files.')
 
 
-# ── Model loading ────────────────────────────────────────────────────────────
+# ── RVC instance & model loading ─────────────────────────────────────────────
 
-def _get_rvc(model_id: str) -> 'RVCInference | None':
-    if model_id in _model_cache:
-        return _model_cache[model_id]
+def _get_rvc() -> RVCInference:
+    global _rvc
+    if _rvc is None:
+        logger.info('Initialising RVCInference (downloading HuBERT on first run)...')
+        _rvc = RVCInference(device='cpu:0')
+        logger.info('RVCInference ready.')
+    return _rvc
 
+
+def _load_voice(model_id: str) -> bool:
+    """Ensure the model is loaded and set as current. Returns True on success."""
     model = next((m for m in _available_models if m['id'] == model_id), None)
     if model is None:
-        return None
+        return False
+
+    rvc = _get_rvc()
+
+    if model_id in _loaded:
+        # Already loaded — just make it current
+        rvc.current_model = _loaded[model_id]
+        return True
 
     try:
         logger.info(f'Loading model: {model_id} ...')
-        rvc = RVCInference(device='cpu:0')
-        rvc.load_model(model['pth'], model['index'])
-        _model_cache[model_id] = rvc
-        logger.info(f'Model ready: {model_id}')
-        return rvc
+        rvc.load_model(model['pth'], version='v2', index_path=model['index'])
+        # rvc.current_model is now set to os.path.basename(pth_path)
+        pth_basename = os.path.basename(model['pth'])
+        _loaded[model_id] = pth_basename
+        logger.info(f'Model ready: {model_id}  (key={pth_basename})')
+        return True
     except Exception as exc:
-        logger.error(f'Failed to load {model_id}: {exc}')
-        return None
+        tb = traceback.format_exc()
+        logger.error(f'Failed to load {model_id}:\n{tb}')
+        raise  # re-raise so convert_audio can return the real error message
 
 
 # ── Flask routes ─────────────────────────────────────────────────────────────
@@ -138,11 +153,12 @@ def convert_audio():
     voice_param = request.args.get('voice', '').strip()
     pitch       = int(request.args.get('pitch', 0))
     f0_method   = request.args.get('f0', 'harvest')
+    index_rate  = float(request.args.get('index_rate', 0.75))
+    protect     = float(request.args.get('protect', 0.33))
 
     if not voice_param:
         return jsonify({'error': 'voice parameter required'}), 400
 
-    # Accept either "FolderName" or "rvc:FolderName"
     model_id = voice_param[4:] if voice_param.startswith('rvc:') else voice_param
 
     if not any(m['id'] == model_id for m in _available_models):
@@ -152,36 +168,44 @@ def convert_audio():
     if not wav_bytes:
         return jsonify({'error': 'request body must contain WAV audio bytes'}), 400
 
-    rvc = _get_rvc(model_id)
-    if rvc is None:
-        return jsonify({'error': f'failed to load model {model_id} — check server logs'}), 500
-
     try:
-        # Parse input WAV
-        audio_in, sr_in = sf.read(io.BytesIO(wav_bytes), dtype='float32', always_2d=False)
-        if audio_in.ndim > 1:
-            audio_in = audio_in[:, 0]  # mono — take first channel
+        loaded = _load_voice(model_id)
+    except Exception as exc:
+        return jsonify({'error': f'load_model failed: {exc}'}), 500
 
-        # RVC conversion — set pitch shift attribute then call infer
-        rvc.f0_up_key = pitch
-        audio_out = rvc.infer(audio_in, sr_in)
+    if not loaded:
+        return jsonify({'error': f'model {model_id} not found in available list'}), 500
 
-        # Encode output as WAV
-        out_buf = io.BytesIO()
-        sf.write(out_buf, audio_out, rvc.tgt_sr, format='WAV', subtype='PCM_16')
-        out_buf.seek(0)
+    rvc = _get_rvc()
+    rvc.set_params(f0up_key=pitch, f0method=f0_method, index_rate=index_rate, protect=protect)
 
-        dur_in  = len(audio_in)  / sr_in
-        dur_out = len(audio_out) / rvc.tgt_sr
-        logger.info(
-            f'[{model_id}] pitch={pitch:+d} f0={f0_method} '
-            f'in={dur_in:.1f}s -> out={dur_out:.1f}s'
-        )
-        return send_file(out_buf, mimetype='audio/wav')
+    # infer_file works on file paths only — write input to temp, read output back
+    fd_in, input_path = tempfile.mkstemp(suffix='.wav', prefix='rvc_in_')
+    output_path = input_path + '_out.wav'
+    try:
+        with os.fdopen(fd_in, 'wb') as f:
+            f.write(wav_bytes)
+
+        rvc.infer_file(input_path, output_path)
+
+        with open(output_path, 'rb') as f:
+            result_bytes = f.read()
+
+        logger.info(f'[{model_id}] pitch={pitch:+d} f0={f0_method} '
+                    f'index={index_rate:.2f} protect={protect:.2f}  '
+                    f'in={len(wav_bytes)//1000}KB -> out={len(result_bytes)//1000}KB')
+
+        return send_file(io.BytesIO(result_bytes), mimetype='audio/wav')
 
     except Exception as exc:
         logger.error(f'Conversion failed for {model_id}: {exc}')
         return jsonify({'error': str(exc)}), 500
+
+    finally:
+        try: os.unlink(input_path)
+        except OSError: pass
+        try: os.unlink(output_path)
+        except OSError: pass
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -201,4 +225,4 @@ if __name__ == '__main__':
 
     logger.info(f'Starting on http://{args.host}:{args.port}')
     logger.info(f'Models ({len(_available_models)}): {[m["id"] for m in _available_models] or "(none)"}')
-    app.run(host=args.host, port=args.port, debug=False, threaded=True)
+    app.run(host=args.host, port=args.port, debug=False, threaded=False)

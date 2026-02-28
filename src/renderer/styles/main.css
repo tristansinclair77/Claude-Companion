@@ -252,6 +252,107 @@ html { background: var(--bg-dark); }
   box-shadow: inset 0 0 20px #00ffcc18;
 }
 
+/* ── Sensation pulse indicator ───────────────────────────────────────────── */
+.sensation-pulse {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 10;
+  animation: sensation-flash 2.2s ease forwards;
+}
+.sensation-pulse.pleasure { color: #ff88cc; text-shadow: 0 0 10px #ff88cc99; }
+.sensation-pulse.pain     { color: #ff2233; text-shadow: 0 0 10px #ff223399; }
+.sensation-pulse.linger::after {
+  content: ' ~';
+  opacity: 0.55;
+  font-size: 0.62rem;
+}
+
+@keyframes sensation-flash {
+  0%   { opacity: 0;   transform: translateY(0); }
+  12%  { opacity: 1;   transform: translateY(-6px); }
+  70%  { opacity: 1;   transform: translateY(-6px); }
+  100% { opacity: 0;   transform: translateY(-12px); }
+}
+
+/* Persistent sensation level readout — sits below axis bars */
+#sensation-readout {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-align: right;
+  padding: 2px 2px 0;
+  opacity: 0.75;
+  transition: color 0.5s ease;
+}
+#sensation-readout.pleasure  { color: #ff88cc; }
+#sensation-readout.pain      { color: #ff2233; }
+#sensation-readout.neutral-sen { color: #00ff8844; }
+
+/* Tracker popup — Aria's self-chosen counters, floats above TRACK button */
+#tracker-popup {
+  position: absolute;
+  bottom: calc(var(--input-h) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 4px 20px #000a, 0 0 12px #00ffcc22;
+  z-index: 200;
+  min-width: 240px;
+  max-width: 320px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0 0 4px;
+}
+.tracker-popup-header {
+  padding: 7px 14px 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #00ffcc55;
+  border-bottom: 1px solid #00ffcc18;
+  text-transform: uppercase;
+}
+.tracker-popup-empty {
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #00ffcc33;
+  text-align: center;
+}
+.tracker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 6px 14px;
+  border-bottom: 1px solid #00ff8808;
+}
+.tracker-row:last-child { border-bottom: none; }
+.tracker-name {
+  color: #00ffcc99;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 72%;
+}
+.tracker-val {
+  color: #ff88cc;
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
 /* Emotional axis bars — sits below portrait-frame, spans full portrait width */
 #emotion-meters {
   flex: 0 0 auto;            /* never grows or shrinks; always takes natural height */
@@ -389,7 +490,9 @@ html { background: var(--bg-dark); }
   border: 1px solid var(--cyan-dim);
   box-shadow: 0 4px 20px #000a, 0 0 12px #00ffcc22;
   z-index: 200;
-  min-width: 180px;
+  min-width: 220px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 .voice-option {
   padding: 8px 14px;
@@ -421,6 +524,21 @@ html { background: var(--bg-dark); }
   align-items: center;
   gap: 7px;
   margin-bottom: 4px;
+}
+
+/* Voice synthesis loading indicator */
+#tts-loading-badge {
+  color: var(--yellow);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  animation: tts-synth-pulse 1.1s ease-in-out infinite;
+}
+#tts-loading-badge.hidden { display: none; }
+@keyframes tts-synth-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
 }
 
 #btn-replay, #btn-stop, #btn-pause {

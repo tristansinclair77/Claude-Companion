@@ -306,6 +306,56 @@ var CompanionDisplay = (() => {
     step();
   }
 
+  // ── Sensation pulse indicator ──────────────────────────────────────────────
+
+  function showSensationPulse(delta, lingers) {
+    if (!delta) return;
+    const frame = document.getElementById('portrait-frame');
+    if (!frame) return;
+
+    // Remove any in-progress pulse so rapid sensations restart cleanly
+    const existing = frame.querySelector('.sensation-pulse');
+    if (existing) existing.remove();
+
+    const el = document.createElement('div');
+    el.className = 'sensation-pulse' +
+      (delta > 0 ? ' pleasure' : ' pain') +
+      (lingers   ? ' linger'   : '');
+    const sign   = delta > 0 ? '+' : '';
+    const symbol = delta > 0 ? '\u25b2' : '\u25bc';  // ▲ / ▼
+    el.textContent = `${symbol} ${sign}${delta.toFixed(2)}`;
+    frame.appendChild(el);
+
+    setTimeout(() => el.remove(), 2500);
+  }
+
+  function updateTrackers(trackers) {
+    const el = document.getElementById('tracker-popup');
+    if (!el) return;
+    const entries = Object.entries(trackers || {});
+    if (entries.length === 0) {
+      el.innerHTML = '<div class="tracker-popup-header">// ARIA_TRACKERS</div><div class="tracker-popup-empty">No trackers yet.</div>';
+      return;
+    }
+    el.innerHTML =
+      '<div class="tracker-popup-header">// ARIA_TRACKERS</div>' +
+      entries.map(([k, v]) => {
+        const label = k.replace(/_/g, ' ');
+        return `<div class="tracker-row"><span class="tracker-name">${label}</span><span class="tracker-val">${v}</span></div>`;
+      }).join('');
+  }
+
+  function updateSensationReadout(val) {
+    const el = document.getElementById('sensation-readout');
+    if (!el) return;
+    const v = typeof val === 'number' ? val : 0;
+    const sign   = v > 0 ? '+' : '';
+    const symbol = v >  0.02 ? '▲' : v < -0.02 ? '▼' : '●';
+    const cls    = v >  0.02 ? 'pleasure' : v < -0.02 ? 'pain' : 'neutral-sen';
+    el.textContent = `SEN  ${symbol} ${sign}${v.toFixed(2)}`;
+    el.className = cls;
+  }
+
   function setGreeting(character, emotionalState) {
     dialogueEl.textContent = '';
     thoughtsEl.textContent = character.initial_thoughts || '';
@@ -324,5 +374,5 @@ var CompanionDisplay = (() => {
     updateMeters(emotionalState || null);
   }
 
-  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters };
+  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers };
 })();

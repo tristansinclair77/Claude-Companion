@@ -2,10 +2,15 @@
   "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
-    "pitchShift": 0
+    "pitchShift": 0,
+    "indexRate": 0.6,
+    "f0method": "rmvpe",
+    "protect": 0.45,
+    "sourceVoice": "moet-tts-18:40"
   },
   "tts": {
-    "voice": "moet-tts-18:81"
+    "voice": "rvc:Shirori Novella",
+    "enabled": true
   },
   "fastMode": true,
   "background": {
@@ -22,5 +27,6 @@
     "edgeGlow": true,
     "chromaticAberration": true,
     "scanlinesIntensity": "heavy"
-  }
+  },
+  "zoom": 150
 }

@@ -22,6 +22,23 @@ const BackgroundSettings = (() => {
   let state = { ...DEFAULTS };
   let _rainCols = [];
 
+  // ── Zoom state (separate from bg settings, stored via its own IPC) ────────
+  const _ZOOM_STEPS = [75, 90, 100, 110, 125, 150, 175, 200];
+  let _zoom = 100;
+
+  function _syncZoomUI() {
+    const el = document.getElementById('zoom-val');
+    if (el) el.textContent = _zoom + '%';
+  }
+
+  async function _setZoom(pct) {
+    _zoom = pct;
+    _syncZoomUI();
+    try { await window.claudeAPI.setZoom(pct); } catch (e) {
+      console.warn('[BackgroundSettings] zoom error:', e);
+    }
+  }
+
   // RGB values for each grid color choice
   const GRID_COLORS = {
     cyan:    { r: 0,   g: 255, b: 204 },
@@ -362,6 +379,18 @@ const BackgroundSettings = (() => {
       if (!panel.contains(e.target) && !btn?.contains(e.target)) _closePanel();
     });
 
+    // ── Zoom ──
+    document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+      const idx = _ZOOM_STEPS.indexOf(_zoom);
+      const prev = idx > 0 ? _ZOOM_STEPS[idx - 1] : _ZOOM_STEPS[0];
+      _setZoom(prev);
+    });
+    document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+      const idx = _ZOOM_STEPS.indexOf(_zoom);
+      const next = idx < _ZOOM_STEPS.length - 1 ? _ZOOM_STEPS[idx + 1] : _ZOOM_STEPS[_ZOOM_STEPS.length - 1];
+      _setZoom(next);
+    });
+
     // ── Grid type ──
     document.querySelectorAll('input[name="bg-grid"]').forEach(r => {
       r.addEventListener('change', () => {
@@ -480,8 +509,185 @@ const BackgroundSettings = (() => {
   async function init() {
     await _load();
     _applyAll();
+    // Load saved zoom and reflect in UI (zoom is already applied by main process on startup)
+    try {
+      _zoom = await window.claudeAPI.getZoom();
+    } catch { _zoom = 100; }
+    _syncZoomUI();
     _wire();
     console.log('[BackgroundSettings] initialized, state:', state);
+  }
+
+  return { init };
+
+})();
+
+// ── RVC Settings ─────────────────────────────────────────────────────────────
+
+const RvcSettings = (() => {
+
+  const DEFAULTS = {
+    pitchShift:  0,
+    indexRate:   0.75,
+    f0method:    'harvest',
+    protect:     0.33,
+    sourceVoice: '',
+  };
+
+  let state = { ...DEFAULTS };
+
+  function _pitchLabel(v) {
+    return v > 0 ? `+${v} st` : v < 0 ? `${v} st` : '0 st';
+  }
+
+  function _pct(val, min, max) {
+    return ((val - min) / (max - min)) * 100;
+  }
+
+  function _syncUI() {
+    const pitchEl  = document.getElementById('rvc-pitch');
+    const pitchVal = document.getElementById('rvc-pitch-val');
+    if (pitchEl) {
+      pitchEl.value = state.pitchShift;
+      pitchEl.style.setProperty('--pct', _pct(state.pitchShift, -12, 12).toFixed(1));
+    }
+    if (pitchVal) pitchVal.textContent = _pitchLabel(state.pitchShift);
+
+    const idxInt = Math.round(state.indexRate * 100);
+    const idxEl  = document.getElementById('rvc-index');
+    const idxVal = document.getElementById('rvc-index-val');
+    if (idxEl) {
+      idxEl.value = idxInt;
+      idxEl.style.setProperty('--pct', _pct(idxInt, 0, 100).toFixed(1));
+    }
+    if (idxVal) idxVal.textContent = state.indexRate.toFixed(2);
+
+    const protInt = Math.round(state.protect * 100);
+    const protEl  = document.getElementById('rvc-protect');
+    const protVal = document.getElementById('rvc-protect-val');
+    if (protEl) {
+      protEl.value = protInt;
+      protEl.style.setProperty('--pct', _pct(protInt, 0, 50).toFixed(1));
+    }
+    if (protVal) protVal.textContent = state.protect.toFixed(2);
+
+    document.querySelectorAll('input[name="rvc-f0"]').forEach(r => {
+      r.checked = r.value === state.f0method;
+    });
+
+    const srcEl = document.getElementById('rvc-source');
+    if (srcEl) srcEl.value = state.sourceVoice;
+  }
+
+  async function _populateSourceSelect() {
+    const srcEl = document.getElementById('rvc-source');
+    if (!srcEl) return;
+
+    // Keep the default "Kokoro (default)" option, then append fetched voices
+    srcEl.innerHTML = '<option value="">Kokoro (default)</option>';
+
+    try {
+      const voices = await window.claudeAPI.ttsGetVoices();
+      if (!Array.isArray(voices)) return;
+
+      // Build optgroups for non-RVC voices
+      let kokoroFrag = '';
+      let vitsFrag   = '';
+      let inVits     = false;
+
+      for (const v of voices) {
+        if (v.isHeader) {
+          inVits = v.label.includes('VITS');
+          continue;
+        }
+        if (v.id.startsWith('rvc:')) continue; // skip RVC entries
+
+        const opt = `<option value="${v.id}">${v.label}</option>`;
+        if (inVits) vitsFrag += opt;
+        else        kokoroFrag += opt;
+      }
+
+      if (kokoroFrag) {
+        srcEl.innerHTML += `<optgroup label="── KOKORO">${kokoroFrag}</optgroup>`;
+      }
+      if (vitsFrag) {
+        srcEl.innerHTML += `<optgroup label="── VITS ANIME">${vitsFrag}</optgroup>`;
+      }
+    } catch (e) {
+      console.warn('[RvcSettings] could not fetch voice list:', e);
+    }
+
+    // Re-apply saved selection after repopulation
+    srcEl.value = state.sourceVoice;
+  }
+
+  async function _save() {
+    try {
+      await window.claudeAPI.setRvcConfig({ ...state });
+    } catch (e) {
+      console.warn('[RvcSettings] save error:', e);
+    }
+  }
+
+  async function _load() {
+    try {
+      const saved = await window.claudeAPI.getRvcConfig();
+      if (saved && typeof saved === 'object') {
+        state = { ...DEFAULTS, ...saved };
+      }
+    } catch (e) {
+      console.warn('[RvcSettings] load error:', e);
+    }
+  }
+
+  function _wire() {
+    // Re-sync when the settings panel opens so sliders reflect current state
+    document.getElementById('btn-settings')?.addEventListener('click', _syncUI);
+
+    const pitchEl = document.getElementById('rvc-pitch');
+    pitchEl?.addEventListener('input', () => {
+      state.pitchShift = parseInt(pitchEl.value, 10);
+      document.getElementById('rvc-pitch-val').textContent = _pitchLabel(state.pitchShift);
+      pitchEl.style.setProperty('--pct', _pct(state.pitchShift, -12, 12).toFixed(1));
+    });
+    pitchEl?.addEventListener('change', _save);
+
+    const idxEl = document.getElementById('rvc-index');
+    idxEl?.addEventListener('input', () => {
+      state.indexRate = parseInt(idxEl.value, 10) / 100;
+      document.getElementById('rvc-index-val').textContent = state.indexRate.toFixed(2);
+      idxEl.style.setProperty('--pct', _pct(parseInt(idxEl.value, 10), 0, 100).toFixed(1));
+    });
+    idxEl?.addEventListener('change', _save);
+
+    const protEl = document.getElementById('rvc-protect');
+    protEl?.addEventListener('input', () => {
+      state.protect = parseInt(protEl.value, 10) / 100;
+      document.getElementById('rvc-protect-val').textContent = state.protect.toFixed(2);
+      protEl.style.setProperty('--pct', _pct(parseInt(protEl.value, 10), 0, 50).toFixed(1));
+    });
+    protEl?.addEventListener('change', _save);
+
+    document.querySelectorAll('input[name="rvc-f0"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        state.f0method = r.value;
+        _save();
+      });
+    });
+
+    const srcEl = document.getElementById('rvc-source');
+    srcEl?.addEventListener('change', () => {
+      state.sourceVoice = srcEl.value;
+      _save();
+    });
+  }
+
+  async function init() {
+    await _load();
+    await _populateSourceSelect();
+    _syncUI();
+    _wire();
   }
 
   return { init };

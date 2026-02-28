@@ -14,8 +14,25 @@
   const ttsTime        = document.getElementById('tts-time');
   const ttsVolume      = document.getElementById('tts-volume');
   const btnTtsSync     = document.getElementById('btn-tts-sync');
-  const btnStop        = document.getElementById('btn-stop');
-  const btnPause       = document.getElementById('btn-pause');
+  const btnStop          = document.getElementById('btn-stop');
+  const btnPause         = document.getElementById('btn-pause');
+  const ttsLoadingBadge  = document.getElementById('tts-loading-badge');
+
+  let _loadingTimer   = null;
+
+  function _showLoadingBadge() {
+    if (!ttsLoadingBadge) return;
+    clearTimeout(_loadingTimer);
+    ttsLoadingBadge.classList.remove('hidden');
+    // Safety: auto-hide after 60s in case the event never fires
+    _loadingTimer = setTimeout(_hideLoadingBadge, 60000);
+  }
+
+  function _hideLoadingBadge() {
+    clearTimeout(_loadingTimer);
+    _loadingTimer = null;
+    ttsLoadingBadge?.classList.add('hidden');
+  }
 
   let currentAudio    = null;
   let lastAudioBase64 = null;
@@ -156,7 +173,11 @@
     setPlaybarEnabled(true);
   }
 
+  window.claudeAPI.on('tts:loading',      () => _showLoadingBadge());
+  window.claudeAPI.on('tts:loading-done', () => _hideLoadingBadge());
+
   window.claudeAPI.on('tts:audio', (base64) => {
+    _hideLoadingBadge();
     lastAudioBase64 = base64;
     // If sync mode is on, notify companion-display BEFORE playing so the
     // typewriter starts at the same moment audio begins.
@@ -167,6 +188,7 @@
   });
 
   window.claudeAPI.on('tts:stop', () => {
+    _hideLoadingBadge();
     stopCurrentAudio();
   });
 

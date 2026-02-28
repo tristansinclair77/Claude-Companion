@@ -48,6 +48,7 @@ let fillerResponses;
 let _fastMode = false;
 let _addonContexts = []; // merged context blobs from loaded addons
 let _currentSensation = 0; // Session-only pleasure/pain accumulator; resets on app restart
+let _trackers = {};         // Persistent named counters (loaded from DB per character)
 
 // ── App Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -203,7 +204,7 @@ app.whenReady().then(() => {
 
   // Configure and start RVC voice conversion server
   const rvcCfg = readConfig().rvc || {};
-  ttsEngine.setRvcConfig({ modelsDir: rvcCfg.modelsDir, pitchShift: rvcCfg.pitchShift });
+  ttsEngine.setRvcConfig(rvcCfg);
   ttsEngine.startRvcServer();
 
   // Restore persisted TTS settings
@@ -229,12 +230,14 @@ app.whenReady().then(() => {
     const savedZoom = readConfig().zoom || 100;
     win.webContents.setZoomFactor(savedZoom / 100);
 
+    _trackers = db.getProfileValue('trackers') || {};
     win.webContents.send('app:init', {
       character,
       masterSummary: sessionManager.masterSummary,
       permanentMemories: sessionManager.permanentMemories,
       emotionalState: db.getEmotionalState(),
       fastMode: _fastMode,
+      trackers: _trackers,
     });
   });
 
@@ -275,7 +278,7 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     const onStreamChunk = (partialDialogue) => {
       mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
     };
-    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts });
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
@@ -340,13 +343,38 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       });
     }
 
+    // Update persistent tracker counts
+    if (response.trackUpdates && response.trackUpdates.length > 0) {
+      for (const upd of response.trackUpdates) {
+        if (upd.op === 'del') {
+          delete _trackers[upd.name];
+        } else if (upd.op === 'set') {
+          _trackers[upd.name] = Math.round(upd.value);
+        } else {
+          // op === 'add' (default)
+          _trackers[upd.name] = Math.round((_trackers[upd.name] || 0) + upd.delta);
+        }
+      }
+      db.setProfileValue('trackers', _trackers);
+      mainWindow?.webContents.send('companion:trackers', { trackers: _trackers });
+    }
+
     // Fire TTS synthesis in parallel — don't await, send audio when ready
     if (response.dialogue) {
+      const ttsEnabled = ttsEngine.getSettings().enabled;
+      if (ttsEnabled) {
+        mainWindow?.webContents.send('tts:loading');
+      }
       ttsEngine.synthesize(response.dialogue).then(audioBuf => {
         if (audioBuf) {
           mainWindow?.webContents.send('tts:audio', audioBuf.toString('base64'));
+        } else if (ttsEnabled) {
+          mainWindow?.webContents.send('tts:loading-done');
         }
-      }).catch(err => console.warn('[TTS] synthesis error:', err.message));
+      }).catch(err => {
+        console.warn('[TTS] synthesis error:', err.message);
+        if (ttsEnabled) mainWindow?.webContents.send('tts:loading-done');
+      });
     }
 
     const sumCheck = sessionManager.checkForSummarization();

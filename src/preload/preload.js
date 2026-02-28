@@ -63,8 +63,11 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'app:init',
       'tts:audio',
       'tts:stop',
+      'tts:loading',
+      'tts:loading-done',
       'claude:stream-chunk',
       'companion:sensation',
+      'companion:trackers',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));

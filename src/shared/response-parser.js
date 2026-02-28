@@ -14,17 +14,17 @@ const { EMOTION_MAP, COMBINED_EMOTION_MAP, RESPONSE_MARKERS } = require('./const
  */
 function parseResponse(raw) {
   if (!raw || typeof raw !== 'string') {
-    return { dialogue: '', thoughts: '', emotion: 'neutral', memories: [], memoryUpdates: [], selfFacts: [] };
+    return { dialogue: '', thoughts: '', emotion: 'neutral', memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [] };
   }
 
   const text = raw.trim();
 
-  // Extract [DIALOGUE]
-  const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\[THOUGHTS\]|\([a-z_]+\)|$)/i);
+  // Extract [DIALOGUE] — stop at any structural tag so none leak into dialogue
+  const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
   const dialogue = dialogueMatch ? dialogueMatch[1].trim() : '';
 
-  // Extract [THOUGHTS]
-  const thoughtsMatch = text.match(/\[THOUGHTS\]([\s\S]*?)(?=\([a-z_]+\)|\[MEMORY\]|$)/i);
+  // Extract [THOUGHTS] — stop at any structural tag so SENSATION/TRACK don't bleed in
+  const thoughtsMatch = text.match(/\[THOUGHTS\]([\s\S]*?)(?=\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
   // Extract emotion (emotion_id) — must match one of our 19 emotions
@@ -70,6 +70,33 @@ function parseResponse(raw) {
     });
   }
 
+  // Extract [SENSATION] tag — physical pleasure/pain delta
+  const sensationMatch = text.match(/\[SENSATION\]\s*([+-]?\d*\.?\d+)(\s+linger)?/i);
+  const sensation = sensationMatch ? parseFloat(sensationMatch[1]) : 0;
+  const sensationLingers = sensationMatch ? sensationMatch[2] !== undefined : false;
+
+  // Extract [TRACK] tags — she can create/increment/set/delete any named counter
+  // Supported forms:
+  //   [TRACK] name: +N    — increment by N (or decrement if negative)
+  //   [TRACK] name: =N    — set to exact value N
+  //   [TRACK] name: DEL   — delete the counter entirely
+  const trackRegex = /\[TRACK\]\s*([^:\n]+):\s*([+-]?\d+(?:\.\d+)?|=\s*-?\d+(?:\.\d+)?|DEL)/gi;
+  const trackUpdates = [];
+  let trackMatch;
+  while ((trackMatch = trackRegex.exec(text)) !== null) {
+    const name  = trackMatch[1].trim().toLowerCase();
+    const raw   = trackMatch[2].trim();
+    if (raw.toUpperCase() === 'DEL') {
+      trackUpdates.push({ name, op: 'del' });
+    } else if (raw.startsWith('=')) {
+      const value = parseFloat(raw.slice(1).trim());
+      if (!isNaN(value)) trackUpdates.push({ name, op: 'set', value });
+    } else {
+      const delta = parseFloat(raw);
+      if (!isNaN(delta)) trackUpdates.push({ name, op: 'add', delta });
+    }
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -80,6 +107,9 @@ function parseResponse(raw) {
     memories,
     memoryUpdates,
     selfFacts,
+    sensation,
+    sensationLingers,
+    trackUpdates,
   };
 }
 
@@ -93,6 +123,8 @@ function extractFallbackDialogue(text) {
     .replace(/\([a-z_]+\)/g, '')
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
+    .replace(/\[SENSATION\][^\n]*/gi, '')
+    .replace(/\[TRACK\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -104,6 +136,8 @@ function stripMemoryTags(text) {
   return text
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
+    .replace(/\[SENSATION\][^\n]*/gi, '')
+    .replace(/\[TRACK\][^\n]*/gi, '')
     .trim();
 }
 

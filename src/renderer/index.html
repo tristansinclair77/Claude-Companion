@@ -73,6 +73,8 @@
       </div>
       <!-- Emotional axis bars (always visible, updated by CompanionDisplay) -->
       <div id="emotion-meters"></div>
+      <!-- Persistent sensation level readout -->
+      <div id="sensation-readout" class="neutral-sen"></div>
     </div>
 
   </div>
@@ -87,6 +89,7 @@
 
     <!-- TTS playbar: replay, scrub, time, volume -->
     <div id="tts-playbar">
+      <span id="tts-loading-badge" class="hidden" aria-live="polite">SYNTH ●</span>
       <button id="btn-replay" title="Replay last audio" disabled>↺ REPLAY</button>
       <button id="btn-stop"  class="hidden" title="Stop audio">■</button>
       <button id="btn-pause" class="hidden" title="Pause audio">⏸</button>
@@ -109,6 +112,7 @@
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-save-chat" title="Save this conversation to Aria's long-term memory">💾 SAVE CHAT</button>
       <button class="action-btn" id="btn-axis"         title="View Aria's persistent emotional axis state">💠 AXIS</button>
+      <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
       <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
       </div>
@@ -117,6 +121,9 @@
 
     <!-- Voice picker popup -->
     <div id="voice-picker" class="hidden"></div>
+
+    <!-- Tracker popup -->
+    <div id="tracker-popup" class="hidden"></div>
 
     <!-- Attachment bar -->
     <div id="attachment-bar" class="hidden">
@@ -136,6 +143,19 @@
       <button id="btn-settings-close" title="Close settings">✕</button>
     </div>
     <div class="settings-body">
+
+      <!-- UI Scale -->
+      <div class="settings-section">
+        <div class="settings-section-title">UI SCALE</div>
+        <div class="settings-row">
+          <span class="settings-label">ZOOM</span>
+          <div class="zoom-stepper">
+            <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
+            <span class="zoom-val" id="zoom-val">100%</span>
+            <button class="zoom-btn" id="btn-zoom-in"  title="Zoom in">+</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Background Grid -->
       <div class="settings-section">
@@ -233,6 +253,45 @@
             <label><input type="radio" name="bg-scanlines" value="light">  LT</label>
             <label><input type="radio" name="bg-scanlines" value="medium"> MED</label>
             <label><input type="radio" name="bg-scanlines" value="heavy">  HVY</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- RVC Voice Conversion -->
+      <div class="settings-section" id="rvc-settings-section">
+        <div class="settings-section-title">RVC VOICE</div>
+
+        <div class="settings-slider-row">
+          <span class="settings-label">PITCH</span>
+          <input class="settings-slider" type="range" id="rvc-pitch" min="-12" max="12" value="0" step="1" />
+          <span class="settings-slider-val" id="rvc-pitch-val">0 st</span>
+        </div>
+
+        <div class="settings-slider-row">
+          <span class="settings-label">INDEX</span>
+          <input class="settings-slider" type="range" id="rvc-index" min="0" max="100" value="75" step="5" />
+          <span class="settings-slider-val" id="rvc-index-val">0.75</span>
+        </div>
+
+        <div class="settings-slider-row">
+          <span class="settings-label">PROTECT</span>
+          <input class="settings-slider" type="range" id="rvc-protect" min="0" max="50" value="33" step="5" />
+          <span class="settings-slider-val" id="rvc-protect-val">0.33</span>
+        </div>
+
+        <div class="settings-row">
+          <span class="settings-label">SOURCE</span>
+          <select class="settings-select" id="rvc-source">
+            <option value="">Kokoro (default)</option>
+          </select>
+        </div>
+
+        <div class="settings-row">
+          <span class="settings-label">F0 METHOD</span>
+          <div class="settings-radio-group">
+            <label><input type="radio" name="rvc-f0" value="harvest"> HRV</label>
+            <label><input type="radio" name="rvc-f0" value="rmvpe">  RMVPE</label>
+            <label><input type="radio" name="rvc-f0" value="pm">     PM</label>
           </div>
         </div>
       </div>

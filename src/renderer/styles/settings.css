@@ -225,3 +225,65 @@
   letter-spacing: 1px;
   flex-shrink: 0;
 }
+
+/* ── Zoom stepper ───────────────────────────────────────────────────────────── */
+.zoom-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.zoom-btn {
+  background: none;
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.zoom-btn:hover {
+  border-color: var(--cyan);
+  color: #fff;
+  box-shadow: 0 0 6px var(--cyan);
+}
+.zoom-val {
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* ── Source voice dropdown ──────────────────────────────────────────────────── */
+.settings-select {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 5px;
+  flex: 1;
+  cursor: pointer;
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+.settings-select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 4px rgba(0,255,204,0.3);
+}
+.settings-select option {
+  background: #0a1520;
+  color: var(--cyan);
+}
+.settings-select optgroup {
+  color: rgba(0,255,204,0.4);
+  font-style: normal;
+}
