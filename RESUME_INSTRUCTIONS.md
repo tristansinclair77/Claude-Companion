@@ -17,14 +17,26 @@ Read `CLAUDE.md` first, then this file.
 - [x] `docs/rpg/GEAR_NAMES.md` — Rewritten: 18 prefixes + 18 suffixes per rarity tier (Common/Uncommon/Rare/Epic), fantasy weapon/armor type lists, name generation rules, format examples
 - [x] `docs/rpg/ACHIEVEMENTS.md` — Rewritten: 60 achievements (20 Easy / 20 Mid / 20 Hard), zero rewards, count-based tiers, all cyberpunk refs removed, UI section cleaned
 - [x] `docs/rpg/SCALING.md` — Updated: prestige = counter only (removed prestigeStartingBonuses + Ascendant Mode), added Tested Range note (Scope S5), Fix C4 (zone tier min char level formula + reference table), Fix C5 (rarityWeights renormalization note), Fix M6 (shiny hard cap 1/100, no fatigue), Fix M8 (maxHP VIT soft cap formula), Fix m2 (merchant price formula), Fix m3 (trap damage formula)
+- [x] `docs/rpg/RESPONSES.md` — Updated: tiered response counts (HIGH=40/MED=20/LOW=10, ~2,640 total), wipe-to-regenerate policy (no auto-expiry), removed sci-fi keys (quantum_dice, time_crystal, battle_void_banish duplicate), removed prestige_5_ascendant (Ascendant Mode gone), updated force_claude list
 
-### Next Step (awaiting user go-ahead)
-**Update `docs/rpg/RESPONSES.md`** — Wipe-to-regenerate policy, tiered response counts.
+- [x] `docs/rpg/MASTER_DESIGN.md` — Updated: fantasy theme throughout, fixed shiny formula (1/100 cap), fixed prestige section (counter only, all gear/gold retained, no Ascendant Mode), fixed zone count (70/10 tiers), fixed set count (25), replaced cyberpunk prefix/suffix list with fantasy examples + ref GEAR_NAMES.md, fixed UI mockup (fantasy zone/enemy/items), fixed questline chapter IDs
 
-### Remaining After RESPONSES.md (in order, pause between each)
-- [ ] Update `docs/rpg/MASTER_DESIGN.md` — Fantasy theme, locked decisions applied
-- [ ] Scan all docs for cyberpunk/tech references and clean up
-- [ ] Final `docs/rpg/GAMEPLAN.md` update with full Phase 0 checkboxes
+- [x] Cyberpunk/tech scan + cleanup — EFFECTS.md, GEAR.md, LEGENDARIES.md, PROBLEMS.md all updated:
+  - EFFECTS.md: removed neon/pistol/Ascendant Mode/Synthetic Soul refs; renamed level-up sweep to Golden Vertical Sweep; Floating Data Particles section removed
+  - GEAR.md: removed Pistol/Shotgun/SMG/Sniper Rifle/Railgun/Energy Blade weapon types; renamed all tech-named core passives to fantasy equivalents; extended pools replaced with Phase 5 placeholder
+  - LEGENDARIES.md: converted 9 sci-fi weapons (Pistol→Crossbow/Dagger, SMG→Claws rename, Railgun→Staff rename, Energy Blade→Greatsword, Sniper Rifle→Longbow rename, Shotgun→Wand rename); fixed Heartless Chassis + Eternal Circuit prestige mechanics; all passive names updated to match GEAR.md renames; Prestige and Legendaries section rewritten
+  - PROBLEMS.md: marked FIXED (C2, C4, C5, C6, M4, M6, M7, M8, m1, m2, m3, m8, m10, I5, S2, S3, S4); marked PARTIAL (S1, S5); all OPEN issues remain open
+
+- [x] `docs/rpg/GAMEPLAN.md` — Phase 0 all checkboxes marked complete; status updated to "Phase 0 COMPLETE"
+
+## ✅ PHASE 0 COMPLETE
+
+All design documents finalized. Classic fantasy theme applied throughout. Ready for Phase 1 (Addon Foundation).
+
+### Next Step
+**Begin Phase 1: Addon Foundation**
+See `docs/rpg/GAMEPLAN.md` Phase 1 for task list.
+Start with: directory structure + `manifest.json` + addon loader hook in `src/main/main.js`.
 
 ---
 

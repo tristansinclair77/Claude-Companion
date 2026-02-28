@@ -1,7 +1,7 @@
 # RPG Adventure — Implementation Gameplan
 
 Last updated: 2026-02-27
-Status: Phase 0 in progress
+Status: Phase 0 COMPLETE — ready for Phase 1
 
 ---
 
@@ -23,23 +23,26 @@ This phase locks in the fantasy theme and all major design decisions.
 - [x] `docs/rpg/SUGGESTED_FIXES.md` — Updated per user decisions
 
 ### 0.2 — World & Enemy Rewrites
-- [ ] Redo `docs/rpg/ZONES.md` — Classic fantasy zones with non-linear level ranges
-- [ ] Redo `docs/rpg/ENEMIES.md` — Fantasy enemies (goblins, trolls, harpies, dragons, etc.)
-- [ ] Create `docs/rpg/UNIQUE_ZONE_MECHANICS.md` — Shared pool of optional zone mechanics
+- [x] Redo `docs/rpg/ZONES.md` — 70 classic fantasy zones across 10 tiers + special/challenge/questline zones
+- [x] Redo `docs/rpg/ENEMIES.md` — 70 fantasy enemies across 10 archetypes + boss rules + random generator
+- [x] Create `docs/rpg/UNIQUE_ZONE_MECHANICS.md` — 31 named zone mechanics, full IDs, impl notes, zone cross-refs
 
 ### 0.3 — Gear Rewrites
-- [ ] Redo `docs/rpg/GEAR_SETS.md` — Fantasy gear sets (generic pool + a few unique bonuses)
-- [ ] Redo `docs/rpg/GEAR_NAMES.md` — Fantasy prefix/suffix name banks
+- [x] Redo `docs/rpg/GEAR_SETS.md` — 25 fantasy sets (15 Rare + 10 Epic, 5 [UNIQUE]); Runebound Companion replaces Synthetic Soul
+- [x] Redo `docs/rpg/GEAR_NAMES.md` — 18 prefixes + 18 suffixes per rarity tier; fantasy weapon/armor type lists
+- [x] Update `docs/rpg/GEAR.md` — Removed sci-fi weapons; renamed tech-named core passives; extended pools → Phase 5 placeholder
+- [x] Update `docs/rpg/LEGENDARIES.md` — Converted sci-fi weapon legendaries; fixed prestige mechanics; updated passive names
 
 ### 0.4 — System Document Updates
-- [ ] Update `docs/rpg/ACHIEVEMENTS.md` — Easy/Mid/Hard brackets, zero rewards
-- [ ] Update `docs/rpg/SCALING.md` — Prestige as counter, stat realloc on prestige reset
-- [ ] Update `docs/rpg/RESPONSES.md` — Wipe-to-regenerate, no auto-refresh
-- [ ] Update `docs/rpg/MASTER_DESIGN.md` — Fantasy theme applied, all locked decisions
+- [x] Update `docs/rpg/ACHIEVEMENTS.md` — 60 achievements (20/20/20), zero rewards, count-based tiers
+- [x] Update `docs/rpg/SCALING.md` — Prestige = counter only; stat reallocation on prestige; all canonical formulas added
+- [x] Update `docs/rpg/RESPONSES.md` — Wipe-to-regenerate; tiered counts (~2,640 total); sci-fi keys removed
+- [x] Update `docs/rpg/MASTER_DESIGN.md` — Fantasy theme throughout; all locked decisions applied
 
 ### 0.5 — Cleanup & Finalize
-- [ ] Scan all docs for cyberpunk/tech references → replace or remove
-- [ ] Final GAMEPLAN.md update with full Phase 0 completed checkboxes
+- [x] Scan all docs for cyberpunk/tech references → EFFECTS.md, GEAR.md, LEGENDARIES.md, PROBLEMS.md cleaned
+- [x] Update `docs/rpg/PROBLEMS.md` — All fixed/partially-fixed issues marked; open issues remain open
+- [x] Final GAMEPLAN.md update with full Phase 0 completed checkboxes (this entry)
 
 ---
 

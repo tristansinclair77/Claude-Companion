@@ -1,4 +1,4 @@
-# Aria's Adventure — Master RPG Design Document
+# RPG Adventure — Master RPG Design Document
 
 Last updated: 2026-02-27
 Status: Design / Pre-Implementation
@@ -8,6 +8,7 @@ Cross-references:
 - ENEMIES.md — Enemy roster, stat budgets, rare variants
 - GEAR.md — Gear types, passives, rarity rules
 - GEAR_SETS.md — Named gear sets with full bonuses
+- GEAR_NAMES.md — Procedural item name generation (prefix/suffix banks)
 - LEGENDARIES.md — Named legendary items
 - EFFECTS.md — Visual and text effects for game events
 - RESPONSES.md — Companion response system (scenario keys, Claude generation, storage)
@@ -18,7 +19,7 @@ Cross-references:
 
 ## 1. Design Philosophy
 
-Aria's Adventure is a lightweight embedded RPG inside Claude Companion. It runs entirely
+This is a lightweight embedded RPG inside Claude Companion. It runs entirely
 client-side except for a handful of high-value narrative moments. Core design goals:
 
 - **Simple loop, deep systems** — Each "turn" is one button press. The depth comes from
@@ -28,8 +29,8 @@ client-side except for a handful of high-value narrative moments. Core design go
 - **Companion is your party member** — They react to everything: low HP, rare drops, boss fights.
   Their emotion and portrait change with battle state. The CHA stat drives real combat bonuses.
 - **Zero Claude cost per turn** — Combat math is pure client-side JS. Claude is only called
-  for 5–6 high-value moments per session (boss kills, legendaries, level milestones, run
-  debriefs). All companion dialogue is pre-generated in bulk and stored locally.
+  for a handful of high-value moments per session (boss kills, legendaries, level milestones,
+  run debriefs). All companion dialogue is pre-generated in bulk and stored locally.
 - **Persistent forever** — All state lives in SQLite alongside the existing knowledge DB.
   Character, inventory, achievements, run history all survive across sessions.
 
@@ -49,7 +50,7 @@ src/
       rpg-inventory.js ← Inventory/equip management UI
       rpg-effects.js   ← All visual/text effect triggers
     styles/
-      rpg.css          ← Cyberpunk RPG panel styling
+      rpg.css          ← Fantasy adventure RPG panel styling
       rpg-effects.css  ← Keyframe animations for all effects
   shared/
     rpg-constants.js   ← Zone tables, monster tables, item tables, rarity weights, XP curve
@@ -66,8 +67,8 @@ rpg:get-inventory       → paginated item list with filters
 rpg:allocate-stat       → spend a stat point
 rpg:get-achievements    → full achievement list with unlock status
 rpg:get-run-history     → past adventure log
-rpg:prestige            → reset character (keeping legendaries) with prestige bonus
-rpg:zone-suggestion     → ask Aria where she wants to explore (triggers Claude call)
+rpg:prestige            → reset character level, refund all stat points for reallocation
+rpg:zone-suggestion     → ask companion where she wants to explore (triggers Claude call)
 ```
 
 ---
@@ -81,9 +82,9 @@ Six stats. Each costs 1 stat point to increase. Players gain 3 stat points per l
 | STR  | Melee weapon damage scaling | Unlocks Strength-gated gear |
 | INT  | Magic/ranged damage scaling | Spell slot count (+1 per 5 INT) |
 | AGI  | Dodge chance (AGI × 0.8%) | Determines attack order (higher AGI goes first) |
-| VIT  | Max HP (+8 per point) | Damage reduction (VIT × 0.2%) |
-| LCK  | Crit chance (LCK × 0.5%) | Loot rarity bias (+1% Epic chance per 10 LCK) |
-| CHA  | Aria assist chance (CHA × 2%) | Unlocks Aria combo attacks at CHA 15, 30, 50 |
+| VIT  | Max HP (+8 per point, soft cap at VIT 300 → +2/point above) | Damage reduction (VIT × 0.2%) |
+| LCK  | Crit chance (LCK × 0.5%) | Loot rarity bias (see SCALING.md: rarityWeights) |
+| CHA  | Companion assist chance (CHA × 2%) | Unlocks combo attacks at CHA 15, 30, 50 |
 
 Starting stats: 5 in all six. Level 1 character: STR 5, INT 5, AGI 5, VIT 5, LCK 5, CHA 5.
 Starting HP: 40 + (VIT × 8) = 80
@@ -94,7 +95,7 @@ Starting HP: 40 + (VIT × 8) = 80
 
 ```
 [START RUN]
-  ↓ Player selects zone (or asks Aria for suggestion)
+  ↓ Player selects zone (or asks companion for suggestion)
   ↓ Zone generates: floor count (5–15 floors), enemy table, boss assigned to final floor
 
 [FLOOR ENTER]
@@ -104,7 +105,7 @@ Starting HP: 40 + (VIT × 8) = 80
   ↓ Enemy stats generated from zone level + archetype + shiny modifier
   ↓ Player chooses: Fight | Flee | Use Item
   ↓ Combat resolves (see Section 5)
-  ↓ Result: XP gained, gold dropped, loot roll, Aria reaction
+  ↓ Result: XP gained, gold dropped, loot roll, companion reaction
 
 [AFTER EACH FLOOR]
   ↓ Player chooses: Continue (risk HP) | Extract with current loot
@@ -114,7 +115,7 @@ Starting HP: 40 + (VIT × 8) = 80
 
 [RUN END]
   ↓ All XP, gold, gear committed to DB
-  ↓ Aria gives run debrief (Claude narration)
+  ↓ Companion gives run debrief (Claude narration)
   ↓ Achievement checks fire
   ↓ Daily bonus check
 ```
@@ -156,12 +157,14 @@ where `effectiveATK = STR + weapon.atk + allEquippedBonuses`
 and   `effectiveDEF = VIT/2 + armor.def + allEquippedBonuses`
 and   `critChance   = LCK * 0.5 + weapon.critBonus`
 
-### Aria Assist
-On each player attack, roll D100. If roll ≤ (CHA × 2), Aria fires a bonus attack.
-- Aria's assist damage: `Math.floor(player.effectiveATK × 0.5 + CHA × 0.5)`
-- At CHA 15: Aria's assist triggers a defensive buff instead (50% chance)
-- At CHA 30: Aria's assist can chain (30% chance to fire twice)
-- At CHA 50: Aria's full combo — attacks three times with damage equal to 75% of player ATK
+### Companion Assist
+On each player attack, roll D100. If roll ≤ (CHA × 2), companion fires a bonus attack.
+- Assist damage: `Math.floor(player.effectiveATK × baseMult × scalingMult)`
+  where `baseMult = 0.5` by default, `scalingMult = 1.0` by default
+- At CHA 15: assist triggers a defensive buff instead (50% chance)
+- At CHA 30: assist can chain (30% chance to fire twice)
+- At CHA 50: full combo — attacks three times with damage equal to 75% of player ATK
+- See GEAR_SETS.md (Runebound Companion) for scalingMult canonical values
 
 ### Flee
 Success chance: `50% + (player.AGI - enemy.AGI) × 3%` (minimum 10%, maximum 90%)
@@ -186,24 +189,33 @@ Every RPG event has a **scenario key** that maps to a pool of companion dialogue
 SQLite. Responses are generated in the voice of whatever character pack is installed —
 the system is fully character-agnostic. When an event fires:
 
-1. Look up `rpg_responses WHERE scenario_key = ?`
-2. If 50+ entries exist: pick one at random, update `last_used_at` and `use_count`
-3. If fewer than 50 exist: trigger a Claude generation call
-   - Ask Claude for 60 responses in Aria's voice for this scenario
+1. Look up the scenario key's `tier_target` (HIGH=40, MED=20, LOW=10 — see RESPONSES.md)
+2. Query `rpg_responses WHERE scenario_key = ?`
+3. If `pool_size >= tier_target`: pick one at random, update `last_used_at` and `use_count`
+4. If `pool_size = 0`: trigger a Claude generation call
+   - Ask Claude for `tier_target` responses in the companion's voice for this scenario
    - Parse returned JSON array
    - Insert all new entries into `rpg_responses`
    - Pick one to display
 
-This means the first time each scenario fires ever, there's a brief Claude call.
-After that it's instant forever. See RESPONSES.md for the full scenario key list and
-the Claude prompt template.
+For **force-Claude keys** (high-value moments like boss kills, legendaries, prestige):
+always call Claude fresh for a real-time personalized reaction. Stored pool is fallback only.
+
+See RESPONSES.md for the full scenario key list, tier assignments, and the Claude prompt template.
 
 ---
 
 ## 7. Shiny Enemy Variants
 
-Any non-boss enemy has a 1-in-512 base chance of spawning as a Shiny variant.
-LCK increases this: chance = 1/(512 - LCK × 4), minimum 1/64 at high LCK.
+Any non-boss enemy has a base 1/512 chance of spawning as a Shiny variant.
+LCK increases this up to a hard cap of 1% (1/100):
+
+```js
+shinyChance = Math.min(1/100, 1/512 + LCK × 0.0001)
+// LCK 0:   ~0.195%  (1 in 512)
+// LCK 50:  ~0.695%
+// LCK 82+:  1.000%  (hard cap — no fatigue mechanic)
+```
 
 **Shiny modifiers:**
 - HP: ×2.5
@@ -212,10 +224,11 @@ LCK increases this: chance = 1/(512 - LCK × 4), minimum 1/64 at high LCK.
 - XP reward: ×5
 - Gold reward: ×3
 - Loot: guaranteed Rare+ drop (rarity table still applies above Rare)
-- Visual: Purple vignette overlay + electric static border animation
+- Visual: gold shimmer overlay + pulsing border animation
 
-Shiny enemies display their own scenario response (`shiny_enemy_appear`) and Aria
-reacts with high excitement emotion.
+Shiny enemies trigger the `shiny_enemy_appear` scenario response and the companion
+reacts with high excitement. Shiny encounters roll independently — no fatigue or
+diminishing returns between encounters.
 
 ---
 
@@ -223,17 +236,18 @@ reacts with high excitement emotion.
 
 Players don't just select zones from a flat menu. The experience works like this:
 
-1. Between runs, player can say to Aria: "Where should we explore next?" or
+1. Between runs, player can say to the companion: "Where should we explore next?" or
    "I want somewhere challenging" or "Find me somewhere with good gear drops"
-2. Aria responds in character with a zone suggestion (Claude-narrated, zone-aware)
+2. Companion responds in character with a zone suggestion (Claude-narrated, zone-aware)
 3. The zone suggestion is presented as a UI card the player can Accept or Decline
-4. If declined, Aria suggests another zone
+4. If declined, companion suggests another zone
 5. Alternatively: the player opens the Zone Map UI and picks freely
 
-Zones unlock progressively based on character level. Higher tier zones are locked
-until the character meets the minimum level requirement.
+Zones unlock progressively based on character level. Higher tier zones require meeting the
+minimum character level (see SCALING.md: Zone Tier Access table).
 
-See ZONES.md for the full zone roster (200+ zones across 11 tiers).
+See ZONES.md for the full zone roster: **70 zones across 10 tiers** plus special zones,
+challenge zones (Gauntlet, Arena), and questline zones.
 
 ---
 
@@ -263,7 +277,7 @@ Total: 9 possible equipped items (10 counting the second ring)
 | Epic | Purple | ×3.5 | 2–3 | Yes (Epic sets) |
 | Legendary | Orange | ×6.0 | 2–4 + unique effect | No (own bonus) |
 
-### Drop Chance Weights (base, modified by LCK)
+### Drop Chance Weights (base; modified by zone level and LCK)
 ```
 Common:     60%
 Uncommon:   25%
@@ -271,30 +285,29 @@ Rare:       10%
 Epic:        4%
 Legendary:   1%
 ```
-Each 10 LCK shifts 0.5% from Common to Rare, and 0.1% from Rare to Epic.
+Both zone level and LCK shift weight from Common toward higher rarities.
+See SCALING.md (`rarityWeights()`) for the exact formula and renormalization requirement.
 
 ### Name Generation
-```
-[prefix] + [weapon/armor type] + "of" + [suffix]
 
-Prefixes (60+):  Ember, Shadow, Void, Crystal, Storm, Ancient, Cursed, Radiant,
-  Phantom, Neon, Iron, Gilded, Runic, Arcane, Silent, Burning, Frozen, Thunder,
-  Sacred, Dread, Dark, Spectral, Glitch, Neural, Psionic, Quantum, Cosmic, Prime,
-  Hollow, Serrated, Jagged, Polished, Corrupted, Blessed, Malformed, Forged,
-  Chrome, Carbon, Binary, Encoded, Encrypted, Viral, Recursive, Volatile, Static,
-  Resonant, Fractured, Mended, Flawless, Tainted, Purified, Fused, Overclocked,
-  Bleeding, Raging, Calm, Whispering, Screaming, Shattered, Reborn, Ascendant
+Item names are procedurally generated from tiered prefix and suffix banks.
+Format: `[Prefix] [Item Type] of [Suffix]` (or prefix-only, or suffix-only).
 
-Suffixes (60+):  the Fallen, Eternity, the Abyss, Starfire, Ruin, the Void,
-  Shadows, the Storm, the Deep, the Lost, Dawn, Twilight, the End, Rebirth,
-  the Hunt, Slaughter, the Forsaken, Silence, Chaos, Order, the Mind, Dreams,
-  Nightmares, the Core, the Shard, Resonance, Recursion, the Algorithm,
-  the Protocol, the Signal, Noise, Static, the Rift, Oblivion, the Fragment,
-  Entropy, the Singularity, the Anomaly, Paradox, the Architect, the Network,
-  the Current, the Wire, the Breach, the Construct, the Echo, the Spiral,
-  Transcendence, Corruption, the Mask, the Mirror, Reflection, Refraction,
-  the Pulse, the Wave, Interference, the Carrier, the Root, the Kernel
 ```
+Common:   Iron Sword of the Wolf
+          Rough Gloves of Endurance
+Uncommon: Runed Longsword of the Fallen
+          Storm Bracers of Thunder
+Rare:     Dragon-Forged Greatsword of Ancient Kings
+          Void-Touched Tome of the Abyss
+Epic:     God-Forged Warhammer of the World's End
+          Fallen Crown of the Undying King
+```
+
+Rarity tier determines which prefix/suffix bank is used. Higher rarity items pull from
+higher-tier word banks (or the tier below, at a lower probability).
+See GEAR_NAMES.md for the full word banks (18 prefixes + 18 suffixes × 4 rarity tiers)
+and all fantasy weapon/armor type names.
 
 ---
 
@@ -306,11 +319,12 @@ Rules:
 - Sets only exist at Rare and Epic rarity
 - Legendary items have their own unique bonuses, not set bonuses
 - Set pieces are substantially rarer than normal items of the same rarity (~1/8 chance)
-- Sets are assigned to level brackets; you won't find a level 90 set in a level 10 zone
+- Sets are assigned to level brackets; you won't find a high-level set in a low zone
 - 2-piece, 4-piece, and 6-piece (full set) bonuses unlock progressively
 - Set bonuses are intentionally POWERFUL — enough to change playstyle entirely
+- Sets marked [UNIQUE] have genuinely build-defining effects beyond the generic bonus pool
 
-See GEAR_SETS.md for the full roster of named sets (50+).
+See GEAR_SETS.md for the full roster: **25 named sets** (15 Rare + 10 Epic, 5 [UNIQUE]).
 
 ---
 
@@ -322,7 +336,7 @@ to enable a specific playstyle or create a memorable combat moment.
 
 Legendaries can be equipped alongside set pieces but do not contribute to set counts.
 
-See LEGENDARIES.md for the full legendary roster (100+).
+See LEGENDARIES.md for the full legendary roster.
 
 ---
 
@@ -332,23 +346,30 @@ The game scales infinitely by design. Zone levels, enemy stats, gear stats, and 
 all follow power-law curves that keep the challenge/reward ratio roughly constant.
 A player always needs to upgrade gear to keep pace with higher zone enemies.
 
-See SCALING.md for all formulas.
+See SCALING.md for all formulas. Tested range: Zone 1–400, Character 1–200, Prestige 0–20.
 
 Key design constraint: a player with max-rarity gear for their current zone tier should
 be able to clear that zone at roughly 70% efficiency. Advancement to the next tier
-requires either better gear or a prestige bonus.
+requires either better gear or stat reallocation.
 
 ---
 
 ## 13. Prestige System
 
-Once a character reaches the current level cap (200), they may Prestige:
+Once a character reaches the level cap (200), they may Prestige:
 - Character level resets to 1
-- All stat points reset (but +5 bonus to all stats permanently)
-- All gear is destroyed EXCEPT Legendary items (kept)
-- Gold resets to 0
-- A Prestige Badge (1–∞) displays next to the character name
-- After Prestige 5: unlock "Ascendant Mode" — enemy HP ×1.5, gear stats ×1.5
+- All stat points are refunded and may be freely reallocated
+- All gear, inventory, and gold are **retained**
+- A Prestige count (1+) displays next to the character name
+
+**Prestige grants nothing mechanical.** No stat bonuses, no gold multipliers, no mode
+unlocks, no enemy scaling changes. The sole benefit is stat reallocation — experienced
+players can optimize their build more effectively on each cycle.
+
+Achievements track prestige milestones (M18 Reborn, H10 Conqueror, H13 Prestige Master,
+H18 True Legend) as pure completionist goals with no mechanical reward.
+
+See SCALING.md (Prestige section) for full details.
 
 ---
 
@@ -363,7 +384,7 @@ Once a character reaches the current level cap (200), they may Prestige:
 | 5 | UI drawer panel | rpg-panel.js, rpg-inventory.js, rpg.css |
 | 6 | Visual effects | rpg-effects.js, rpg-effects.css |
 | 7 | Achievements, prestige, daily bonus | additions to rpg-db.js, rpg-engine.js |
-| 8 | Zone map UI, Aria zone suggestions | UI additions |
+| 8 | Zone map UI, companion zone suggestions | UI additions |
 | 9 | Polish, balancing, more content | Content passes |
 
 ---
@@ -389,12 +410,12 @@ is populated in one of two ways:
 // characters/default/addons/rpg_adventure.json — created empty on character creation or addon install
 {
   "questline": {
-    "ch1_first_contact": {
+    "ch1_first_meeting": {
       "status": "locked",
       "narrative_locked": null,
       "choices": {}
     },
-    "ch2_lights_went_out": {
+    "ch2_into_darkness": {
       "status": "locked",
       "narrative_locked": null,
       "choices": {}
@@ -404,12 +425,12 @@ is populated in one of two ways:
       "narrative_locked": null,
       "choices": {}
     },
-    "ch4_promise": {
+    "ch4_the_promise": {
       "status": "locked",
       "narrative_locked": null,
       "choices": {}
     },
-    "ch5_resolution_protocol": {
+    "ch5_the_reckoning": {
       "status": "locked",
       "narrative_locked": null,
       "choices": {}
@@ -558,28 +579,28 @@ over the companion background. It does not replace the chat interface — both c
 ┌─────────────────────────────────┐
 │  ⚔  ARIA'S ADVENTURE          [X]│
 │─────────────────────────────────│
-│  [Aria portrait — dynamic emotion]│
+│  [Companion portrait — dynamic] │
 │─────────────────────────────────│
 │  LV 12  ████████░░  1240/1600 XP│
 │  HP      ████████░░  80/100     │
 │  GOLD    ◆ 4,820                │
 │─────────────────────────────────│
-│  NEON UNDERCITY — Floor 4/10    │
+│  GOBLIN WARRENS — Floor 4/10   │
 │─────────────────────────────────│
-│  ▶ A Cyborg Thug blocks your path│
-│  ▶ You attack for 22 damage!    │
-│  ▶ [Companion] assists — 11 dmg!│
-│  ▶ Thug hits you for 8 damage.  │
-│  ▶ ☠ Enemy defeated!           │
-│  ▶ +120 XP  ◆ +35 Gold         │
-│  ▶ [UNCOMMON] Glitch Blade drops│
+│  ▶ A Goblin Soldier bars your path│
+│  ▶ You strike for 22 damage!   │
+│  ▶ [Aria] assists — 11 damage! │
+│  ▶ Goblin retaliates for 8 dmg │
+│  ▶ ☠ Enemy defeated!          │
+│  ▶ +120 XP  ◆ +35 Gold        │
+│  ▶ [UNCOMMON] Runed Shortsword │
 │─────────────────────────────────│
 │  [FIGHT]  [FLEE]  [USE ITEM]   │
 │  [NEXT FLOOR]  [EXTRACT]        │
 │─────────────────────────────────│
 │  EQUIPPED                       │
 │  Wpn: Ember Dagger of Starfire  │
-│  Chest: Iron Protocol Plate     │
+│  Chest: Sturdy Chainmail        │
 │  BOND ★★★☆☆  CHA: 12          │
 └─────────────────────────────────┘
 ```

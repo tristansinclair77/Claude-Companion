@@ -11,7 +11,7 @@ Effects should be:
 - **Instant-read** — You know what happened before you consciously process it
 - **Proportional** — Small events get small effects; legendary drops get full spectacle
 - **Non-blocking** — Most effects play WHILE the game continues, not instead of it
-- **Themed** — Cyberpunk, anime, digital glitch aesthetic throughout
+- **Themed** — Classic fantasy adventure aesthetic throughout
 - **Achievable** — All effects described here are CSS/Canvas/DOM achievable without external libraries
 
 All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.css` (keyframes/styles).
@@ -53,7 +53,7 @@ All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.cs
 **Effect:** Brief orange radial flash + "CRITICAL!" text rises from the hit
 - `background: radial-gradient(circle, rgba(255,140,0,0.4), transparent)` — flash 200ms
 - "CRITICAL!" text appears at enemy card, rises 30px and fades out over 800ms
-- Text style: bold, orange, slight neon glow effect
+- Text style: bold, orange, slight glow effect
 
 ### 1.4 Enemy Critical Hit on Player — Shake + Dark Red Flash
 **Trigger:** Enemy lands a crit on the player
@@ -72,7 +72,7 @@ All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.cs
 **Effect:**
 - Screen dims to 20% brightness over 800ms
 - Red vignette crawls in from all edges simultaneously
-- Boss name renders centered in large text with neon red glow, holds 1.5 seconds
+- Boss name renders centered in large text with deep crimson glow, holds 1.5 seconds
 - Screen brightens back, combat begins
 - Combat log entry: big bold "⚠ BOSS ENCOUNTER ⚠" in red
 
@@ -98,7 +98,7 @@ All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.cs
 ### 1.11 Player Attack Animation — Slash Line
 **Trigger:** Player attacks
 **Effect:** A single diagonal slash line (thin, white or weapon-color) crosses the enemy card and fades in 200ms
-- Different shapes per weapon type: straight line (sword), arc (scythe), dot+line (pistol), wave (whip)
+- Different shapes per weapon type: straight line (sword), arc (scythe), wave (whip), starburst (staff)
 
 ---
 
@@ -130,7 +130,7 @@ All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.cs
 **Effect:** THIS is the big one:
 1. Screen dims to 10% for 200ms
 2. Background fills with slowly rotating rainbow gradient overlay (0.15 opacity)
-3. "LEGENDARY DROP" text sweeps in from left in huge neon orange font
+3. "LEGENDARY DROP" text sweeps in from left in huge golden font
 4. Lightning bolt animations (CSS) fire from corners toward item card
 5. Item card reveals with a burst animation (scales from 0.1 → 1.1 → 1.0 with bounce)
 6. Companion portrait swaps to maximum excitement emotion
@@ -163,12 +163,12 @@ All effects are implemented in `rpg-effects.js` (controller) and `rpg-effects.cs
 
 ## 3. Character Progression Events
 
-### 3.1 Level Up — Neon Gradient Vertical Sweep
+### 3.1 Level Up — Golden Vertical Sweep
 **Trigger:** Character levels up
 **Effect:** THIS is a signature effect:
-1. From the bottom of the entire app window, a bright neon gradient (cyan-to-white) sweeps upward across the ENTIRE UI in 700ms
-2. As it passes, it leaves a brief rainbow afterglow that fades in the following 300ms
-3. "LEVEL UP!" text appears in center screen — enormous, bold, neon white with glow — holds 1s then fades
+1. From the bottom of the entire app window, a bright golden gradient (gold-to-white) sweeps upward across the ENTIRE UI in 700ms
+2. As it passes, it leaves a brief golden afterglow that fades in the following 300ms
+3. "LEVEL UP!" text appears in center screen — enormous, bold, bright white with glow — holds 1s then fades
 4. XP bar resets with a satisfying wipe animation
 5. Companion portrait swaps to a happy/excited emotion
 6. Stat allocation prompt slides up from the bottom of the panel
@@ -183,7 +183,7 @@ Implementation: A `position:fixed` overlay div with the gradient, animated with 
 **Trigger:** Achievement condition met
 **Effect:** A toast notification slides in from the top-right:
 - Dark background, achievement icon/badge
-- Achievement name in bold neon
+- Achievement name in bold gold
 - Brief 300ms slide-in, holds 3 seconds, slides out
 - Small golden glow persists on the achievement name during the hold
 
@@ -222,7 +222,7 @@ Implementation: A `position:fixed` overlay div with the gradient, animated with 
 
 ### 4.3 Run Extraction — Escape Animation
 **Trigger:** Player chooses to extract from a run
-**Effect:** Panel briefly shows a "EXTRACTING..." loading bar in green that completes over 800ms, then results screen slides in
+**Effect:** Panel briefly shows a "ESCAPING..." loading bar in green that completes over 800ms, then results screen slides in
 
 ### 4.4 Player Death — Desaturate + Static
 **Trigger:** Player HP reaches 0 without Iron Will
@@ -280,7 +280,7 @@ Blue transparent shield shimmer on the entity's card, dissipates when barrier is
 **Effect:** Portrait emotion switches, brief starburst animation around portrait border
 
 ### 6.4 Companion Damaged (Assist Fail) — Portrait Shake
-**Trigger:** Companion takes the hit instead of player (from Synthetic Soul set or Aria's Core)
+**Trigger:** Companion takes the hit instead of player (from Runebound Companion set or Aria's Core)
 **Effect:** Portrait briefly shakes (2× left-right), then settles. Brief red tint on portrait (500ms).
 
 ---
@@ -303,8 +303,8 @@ Blue transparent shield shimmer on the entity's card, dissipates when barrier is
 **Trigger:** Void Rune banishes an enemy
 **Effect:** Enemy card rapidly shrinks (scale 1 → 0.1) while a void-black circle expands from center and collapses. Enemy gone. Eerie.
 
-### 7.5 Time Crystal Activates — Clock Rewind
-**Trigger:** Time Crystal undoes the last hit
+### 7.5 Oracle's Shard Activates — Clock Rewind
+**Trigger:** Oracle's Shard undoes the last hit
 **Effect:** Entire panel briefly plays a frame-reverse animation (subtle CSS animation reversing recent transitions), hit damage undone with a white flash
 
 ### 7.6 Boss Special Ability — Warning Flash
@@ -343,8 +343,8 @@ When combo attacks chain (certain weapons/sets), a combo counter appears in top-
 - "x2" in white → "x5" in yellow → "x10" in orange → "x20+" in red with shake
 - Counter pulses with each additional hit
 
-### 8.7 Neon Text Flicker (Ambient)
-Zone name and some UI labels get a subtle random flicker (opacity 1.0 → 0.95 → 1.0) occasionally, like broken neon signs
+### 8.7 Torchlight Flicker (Ambient)
+Zone name and some UI labels get a subtle random flicker (opacity 1.0 → 0.95 → 1.0) occasionally, like flickering torchlight
 
 ---
 
@@ -360,13 +360,10 @@ When no action is happening, companion portrait has a very subtle scale pulse (1
 When player HP is below 20%, the HP bar pulses red slowly (continuous low-opacity glow animation)
 
 ### 9.4 Zone Background Flicker
-Some zones (Glitch, Corrupted, Void types) have ambient background color flickers on the panel — very subtle, gives life to the zone theme
+Some zones (Cursed, Corrupted, Shadow types) have ambient background color flickers on the panel — very subtle, gives life to the zone theme
 
 ### 9.5 Typing Effect for Combat Log
 New lines in the combat log appear with a brief typing effect (characters appear rapidly left to right, 30ms per character for short lines)
-
-### 9.6 Floating Data Particles (High-Tech Zones)
-In tech/AI zones, tiny dots float upward from the panel bottom as ambient animation
 
 ---
 
@@ -380,9 +377,6 @@ When total kill count hits a round number (100, 500, 1000...), brief stats flash
 
 ### 10.3 First Clear of Zone Tier — Zone Banner
 First time a zone tier is fully cleared, a banner sweeps across the screen: "[ZONE NAME] CONQUERED" in that tier's theme color
-
-### 10.4 Ascendant Mode Unlock (Prestige 5) — Dark Mode Shift
-When Ascendant Mode unlocks, the entire RPG panel theme shifts: darker background, more intense border colors, companion portrait gets a dark glow
 
 ---
 

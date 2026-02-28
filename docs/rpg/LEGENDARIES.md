@@ -13,7 +13,7 @@ Status: Design / Pre-Implementation
 - Legendaries are NOT part of any gear set — each stands alone
 - Legendary drop rate is 1% base (modified by LCK)
 - Legendaries are bound to zone tiers — you won't find a T9 legendary in a T1 zone
-- Legendaries survive Prestige (the only items that do)
+- All gear survives Prestige — legendaries are no exception
 - Legendary items glow orange with an animated border effect in the UI
 
 ---
@@ -104,9 +104,9 @@ Unique Effect: Every 7 kills, trigger an "Infinity Fracture" — deal damage to 
 ---
 
 **THE QUIET MACHINE**
-Slot: Weapon (Pistol) | Tier: T2–T4
+Slot: Weapon (Crossbow) | Tier: T2–T4
 
-Flavor: "It makes no sound. You never hear the one that gets you."
+Flavor: "It makes no sound. You never hear the bolt that gets you."
 
 Stats: +55 AGI, +40 LCK, +30 STR, +25 INT
 Passives: Suppressed (cannot trigger enemy backup calls), Precision (first shot always hits)
@@ -114,13 +114,13 @@ Unique Effect: Each consecutive kill without taking damage increases this weapon
 
 ---
 
-**SIGNAL OF THE DEAD**
-Slot: Weapon (SMG) | Tier: T4–T6
+**CHORUS OF THE FALLEN**
+Slot: Weapon (Claws) | Tier: T4–T6
 
-Flavor: "Still broadcasting on a frequency only the dead can hear."
+Flavor: "The voices of those it has killed guide each strike. They demand company."
 
 Stats: +60 AGI, +45 ATK, +30 LCK, +20 VIT
-Passives: Burst (5 hits per turn), Chain Kill (25% chance to execute a bonus shot on kill)
+Passives: Frenzy (5 raking hits per turn), Chain Kill (25% chance to execute a bonus strike on kill)
 Unique Effect: Every 10 kills with this weapon, summon one ghost of a past enemy (fights with you at 50% stats for 3 turns).
 
 ---
@@ -136,14 +136,14 @@ Unique Effect: Every other attack swaps your ATK and the enemy's DEF values for 
 
 ---
 
-**OMEGA COMPILER**
-Slot: Weapon (Railgun) | Tier: T8–T10
+**THE FINAL INCANTATION**
+Slot: Weapon (Staff) | Tier: T8–T10
 
-Flavor: "Charges up from a pool of every error ever made. Fires with the force of their collective weight."
+Flavor: "The last spell ever learned. It took a lifetime to understand. Less than that to cast."
 
 Stats: +100 INT, +80 STR, +50 LCK, +40 AGI
-Passives: Compile (charges 2 turns, then fires), True Damage (all damage ignores DEF entirely)
-Unique Effect: While charging, your other stats increase by 10% each charge turn. On fire, deal bonus damage equal to all accumulated stat gains during charge.
+Passives: Incantation (charges 2 turns, then fires), True Damage (all damage ignores DEF entirely)
+Unique Effect: While channeling, your other stats increase by 10% each charge turn. On release, deal bonus damage equal to all accumulated stat gains during the channel.
 
 ---
 
@@ -181,7 +181,7 @@ Unique Effect: Once per run, read the forbidden page — enemy is immediately re
 ---
 
 **VOIDBRINGER**
-Slot: Weapon (Energy Blade) | Tier: T8–T10
+Slot: Weapon (Greatsword) | Tier: T8–T10
 
 Flavor: "The weapon that ended the last universe. Looking for another opportunity."
 
@@ -201,7 +201,7 @@ Slot: Head | Tier: T3–T5
 Flavor: "It doesn't just see enemies. It sees their choices before they make them."
 
 Stats: +50 INT, +40 AGI, +30 LCK, +20 STR
-Passives: Prescience (see enemy HP), Battle Scan (reveal all abilities)
+Passives: Prescience (see enemy HP), Warrior's Insight (reveal all abilities)
 Unique Effect: Once per combat, know exactly which attack an enemy is about to use. Automatically dodge it (free dodge, no AGI roll required).
 
 ---
@@ -212,7 +212,7 @@ Slot: Head | Tier: T4–T6
 Flavor: "Every enemy you've ever fought lives in here. They gave their lives for your knowledge."
 
 Stats: +60 INT, +40 LCK, +30 VIT, +20 AGI
-Passives: Neural Interface (+15% XP gain), Data Drain (restore HP on kill)
+Passives: Arcane Attunement (+15% XP gain), Life Drain (restore HP on kill)
 Unique Effect: For each unique enemy type you've killed across all runs (tracked in DB), gain +1 to a random stat permanently (up to a cap of +50 per stat). The Memory Palace grows with your history.
 
 ---
@@ -223,7 +223,7 @@ Slot: Head | Tier: T7–T9
 Flavor: "Worn by someone who looked into the void. The void wore it back."
 
 Stats: +80 INT, +60 AGI, +50 LCK, +40 VIT
-Passives: Void Ward (immune to psionic/INT drain), Ghost Signal (10% untargetable per turn)
+Passives: Spirit Ward (immune to psionic/INT drain), Phantom Veil (10% untargetable per turn)
 Unique Effect: While wearing this crown, the void occasionally intervenes (3% per turn) — instantly killing a random enemy on screen, ignoring all immunities.
 
 ---
@@ -238,8 +238,8 @@ Slot: Chest | Tier: T3–T5
 Flavor: "Removed the heart. Installed something better."
 
 Stats: +70 VIT, +50 DEF, +30 STR, +20 AGI
-Passives: Iron Will (survive lethal once), Fortitude (+15% max HP)
-Unique Effect: When Iron Will triggers, your ATK is multiplied by your current Prestige count +1 (devastating retaliation at high prestige).
+Passives: Iron Will (survive lethal once), Fortitude (+12% max HP)
+Unique Effect: When Iron Will triggers, your ATK is tripled for the next 3 turns (devastating retaliation at the brink of death).
 
 ---
 
@@ -249,7 +249,7 @@ Slot: Chest | Tier: T6–T8
 Flavor: "Built to house something that shouldn't have a body."
 
 Stats: +90 VIT, +70 DEF, +50 INT, +30 STR
-Passives: Phase Vest (20% attack pass-through), Barrier (absorbs DEF score in damage at fight start)
+Passives: Phantom Mantle (20% attack pass-through), Barrier (absorbs DEF score in damage at fight start)
 Unique Effect: Each run you clear with this chest equipped, it permanently gains +2 VIT and +1 DEF (stacks infinitely, resets on item drop/destruction).
 
 ---
@@ -260,7 +260,7 @@ Slot: Chest | Tier: T5–T7
 Flavor: "It redirects incoming damage into a place that doesn't exist. Yet."
 
 Stats: +80 VIT, +60 DEF, +40 LCK, +20 INT
-Passives: Resistance (30% to chosen type), Retaliation Matrix (+2 ATK per hit received)
+Passives: Resistance (30% to chosen type), Wrath of the Wounded (+2 ATK per hit received)
 Unique Effect: At maximum Retaliation stacks (10), release all stacks as a single retaliatory strike dealing (stacks × ATK) damage — resets stacks.
 
 ---
@@ -286,7 +286,7 @@ Slot: Hands | Tier: T8–T10
 Flavor: "Compresses everything they touch into its most essential form: damage."
 
 Stats: +90 STR, +70 ATK, +50 INT, +40 LCK
-Passives: Amp Circuit (INT contributes 50% to physical), Execution Protocol (kill-crit chains attacks)
+Passives: Arcane Might (INT contributes 50% to physical), Swift Execution (kill-crit chains attacks)
 Unique Effect: If you deal 0 physical damage in a turn (blocked entirely), the fists "recompile" — dealing true damage equal to your full ATK score on the next turn.
 
 ---
@@ -458,10 +458,10 @@ Unique Effect: Once per run, declare a "null epoch" — for 5 turns, neither you
 - Some legendaries are "long-term investment" items (Memory Palace, Convergence Point, Zero Loop)
 
 ### Prestige and Legendaries
-- After Prestige, you keep all legendaries
-- Some legendaries (Memory Palace, The Architect's Chassis, Zero Loop) grow stronger with prestige
+- After Prestige, all gear is retained — legendaries included
+- Some legendaries (Memory Palace, The Architect's Chassis, Zero Loop) grow stronger with each run or zone clear
 - This creates meaningful reasons to build specific legendary sets for long-term progression
-- A player 5 prestiges deep with a well-chosen legendary set will feel drastically more powerful
+- A player many runs deep with a well-chosen legendary set will feel the accumulated weight of their history
 
 ### Legendary Drop Notes
 - Legendaries can only drop from zone tiers that match their listed range
@@ -509,11 +509,11 @@ Unique: Bleed stacks from Bone Saw Prime never expire until the enemy dies. They
 
 ---
 
-**DEAD CHANNEL** | Weapon (SMG) | T4–T6
-Flavor: "Broadcasts on a frequency that disrupts nervous systems. And everything else."
+**DEAD WHISPER** | Weapon (Claws) | T4–T6
+Flavor: "Carries the voices of those it has killed. The sound disrupts everything. And everything else."
 Stats: +60 AGI, +55 ATK, +35 LCK, +25 INT
-Passives: Burst (5 hits/turn), Signal Jammer (no backup)
-Unique: 5% chance each burst fires a "dead channel pulse" — silences all enemy abilities for 3 turns.
+Passives: Frenzy (5 hits/turn), Silencing Slash (disables call-backup)
+Unique: 5% chance each strike unleashes a "dead whisper" — silences all enemy abilities for 3 turns.
 
 ---
 
@@ -557,11 +557,11 @@ Unique: The Tome "interprets" enemy special abilities. Once per fight: prevent o
 
 ---
 
-**SHATTER PROTOCOL** | Weapon (Railgun) | T7–T9
-Flavor: "Charged with the kinetic force of a dying star. You fire it once. That's enough."
+**THE SHATTERER** | Weapon (Staff) | T7–T9
+Flavor: "Channeled with the force of a dying star. You cast it once. That's enough."
 Stats: +100 STR, +90 INT, +60 LCK, +50 ATK
-Passives: True Damage, Compile (2 turn charge)
-Unique: While charging, each incoming attack adds 10% of its damage to the shot instead of hitting you. Fire a hit that includes all "deflected" incoming damage.
+Passives: True Damage, Incantation (2 turn channel)
+Unique: While channeling, each incoming attack adds 10% of its damage to the spell instead of hitting you. Release a blast that includes all "absorbed" incoming damage.
 
 ---
 
@@ -581,18 +581,18 @@ Unique: Permanently gains +1 to all its stats for each run you clear. It grows w
 
 ---
 
-**GHOST FREQUENCY** | Weapon (Sniper Rifle) | T5–T7
-Flavor: "Fires a round through time. The target was already hit before you pulled the trigger."
+**GHOST SHOT** | Weapon (Longbow) | T5–T7
+Flavor: "Looses an arrow through time. The target was already hit before you drew the string."
 Stats: +75 LCK, +65 AGI, +45 INT, +30 STR
-Passives: Scope (first attack always hits+crits), Patient Reaper (wait bonus damage)
+Passives: Hawk's Eye (first attack always hits+crits), Patient Reaper (wait bonus damage)
 Unique: Hits this turn are resolved at the start of NEXT turn — enemies that die between turns drop loot as if they'd died in combat.
 
 ---
 
-**PROTOTYPE ZERO** | Weapon (Pistol) | T2–T4
-Flavor: "The first one built. Every gun since is a worse copy."
+**PROTOTYPE ZERO** | Weapon (Dagger) | T2–T4
+Flavor: "The first one forged. Every blade since is a worse copy."
 Stats: +60 AGI, +50 LCK, +40 STR, +30 INT
-Passives: Suppressed (no backup), Precision (first shot always hits)
+Passives: Silent Step (no backup), True Strike (first strike always hits)
 Unique: The Prototype learns. Each enemy type you kill with it gains a +5% weakness to Prototype Zero permanently (stored cross-run).
 
 ---
@@ -621,11 +621,11 @@ Unique: Each turn the whip is used, it gains +1 hit (max 10 hits/turn at full ch
 
 ---
 
-**STARDUST CANNON** | Weapon (Shotgun) | T5–T7
-Flavor: "Collects remnants of dead stars. Then redistributes them."
-Stats: +80 STR, +65 LCK, +50 ATK, +35 INT
-Passives: Spread (DEF reduction), Soul Rend (bonus XP on kill)
-Unique: Kills with Stardust Cannon explode into stardust: all enemies in the current floor take 15% of that enemy's max HP as instant damage.
+**STARDUST WAND** | Weapon (Wand) | T5–T7
+Flavor: "Draws from the remnants of dead stars. Then redistributes them across the battlefield."
+Stats: +80 INT, +65 LCK, +50 ATK, +35 STR
+Passives: Scatter (AoE effect, DEF reduction), Soul Rend (bonus XP on kill)
+Unique: Kills with Stardust Wand scatter stardust: all enemies in the current floor take 15% of that enemy's max HP as instant damage.
 
 ---
 
@@ -666,7 +666,7 @@ Unique: Passively records enemy patterns; after 3 fights vs same enemy type, you
 **FRACTURED HALO** | Head | T6–T8
 Flavor: "It fell from somewhere higher. It still carries the altitude."
 Stats: +85 INT, +65 LCK, +50 AGI, +40 VIT
-Passives: Cascade Warning (auto-dodge lethal), Neural Interface (+15% XP)
+Passives: Cascade Warning (auto-dodge lethal), Arcane Attunement (+15% XP)
 Unique: Carries the "light from above" — once per zone tier, reduce all enemies in the current floor to 75% max HP before entering (the light hurts them).
 
 ---
@@ -716,7 +716,7 @@ Unique: Each zone tier you clear, the Living Fortress grows — permanently gain
 **VOID HEART CHASSIS** | Chest | T7–T9
 Flavor: "They removed the heart and installed the void instead. Surprisingly functional."
 Stats: +110 VIT, +90 DEF, +60 INT, +45 STR
-Passives: Phase Vest (20% pass-through), Void Carapace (void dmg -50%)
+Passives: Phantom Mantle (20% pass-through), Void Carapace (void dmg -50%)
 Unique: Once per run: absorb an attack entirely and add its damage value to your next attack (stored indefinitely, released when you next strike).
 
 ---
@@ -859,7 +859,7 @@ Unique: At the end of each run, this ring "converges" — comparing this run's p
 Flavor: "Power flows through it without end. So does time. So does loss."
 Stats: +100 LCK, +90 INT, +75 AGI, +65 STR
 Passives: Amplified Luck, Singularity
-Unique: Each prestige level makes this ring more powerful: +15 to all stats per prestige, permanently, no cap.
+Unique: Each run completed makes this ring more powerful: +2 to all stats per completed run, permanently, no cap. The circuit grows with your history.
 
 ---
 
