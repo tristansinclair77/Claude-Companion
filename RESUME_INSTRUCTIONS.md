@@ -29,9 +29,31 @@ Read `CLAUDE.md` first, then this file.
 
 - [x] `docs/rpg/GAMEPLAN.md` — Phase 0 all checkboxes marked complete; status updated to "Phase 0 COMPLETE"
 
+- [x] **Problem/Fix doc cleanup** (2026-02-28) — All remaining open problems corrected and removed from PROBLEMS.md + SUGGESTED_FIXES.md:
+  - C1: MASTER_DESIGN.md Section 5 DEF formula updated to canonical `floor(VIT/2) + gear.totalDEFBonus + gear.totalVITBonus × 0.2`
+  - C3: CHA 15/30/50 system replaced with canonical CHA table (0–9/10–24/25–49/50/75+ breakpoints) in MASTER_DESIGN.md
+  - M1: Companion zone fallback note added to MASTER_DESIGN.md Section 8; ZONES.md already had [COMPANION-ZONE] tags
+  - M2/M3: Marked FIXED — SPECIAL budget and boss ability rules already existed in ENEMIES.md
+  - M5 (partial): max CHA definition added to MASTER_DESIGN.md; Condition: fields per legendary remain for Phase 2
+  - m4: Marked FIXED — rest room 25% HP already in MASTER_DESIGN.md room weights table
+  - m5: Secret room definition added to MASTER_DESIGN.md (3% per non-boss floor, 2–4 items one rarity above average)
+  - m6: Flee priority order added to MASTER_DESIGN.md Section 5
+  - m7: snake_case naming convention note added to MASTER_DESIGN.md Section 6
+  - m9: LEGENDARIES.md "ARIA'S CORE" renamed to "[CHARACTER]'S CORE" with runtime display name note
+  - I1/I3: Marked resolved (user decisions — visual effects deferred to Phase 9, local-first IPC)
+  - I2: RESPONSES.md index updated to composite `(scenario_key, use_count)`
+  - I4: Companion emotion state machine table added to MASTER_DESIGN.md Section 6
+  - PROBLEMS.md: Stripped to only 3 PARTIAL items (M5, S1, S5)
+  - SUGGESTED_FIXES.md: Stripped to only 3 remaining fixes (M5, S1, S5)
+
 ## ✅ PHASE 0 COMPLETE
 
-All design documents finalized. Classic fantasy theme applied throughout. Ready for Phase 1 (Addon Foundation).
+All design documents finalized. Classic fantasy theme applied throughout. All fixable problems resolved. Ready for Phase 1 (Addon Foundation).
+
+### Remaining Design Issues (not blocking Phase 1)
+- **M5 [PARTIAL]**: Legendary `Condition:` fields — defer to Phase 2 when loot generator is built
+- **S1 [PARTIAL]**: 31 zone mechanics need per-mechanic implementation — stub as "None" in Phase 1–3, implement in Phase 7+
+- **S5 [PARTIAL]**: Balance simulation tooling — Phase 8 task
 
 ### Next Step
 **Begin Phase 1: Addon Foundation**

@@ -84,10 +84,12 @@ Six stats. Each costs 1 stat point to increase. Players gain 3 stat points per l
 | AGI  | Dodge chance (AGI × 0.8%) | Determines attack order (higher AGI goes first) |
 | VIT  | Max HP (+8 per point, soft cap at VIT 300 → +2/point above) | Damage reduction (VIT × 0.2%) |
 | LCK  | Crit chance (LCK × 0.5%) | Loot rarity bias (see SCALING.md: rarityWeights) |
-| CHA  | Companion assist chance (CHA × 2%) | Unlocks combo attacks at CHA 15, 30, 50 |
+| CHA  | Companion assist chance (see CHA table, Section 5) | Max base CHA = 50; gear can exceed this |
 
 Starting stats: 5 in all six. Level 1 character: STR 5, INT 5, AGI 5, VIT 5, LCK 5, CHA 5.
 Starting HP: 40 + (VIT × 8) = 80
+
+> **Max CHA (base stat only):** Legendary item drop conditions referencing "max CHA" always mean base CHA = 50, achievable through stat point allocation alone. Gear can push CHA above 50 to reach the 75+ double-assist breakpoint, but gear-boosted CHA does not satisfy "max CHA" conditions on items.
 
 ---
 
@@ -130,7 +132,8 @@ Starting HP: 40 + (VIT × 8) = 80
 | Mini-Boss | 10% | Elite enemy, better loot |
 | Merchant | 8% | Buy/sell items (gold currency) |
 | Trap | 7% | Deals damage, chance to dodge (AGI check) |
-| Empty | 5% | Nothing — flavor text only |
+| Empty | 2% | Nothing — flavor text only |
+| Secret | 3% | Hidden chamber: 2–4 items one rarity above zone average, no combat, 3% spawn per non-boss floor |
 
 ---
 
@@ -154,22 +157,41 @@ if attackRoll > defenseRoll:
 ```
 
 where `effectiveATK = STR + weapon.atk + allEquippedBonuses`
-and   `effectiveDEF = VIT/2 + armor.def + allEquippedBonuses`
+and   `effectiveDEF = floor(VIT/2) + gear.totalDEFBonus + gear.totalVITBonus × 0.2`
 and   `critChance   = LCK * 0.5 + weapon.critBonus`
 
+*VIT bonuses from gear contribute 20% of their value to effectiveDEF. This makes VIT gear more DEF-efficient than pure DEF gear at high item levels. Canonical formula is in SCALING.md (`playerEffectiveDEF`).*
+
 ### Companion Assist
-On each player attack, roll D100. If roll ≤ (CHA × 2), companion fires a bonus attack.
-- Assist damage: `Math.floor(player.effectiveATK × baseMult × scalingMult)`
-  where `baseMult = 0.5` by default, `scalingMult = 1.0` by default
-- At CHA 15: assist triggers a defensive buff instead (50% chance)
-- At CHA 30: assist can chain (30% chance to fire twice)
-- At CHA 50: full combo — attacks three times with damage equal to 75% of player ATK
-- See GEAR_SETS.md (Runebound Companion) for scalingMult canonical values
+
+Assist damage: `floor(player.effectiveATK × baseMult × scalingMult)`
+where `baseMult = 0.5` by default, `scalingMult = 1.0` by default.
+See GEAR_SETS.md (Runebound Companion) and LEGENDARIES.md for items that modify these multipliers.
+
+#### CHA Breakpoints (Canonical)
+
+| CHA Range | Effect |
+|-----------|--------|
+| 0–9       | No companion assists |
+| 10–24     | `CHA × 2%` chance of assist per player turn |
+| 25–49     | Guaranteed 1 assist at the start of each fight |
+| 50        | Guaranteed 1 assist per player turn (at 50% ATK — baseMult default) |
+| 75+       | Assist fires twice per player turn (gear-boosted only; base stat cap is 50) |
 
 ### Flee
+
 Success chance: `50% + (player.AGI - enemy.AGI) × 3%` (minimum 10%, maximum 90%)
 On failed flee: enemy gets a free attack.
 On successful flee: you lose the floor's progress but keep any loot already obtained.
+
+#### Flee Priority Order
+
+Both sides may attempt to flee on the same turn. Resolution order:
+
+1. **Player flee resolves first.**
+2. **Player succeeds:** combat ends immediately — no XP, no gold, no kill credit. Loot already in bag is kept.
+3. **Player fails:** enemy flee attempt resolves next (if the enemy has flee behavior).
+4. **Enemy flees:** combat ends — no kill credit for the player. Any loot the enemy would have dropped is forfeited.
 
 ### Status Effects
 | Effect | How Applied | Duration | Stackable |
@@ -202,6 +224,35 @@ For **force-Claude keys** (high-value moments like boss kills, legendaries, pres
 always call Claude fresh for a real-time personalized reaction. Stored pool is fallback only.
 
 See RESPONSES.md for the full scenario key list, tier assignments, and the Claude prompt template.
+
+### Scenario Key Naming Convention
+
+All scenario keys use `snake_case`: `zone_entry`, `chest_found_rare`, `boss_killed`, `level_up`.
+IPC event names use `kebab-case`: `rpg:take-action`, `rpg:start-adventure`. These are separate namespaces — never mix the two conventions.
+
+### Companion Emotion State Machine
+
+The companion's portrait emotion updates in response to RPG events. When multiple triggers fire simultaneously, the higher-priority emotion wins.
+
+| Trigger | Emotion | Duration |
+|---------|---------|----------|
+| Combat start | `determined` | Until combat ends |
+| Player kills enemy | `happy` | 3s, then restore previous |
+| Player takes >30% max HP in one hit | `concerned` | 5s |
+| Boss fight entered | `determined` | Until boss dies or player dies |
+| Boss killed | `laughing` → `happy` → `neutral` | 5s per stage |
+| Player HP < 20% | `concerned` | Until HP > 20% |
+| Player HP at exactly 1 | `shocked` | Until HP changes |
+| Player dies | `crying` | 8s, then `neutral` |
+| Legendary drop | `surprised` → `happy` | 3s each |
+| Level up | `happy` | 4s |
+| Companion assist fires | `smug` | 2s, then restore previous |
+| Idle > 30s in combat | `neutral` | Until next trigger |
+
+**Priority (highest overrides lower):**
+`crying` > `shocked` > `concerned` > `laughing` > `surprised` > `determined` > `happy` > `smug` > `neutral`
+
+Emotion decay returns to the previous emotion, not to `neutral`, unless the previous emotion was already `neutral`.
 
 ---
 
@@ -248,6 +299,10 @@ minimum character level (see SCALING.md: Zone Tier Access table).
 
 See ZONES.md for the full zone roster: **70 zones across 10 tiers** plus special zones,
 challenge zones (Gauntlet, Arena), and questline zones.
+
+### Companion Zone Fallback
+
+Zones tagged `[COMPANION-ZONE]` in ZONES.md contain story content tied to the active character pack's questline. If the active character pack does not include `questline.json`, any `[COMPANION-ZONE]` is silently replaced by a generic zone of the same tier with standard loot and enemies. Players who have completed questline chapters see the named companion zone; all others receive a generic substitute with identical mechanical properties.
 
 ---
 

@@ -428,10 +428,11 @@ Unique Effect: Each floor, this trinket analyzes the zone's enemy pool and grant
 
 ---
 
-**ARIA'S CORE**
-Slot: Trinket | Tier: T6–T8 (only drops if companion bond is at max CHA)
+**[CHARACTER]'S CORE**
+Slot: Trinket | Tier: T6–T8 (Condition: base CHA = 50 at time of kill)
+Display name is generated from the active character pack's name field at runtime. Internal DB ID: `char_core`.
 
-Flavor: "They gave you part of themselves. Use it wisely."
+Flavor: "They gave you a piece of themselves. Use it wisely."
 
 Stats: +80 CHA, +60 INT, +50 LCK, +40 VIT
 Unique Effect: Companion assists deal full player ATK damage (not 50%). Companion can now trigger assists on the ENEMY'S turn as an interrupt (25% chance to interrupt an enemy attack entirely). When companion intervenes, they take the hit and you take no damage.

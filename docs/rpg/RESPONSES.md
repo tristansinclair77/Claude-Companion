@@ -54,7 +54,7 @@ CREATE TABLE rpg_responses (
   created_at      TEXT DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_rpg_responses_key ON rpg_responses (scenario_key);
+CREATE INDEX idx_rpg_responses_scenario ON rpg_responses (scenario_key, use_count);
 
 -- Track which scenario keys have been fully generated
 CREATE TABLE rpg_response_generation_log (
