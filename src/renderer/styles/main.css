@@ -28,13 +28,16 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-dark);
   color: var(--cyan);
   font-family: var(--font-mono);
   font-size: clamp(13px, 1vw, 17px);
   line-height: 1.5;
   user-select: none;
 }
+
+/* html background propagates to the viewport canvas.
+   body must stay transparent so z-index: -1 bg effects are visible beneath it. */
+html { background: var(--bg-dark); }
 
 /* ── Title Bar ──────────────────────────────────────────────────────────────── */
 #title-bar {
@@ -215,23 +218,21 @@ html, body {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;      /* stretch so children fill full panel width */
   justify-content: flex-start;
   padding: 12px;
   gap: 0;
   border-left: 1px solid var(--border-glow);
+  overflow: hidden;
 }
 
 #portrait-frame {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;               /* grows to fill space remaining after bars */
   min-height: 0;
-  aspect-ratio: 3 / 4;
-  width: auto;
-  max-width: 100%;
+  overflow: hidden;          /* aspect-ratio removed — object-fit:cover handles it */
   border: 2px solid var(--cyan-dim);
   box-shadow: 0 0 16px #00ffcc22, inset 0 0 16px #00ffcc08;
-  overflow: hidden;
   background: var(--bg-panel);
 }
 
@@ -249,6 +250,14 @@ html, body {
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 20px #00ffcc18;
+}
+
+/* Emotional axis bars — sits below portrait-frame, spans full portrait width */
+#emotion-meters {
+  flex: 0 0 auto;            /* never grows or shrinks; always takes natural height */
+  width: 100%;               /* bars span the full inner width (same as portrait frame) */
+  padding: 8px 0 10px;      /* no horizontal padding — bars go edge-to-edge */
+  border-top: 1px solid #00ff8811;
 }
 
 /* ── Input Area ─────────────────────────────────────────────────────────────── */
@@ -525,6 +534,11 @@ html, body {
 }
 #btn-tts-sync:hover { border-color: var(--cyan); color: var(--cyan); }
 #btn-tts-sync.active {
+  border-color: var(--green);
+  color: var(--green);
+  text-shadow: 0 0 6px var(--green);
+}
+#btn-fast.active {
   border-color: var(--green);
   color: var(--green);
   text-shadow: 0 0 6px var(--green);

@@ -7,8 +7,18 @@
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/crt-effects.css" />
   <link rel="stylesheet" href="styles/animations.css" />
+  <link rel="stylesheet" href="styles/cyberpunk-bg.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
 </head>
 <body>
+
+  <!-- Cyberpunk background effect layers (z-index: -1, behind all UI) -->
+  <div id="bg-grid"      aria-hidden="true"></div>
+  <div id="bg-noise"     aria-hidden="true"></div>
+  <div id="bg-data-rain" aria-hidden="true"></div>
+  <div id="bg-circuit"   aria-hidden="true"></div>
+  <div id="bg-edge-glow" aria-hidden="true"></div>
+  <div id="bg-chroma"    aria-hidden="true"></div>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -32,6 +42,7 @@
       <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
     </div>
     <div id="window-controls">
+      <button id="btn-settings" title="Background &amp; display settings">⚙</button>
       <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
       <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
       <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
@@ -60,6 +71,8 @@
         <img id="companion-portrait" src="" alt="Companion" />
         <div id="portrait-glow" aria-hidden="true"></div>
       </div>
+      <!-- Emotional axis bars (always visible, updated by CompanionDisplay) -->
+      <div id="emotion-meters"></div>
     </div>
 
   </div>
@@ -96,9 +109,10 @@
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-save-chat" title="Save this conversation to Aria's long-term memory">💾 SAVE CHAT</button>
       <button class="action-btn" id="btn-axis"         title="View Aria's persistent emotional axis state">💠 AXIS</button>
-<div class="voice-btn-group">
+      <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
       </div>
+      <button class="action-btn" id="btn-fast" title="Fast mode: brief responses, Haiku model, limited file reading">⚡ FAST</button>
     </div>
 
     <!-- Voice picker popup -->
@@ -112,6 +126,117 @@
     <!-- Emotion picker popup -->
     <div id="emotion-picker" class="hidden">
       <div id="emotion-grid"></div>
+    </div>
+  </div>
+
+  <!-- Settings panel (slides in from right) -->
+  <div id="settings-panel">
+    <div class="settings-header">
+      <span>// DISPLAY_SETTINGS</span>
+      <button id="btn-settings-close" title="Close settings">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <!-- Background Grid -->
+      <div class="settings-section">
+        <div class="settings-section-title">BACKGROUND GRID</div>
+
+        <div class="settings-row">
+          <span class="settings-label">TYPE</span>
+          <div class="settings-radio-group">
+            <label><input type="radio" name="bg-grid" value="off">    OFF</label>
+            <label><input type="radio" name="bg-grid" value="square"> SQR</label>
+            <label><input type="radio" name="bg-grid" value="hex">    HEX</label>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <span class="settings-label">COLOR</span>
+          <div class="settings-swatches">
+            <button class="swatch swatch-cyan"    data-color="cyan"    title="Cyan">●</button>
+            <button class="swatch swatch-magenta" data-color="magenta" title="Magenta">●</button>
+            <button class="swatch swatch-green"   data-color="green"   title="Green">●</button>
+          </div>
+        </div>
+
+        <div class="settings-slider-row">
+          <span class="settings-label">OPACITY</span>
+          <input class="settings-slider" type="range" id="grid-opacity" min="10" max="100" value="100" step="5" />
+          <span class="settings-slider-val" id="grid-opacity-val">100%</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">ANIMATE</span>
+          <button class="settings-toggle" id="toggle-grid-animate">ON</button>
+        </div>
+      </div>
+
+      <!-- Film Grain -->
+      <div class="settings-section">
+        <div class="settings-section-title">FILM GRAIN</div>
+
+        <div class="settings-row">
+          <span class="settings-label">ENABLED</span>
+          <button class="settings-toggle" id="toggle-film-grain">ON</button>
+        </div>
+        <div class="settings-slider-row">
+          <span class="settings-label">INTENSITY</span>
+          <input class="settings-slider" type="range" id="grain-opacity" min="1" max="15" value="5" step="1" />
+          <span class="settings-slider-val" id="grain-opacity-val">5%</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">LIVE SHIFT</span>
+          <button class="settings-toggle" id="toggle-film-grain-animate">ON</button>
+        </div>
+      </div>
+
+      <!-- Overlay Effects -->
+      <div class="settings-section">
+        <div class="settings-section-title">OVERLAY EFFECTS</div>
+
+        <div class="settings-row">
+          <span class="settings-label">DATA RAIN</span>
+          <button class="settings-toggle" id="toggle-data-rain">OFF</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">CIRCUIT</span>
+          <button class="settings-toggle" id="toggle-circuit">OFF</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">EDGE GLOW</span>
+          <button class="settings-toggle" id="toggle-edge-glow">ON</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">CHROM. ABR.</span>
+          <button class="settings-toggle" id="toggle-chroma">ON</button>
+        </div>
+      </div>
+
+      <!-- Axis Meters -->
+      <div class="settings-section">
+        <div class="settings-section-title">AXIS METERS</div>
+
+        <div class="settings-slider-row">
+          <span class="settings-label">BAR WIDTH</span>
+          <input class="settings-slider" type="range" id="bar-width" min="20" max="100" value="100" step="5" />
+          <span class="settings-slider-val" id="bar-width-val">100%</span>
+        </div>
+      </div>
+
+      <!-- Scanlines -->
+      <div class="settings-section">
+        <div class="settings-section-title">SCANLINES</div>
+
+        <div class="settings-row">
+          <span class="settings-label">INTENSITY</span>
+          <div class="settings-radio-group">
+            <label><input type="radio" name="bg-scanlines" value="off">    OFF</label>
+            <label><input type="radio" name="bg-scanlines" value="light">  LT</label>
+            <label><input type="radio" name="bg-scanlines" value="medium"> MED</label>
+            <label><input type="radio" name="bg-scanlines" value="heavy">  HVY</label>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -134,6 +259,7 @@
   <script src="js/mic-controller.js"></script>
   <script src="js/tts-controller.js"></script>
   <script src="js/chat-controller.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

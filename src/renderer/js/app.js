@@ -26,10 +26,29 @@
   });
 
   ChatController.init();
+  BackgroundSettings.init();
 
   // Emotional axis monitor pop-out
   document.getElementById('btn-axis').addEventListener('click', () => {
     window.claudeAPI.openEmotionalState();
+  });
+
+  // Fast mode toggle
+  const btnFast = document.getElementById('btn-fast');
+  function _applyFastBtn(active) {
+    if (active) {
+      btnFast.classList.add('active');
+      btnFast.title = 'Fast mode ON — brief responses, Haiku model, limited file reading (click to disable)';
+    } else {
+      btnFast.classList.remove('active');
+      btnFast.title = 'Fast mode: brief responses, Haiku model, limited file reading';
+    }
+  }
+  window.claudeAPI.getFastMode().then(_applyFastBtn);
+  btnFast.addEventListener('click', async () => {
+    const current = btnFast.classList.contains('active');
+    const next = await window.claudeAPI.setFastMode(!current);
+    _applyFastBtn(next);
   });
 
 // Character selector — name display + picker dropdown
@@ -69,6 +88,9 @@
     if (data && data.character) {
       charNameEl.textContent = data.character.name.toUpperCase();
       CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
+    }
+    if (data && data.fastMode !== undefined) {
+      _applyFastBtn(data.fastMode);
     }
   });
 

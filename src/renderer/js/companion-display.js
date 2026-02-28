@@ -10,6 +10,7 @@ var CompanionDisplay = (() => {
   let typewriterTimer  = null;
   let _pendingDialogue = null;
   let _audioWaitTimer  = null;
+  let _streamedText    = null; // tracks last text pushed via showStreamChunk
   let characterDir = '../../characters/default'; // default; updated from app.js
 
   // ── All 38 single emotions ─────────────────────────────────────────────────
@@ -89,39 +90,47 @@ var CompanionDisplay = (() => {
   let metersEl = null;
 
   function ensureMeters() {
-    if (metersEl) return;
-    metersEl = document.createElement('div');
-    metersEl.id = 'emotion-meters';
-    metersEl.style.cssText =
-      'padding:8px 10px 6px;font-family:"Courier New",monospace;font-size:9px;' +
-      'letter-spacing:1px;color:#336644;border-top:1px solid #00ff8811;margin-top:4px;';
-    const panel = document.getElementById('portrait-panel');
-    if (panel) panel.appendChild(metersEl);
+    // Use the static DOM element added in index.html — no dynamic creation needed
+    if (!metersEl) metersEl = document.getElementById('emotion-meters');
   }
+
+  // Neutral starting state shown at app launch
+  const _NEUTRAL_STATE = { valence: 50, arousal: 50, social: 50, physical: 50 };
+  let _cachedMeterState = null;
 
   function updateMeters(state) {
     ensureMeters();
-    if (!metersEl || !state) return;
+    if (!metersEl) return;
+    // undefined = re-render with cached state (called by _applyBarWidth after padding change)
+    // null/object = update the cache too
+    if (state !== undefined) _cachedMeterState = state;
+    const s = _cachedMeterState || _NEUTRAL_STATE;
     const axes = [
-      { key: 'valence',  label: 'VAL', negLabel: 'NEG', posLabel: 'POS', val: state.valence,  low: '#ff4444', high: '#00ff88' },
-      { key: 'arousal',  label: 'ARO', negLabel: 'CLM', posLabel: 'ACT', val: state.arousal,  low: '#4488ff', high: '#ff8800' },
-      { key: 'social',   label: 'SOC', negLabel: 'SUB', posLabel: 'DOM', val: state.social,   low: '#8844aa', high: '#00ccff' },
-      { key: 'physical', label: 'PHY', negLabel: 'TRD', posLabel: 'HTH', val: state.physical, low: '#888866', high: '#88ff44' },
+      { label: 'VAL', val: s.valence,  low: '#ff4444', high: '#00ff88' },
+      { label: 'ARO', val: s.arousal,  low: '#4488ff', high: '#ff8800' },
+      { label: 'SOC', val: s.social,   low: '#8844aa', high: '#00ccff' },
+      { label: 'PHY', val: s.physical, low: '#888866', high: '#88ff44' },
     ];
 
-    metersEl.innerHTML = axes.map(({ label, negLabel, posLabel, val, low, high }) => {
-      const pct = Math.max(0, Math.min(100, val));
-      // Interpolate color between low and high
-      const t = pct / 100;
-      const color = lerpHex(low, high, t);
-      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">` +
-        `<span style="width:22px;color:#336644;">${label}</span>` +
-        `<span style="width:20px;text-align:right;color:#224433;font-size:8px;">${negLabel}</span>` +
-        `<div style="flex:1;height:4px;background:#0a1a12;border:1px solid #00ff8818;border-radius:2px;overflow:hidden;">` +
-        `<div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width 0.6s ease;"></div>` +
+    // Show 3-letter labels in the left padding area when barWidth ≤ 80
+    const barWidth = parseInt(metersEl.dataset.barWidth || '100', 10);
+    const showLabels = barWidth <= 80;
+
+    metersEl.innerHTML = axes.map(({ label, val, low, high }) => {
+      const pct   = Math.max(10, Math.min(100, val ?? 50));
+      const color = lerpHex(low, high, pct / 100);
+      // Label sits in the left padding area via position:absolute right:calc(100% + 5px)
+      const labelHtml = showLabels
+        ? `<span style="position:absolute;right:calc(100% + 5px);top:0;font-size:7px;` +
+          `letter-spacing:1px;color:#00ff8866;line-height:8px;white-space:nowrap;">${label}</span>`
+        : '';
+      return `<div style="position:relative;height:8px;margin-bottom:7px;">` +
+        labelHtml +
+        `<div style="height:8px;background:#080f0b;border:1px solid #00ff8814;overflow:hidden;">` +
+        `<div style="width:${pct}%;height:100%;background:${color};transition:width 0.6s ease;"></div>` +
         `</div>` +
-        `<span style="width:20px;color:#224433;font-size:8px;">${posLabel}</span>` +
-        `<span style="width:24px;text-align:right;color:${color};font-size:8px;">${Math.round(pct)}</span>` +
+        `<div style="position:absolute;left:0;top:-3px;width:1px;height:14px;background:#00ff8855;"></div>` +
+        `<div style="position:absolute;right:0;top:-3px;width:1px;height:14px;background:#00ff8855;"></div>` +
         `</div>`;
     }).join('');
   }
@@ -162,6 +171,30 @@ var CompanionDisplay = (() => {
     }
   }
 
+  /**
+   * Called as soon as the Claude CLI connects (before API response arrives).
+   * Hides the loading spinner and shows a thinking state so the UI feels alive.
+   */
+  function showThinking() {
+    if (typewriterTimer) { clearTimeout(typewriterTimer); typewriterTimer = null; }
+    setEmotion('thinking');
+    dialogueEl.textContent = '';
+    dialogueEl.classList.add('typewriter-cursor');
+    // _streamedText stays null — showResponse will do a full typewriter render
+  }
+
+  /**
+   * Called in real-time as Claude streams its response. Shows text immediately
+   * without typewriter so the user sees it as Claude generates it.
+   */
+  function showStreamChunk(text) {
+    if (typewriterTimer) { clearTimeout(typewriterTimer); typewriterTimer = null; }
+    _cancelAudioWait();
+    _streamedText = text;
+    dialogueEl.textContent = text;
+    dialogueEl.classList.add('typewriter-cursor');
+  }
+
   function showResponse({ dialogue, thoughts, emotion, source, emotionalState }) {
     // Cancel any previous audio-sync wait (new message arrived)
     _cancelAudioWait();
@@ -182,6 +215,16 @@ var CompanionDisplay = (() => {
 
     // Update meter bars if emotional state provided
     if (emotionalState) updateMeters(emotionalState);
+
+    // If streaming already delivered this exact dialogue, skip re-typing it.
+    // Just finalize the display (emotion/thoughts are already updated above).
+    if (_streamedText !== null && dialogue && _streamedText.trim() === dialogue.trim()) {
+      _streamedText = null;
+      dialogueEl.textContent = dialogue;
+      dialogueEl.classList.remove('typewriter-cursor');
+      return;
+    }
+    _streamedText = null;
 
     // Decide whether to wait for audio before typing
     const syncEnabled = window._ttsState?.waitForAudio && window._ttsState?.voiceEnabled;
@@ -277,9 +320,9 @@ var CompanionDisplay = (() => {
       avatarEl.src = '../../characters/default/avatar-small.png';
     }
 
-    // Show initial meter state
-    if (emotionalState) updateMeters(emotionalState);
+    // Always show meter bars (neutral 50% if no state yet from main process)
+    updateMeters(emotionalState || null);
   }
 
-  return { showResponse, setEmotion, setGreeting, setCharacterDir, updateMeters };
+  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters };
 })();

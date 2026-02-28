@@ -1,3 +1,26 @@
 {
-  "activeCharacter": "default"
+  "activeCharacter": "default",
+  "rvc": {
+    "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
+    "pitchShift": 0
+  },
+  "tts": {
+    "voice": "moet-tts-18:81"
+  },
+  "fastMode": true,
+  "background": {
+    "grid": "hex",
+    "gridColor": "cyan",
+    "gridAnimate": true,
+    "gridOpacity": 10,
+    "barWidth": 80,
+    "filmGrain": true,
+    "filmGrainOpacity": 6,
+    "filmGrainAnimate": true,
+    "dataRain": true,
+    "circuitPattern": true,
+    "edgeGlow": true,
+    "chromaticAberration": true,
+    "scanlinesIntensity": "heavy"
+  }
 }

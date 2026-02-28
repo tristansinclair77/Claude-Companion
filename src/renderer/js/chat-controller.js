@@ -21,6 +21,16 @@ var ChatController = (() => {
 
     const btnSaveChat = document.getElementById('btn-save-chat');
     if (btnSaveChat) btnSaveChat.addEventListener('click', saveChat);
+
+    // Stream partial dialogue from Claude as it generates — hides loading overlay
+    // and shows text in real-time so the user doesn't stare at a blank screen.
+    // When the CLI connects, switch to the thinking portrait while the overlay
+    // stays up — this pre-loads the portrait so it's ready when the overlay drops.
+    window.claudeAPI.on('claude:stream-chunk', ({ text }) => {
+      if (isSending && !text) {
+        CompanionDisplay.showThinking();
+      }
+    });
   }
 
   async function saveChat() {

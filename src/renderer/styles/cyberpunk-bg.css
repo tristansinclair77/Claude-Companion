@@ -1,0 +1,183 @@
+/* ── Cyberpunk Background Effects ─────────────────────────────────────────── */
+/* All layers: fixed, non-interactive, behind all UI (z-index: -1)           */
+
+#bg-grid,
+#bg-noise,
+#bg-data-rain,
+#bg-circuit,
+#bg-edge-glow,
+#bg-chroma {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Perspective Grid ──────────────────────────────────────────────────────── */
+
+#bg-grid {
+  --grid-line: rgba(0, 255, 204, 0.04);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  transform: perspective(600px) rotateX(50deg);
+  transform-origin: center 20%;
+}
+
+#bg-grid.active { opacity: 1; }
+
+#bg-grid.square {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 50px,
+      var(--grid-line) 50px,
+      var(--grid-line) 51px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 50px,
+      var(--grid-line) 50px,
+      var(--grid-line) 51px
+    );
+}
+
+/* Hex grid: background-image set dynamically by settings.js via data URI */
+#bg-grid.hex {
+  background-size: 56px 97px;
+  transform: perspective(600px) rotateX(38deg);
+  transform-origin: center 20%;
+}
+
+@keyframes grid-scroll {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 50px; }  /* square tile = 50px */
+}
+
+@keyframes hex-grid-scroll {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 97px; }  /* hex tile height = 97px (= 3 × R where R=56/√3≈32.33) */
+}
+
+/* Type-specific animations so loop distance matches tile size exactly */
+#bg-grid.square.grid-animate {
+  animation: grid-scroll 6s linear infinite;
+}
+
+#bg-grid.hex.grid-animate {
+  animation: hex-grid-scroll 8s linear infinite;
+}
+
+/* ── Film Grain / Noise ────────────────────────────────────────────────────── */
+
+#bg-noise {
+  /* opacity and animation managed entirely by settings.js */
+  opacity: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+@keyframes grain-shift {
+  0%   { background-position:   0px   0px; }
+  14%  { background-position: -47px  23px; }
+  28%  { background-position:  31px -67px; }
+  42%  { background-position: -83px  11px; }
+  57%  { background-position:  57px -43px; }
+  71%  { background-position: -19px  79px; }
+  85%  { background-position:  71px -29px; }
+  100% { background-position:   0px   0px; }
+}
+
+#bg-noise.grain-animate {
+  animation: grain-shift 0.5s steps(1) infinite;
+}
+
+/* ── Data Rain (Matrix-style) ──────────────────────────────────────────────── */
+
+#bg-data-rain {
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+#bg-data-rain.active { opacity: 1; }
+
+/* Individual rain columns injected by JS */
+.rain-col {
+  position: absolute;
+  top: -20%;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  writing-mode: vertical-rl;
+  white-space: pre;
+  letter-spacing: 6px;
+  animation: rain-fall linear infinite;
+  will-change: transform;
+  user-select: none;
+}
+
+@keyframes rain-fall {
+  0%   { transform: translateY(-20%); }
+  100% { transform: translateY(120vh); }
+}
+
+/* ── Circuit Board Pattern ─────────────────────────────────────────────────── */
+
+#bg-circuit {
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  /* background-image and background-size injected by settings.js (_generateCircuitBg) */
+}
+
+#bg-circuit.active { opacity: 0.08; }
+
+/* ── Gradient Edge Glow ────────────────────────────────────────────────────── */
+
+#bg-edge-glow {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  box-shadow:
+    inset 0 0 80px  rgba(0, 255, 204, 0.07),
+    inset 0 0 200px rgba(255, 0, 170, 0.03);
+}
+
+#bg-edge-glow.active { opacity: 1; }
+
+/* ── Chromatic Aberration ──────────────────────────────────────────────────── */
+
+#bg-chroma {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  box-shadow:
+    inset  3px 0 8px rgba(255, 0, 0, 0.07),
+    inset -3px 0 8px rgba(0, 0, 255, 0.07);
+}
+
+#bg-chroma.active { opacity: 1; }
+
+/* ── Scanline Intensity Overrides ──────────────────────────────────────────── */
+/* Default (.crt-overlay with no extra class) = "light" from crt-effects.css  */
+
+.crt-overlay.scanlines-off { opacity: 0 !important; }
+
+.crt-overlay.scanlines-medium {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.13) 2px,
+    rgba(0, 0, 0, 0.13) 4px
+  );
+}
+
+.crt-overlay.scanlines-heavy {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(0, 0, 0, 0.22) 1px,
+    rgba(0, 0, 0, 0.22) 3px
+  );
+}
