@@ -14,23 +14,14 @@ Read `CLAUDE.md` first, then this file.
 - [x] `docs/rpg/ENEMIES.md` — Rewritten: 70 fantasy enemies across 10 archetypes + boss rules + random generator
 - [x] `docs/rpg/UNIQUE_ZONE_MECHANICS.md` — 31 named zone mechanics, full IDs, descriptions, impl notes, zone cross-refs
 - [x] `docs/rpg/GEAR_SETS.md` — Rewritten: 25 fantasy sets (15 Rare + 10 Epic), 5 [UNIQUE] sets, Last Stand (fixed Zeroth Protocol), Conqueror's Throne (fixed Recursive Throne), Runebound Companion (replaces Synthetic Soul, references scalingMult per Fix M7)
+- [x] `docs/rpg/GEAR_NAMES.md` — Rewritten: 18 prefixes + 18 suffixes per rarity tier (Common/Uncommon/Rare/Epic), fantasy weapon/armor type lists, name generation rules, format examples
+- [x] `docs/rpg/ACHIEVEMENTS.md` — Rewritten: 60 achievements (20 Easy / 20 Mid / 20 Hard), zero rewards, count-based tiers, all cyberpunk refs removed, UI section cleaned
+- [x] `docs/rpg/SCALING.md` — Updated: prestige = counter only (removed prestigeStartingBonuses + Ascendant Mode), added Tested Range note (Scope S5), Fix C4 (zone tier min char level formula + reference table), Fix C5 (rarityWeights renormalization note), Fix M6 (shiny hard cap 1/100, no fatigue), Fix M8 (maxHP VIT soft cap formula), Fix m2 (merchant price formula), Fix m3 (trap damage formula)
 
 ### Next Step (awaiting user go-ahead)
-**Redo `docs/rpg/GEAR_NAMES.md`** — Fantasy prefix/suffix name banks.
+**Update `docs/rpg/RESPONSES.md`** — Wipe-to-regenerate policy, tiered response counts.
 
-Requirements:
-- Prefix bank and suffix bank for generating random gear names
-- Prefixes should reflect material, origin, or quality (e.g., "Ancient", "Runed", "Blessed", "Void-touched")
-- Suffixes should reflect the item's effect or story (e.g., "of the Bear", "of Flame", "of the Fallen")
-- Organized by rarity tier (Common, Uncommon, Rare, Epic — Legendary names are unique per item)
-- ~15–20 prefixes per rarity tier, ~15–20 suffixes per rarity tier
-- All names must use classic fantasy language — no tech/sci-fi terms
-
-### Remaining After GEAR_NAMES.md (in order, pause between each)
-- [ ] Redo `docs/rpg/GEAR_NAMES.md` — Fantasy prefix/suffix name banks
-- [ ] Update `docs/rpg/ACHIEVEMENTS.md` — Easy/Mid/Hard brackets, zero rewards, count-based tiers
-- [ ] Update `docs/rpg/SCALING.md` — Prestige as counter, remove prestige bonus formulas, stat realloc note
-- [ ] Update `docs/rpg/RESPONSES.md` — Wipe-to-regenerate policy, tiered response counts
+### Remaining After RESPONSES.md (in order, pause between each)
 - [ ] Update `docs/rpg/MASTER_DESIGN.md` — Fantasy theme, locked decisions applied
 - [ ] Scan all docs for cyberpunk/tech references and clean up
 - [ ] Final `docs/rpg/GAMEPLAN.md` update with full Phase 0 checkboxes

@@ -1,283 +1,218 @@
-# Aria's Adventure — Item Name Generation Database
+# RPG Adventure — Item Name Generation Database
 
 Last updated: 2026-02-27
-Status: Design / Pre-Implementation
+Status: Phase 0 — Design Complete
 
-This file contains the full prefix and suffix word banks used by the procedural
-item name generator. MASTER_DESIGN.md contains the overview; this file is the
-authoritative content source.
+Prefix and suffix word banks for procedural item name generation.
+Organized by rarity tier. Legendary item names are unique per item (see LEGENDARIES.md).
 
-Format: `[Prefix] [Item Type] of [Suffix]`
+---
+
+## Name Format
+
+```
+[Prefix] [Item Type] of [Suffix]       ← full form
+[Prefix] [Item Type]                   ← prefix only (short form)
+[Item Type] of [Suffix]                ← suffix only (rare, named drops)
+```
+
 Examples:
-  - "Void-Born Greatsword of the Fallen"
-  - "Overclocked Visor of Cold Logic"
-  - "Storm-Kissed Amulet of Burning Resolve"
+- "Iron Sword of the Wolf"             (Common)
+- "Runed Staff of the Fallen"          (Uncommon)
+- "Dragon-Forged Blade of Ancient Kings" (Rare)
+- "God-Forged Warhammer of the World's End" (Epic)
+
+Prefixes and suffixes at each tier can also be used at the tier below (upward only).
+A Rare prefix can appear on an Epic item. A Common prefix never appears on an Epic item.
 
 ---
 
-## PREFIXES (600+)
+## COMMON TIER — Prefixes & Suffixes
 
-### Original Core Set (60)
-Ember, Shadow, Void, Crystal, Storm, Ancient, Cursed, Radiant, Phantom, Neon,
-Iron, Gilded, Runic, Arcane, Silent, Burning, Frozen, Thunder, Sacred, Dread,
-Dark, Spectral, Glitch, Neural, Psionic, Quantum, Cosmic, Prime, Hollow, Serrated,
-Jagged, Polished, Corrupted, Blessed, Malformed, Forged, Chrome, Carbon, Binary,
-Encoded, Encrypted, Viral, Recursive, Volatile, Static, Resonant, Fractured,
-Mended, Flawless, Tainted, Purified, Fused, Overclocked, Bleeding, Raging, Calm,
-Whispering, Screaming, Shattered, Reborn, Ascendant
+Items found in T1–T2 zones. Simple material and quality descriptors.
+No magic. No mystery. Just steel and leather and effort.
 
-### Colors (40)
-Crimson, Cobalt, Amber, Jade, Ivory, Obsidian, Cerise, Slate, Coral, Indigo,
-Vermillion, Teal, Scarlet, Lavender, Turquoise, Umber, Viridian, Carmine, Celadon,
-Ochre, Magenta, Cyan, Mauve, Sienna, Taupe, Periwinkle, Chartreuse, Sable, Aureate,
-Onyxine, Argent, Auric, Ebon, Alabaster, Cinnabar, Verdigris, Fallow, Gamboge,
-Puce, Woad
+### Common Prefixes (18)
+Iron, Copper, Bronze, Wooden, Bone, Leather, Stone, Crude, Worn,
+Sturdy, Sharp, Heavy, Light, Cracked, Weathered, Polished, Rough, Plain
 
-### Materials (45)
-Steel, Titanium, Copper, Bronze, Silver, Gold, Platinum, Alloy, Composite, Ceramic,
-Polymer, Tungsten, Nickel, Mercury, Silicon, Lattice, Matrix, Mesh, Wire, Bismuth,
-Graphene, Fullerene, Aerogel, Nanotube, Carbide, Nitride, Aeronite, Metamaterial,
-Quartz, Obsidian, Basalt, Granite, Marble, Onyx, Topaz, Sapphire, Emerald, Ruby,
-Diamond, Amethyst, Opal, Garnet, Jasper, Flint, Obsidianite
-
-### Digital / Tech States (50)
-Buffered, Cached, Compiled, Executed, Queued, Threaded, Forked, Parsed, Indexed,
-Mapped, Linked, Logged, Traced, Profiled, Minified, Bundled, Deployed, Compressed,
-Archived, Restored, Reformatted, Defragged, Overwritten, Deleted, Recovered, Mirrored,
-Synced, Cloned, Branched, Tagged, Released, Interpreted, Tokenized, Lexed, Validated,
-Sanitized, Hashed, Salted, Signed, Verified, Authenticated, Authorized, Scoped,
-Namespaced, Wrapped, Boxed, Nullable, Optional, Deprecated, Patched
-
-### Physical / Elemental States (50)
-Flickering, Blazing, Pulsing, Dormant, Awakened, Trembling, Steadfast, Fading,
-Surging, Crumbling, Twisting, Warping, Seething, Smoldering, Glowing, Dimming,
-Expanding, Contracting, Vibrating, Oscillating, Cascading, Spiraling, Plummeting,
-Soaring, Drifting, Sinking, Suspended, Orbiting, Looping, Cycling, Shifting,
-Morphing, Transforming, Dissolving, Crystallizing, Solidifying, Vaporizing, Melting,
-Freezing, Igniting, Extinguishing, Flooding, Draining, Filling, Emptying, Charging,
-Discharging, Compressing, Decompressing, Sublimating
-
-### Nature / Organic (45)
-Thorned, Twisted, Gnarled, Flowing, Rigid, Elastic, Brittle, Supple, Dense, Sparse,
-Barbed, Hooked, Curved, Coiled, Tangled, Knotted, Braided, Woven, Laced, Rooted,
-Branched, Leafed, Seeded, Bloomed, Wilted, Dried, Preserved, Fossilized, Petrified,
-Venomous, Toxic, Corrosive, Caustic, Acidic, Alkaline, Reactive, Inert, Stable,
-Symbiotic, Parasitic, Carnivorous, Herbivorous, Omnivorous, Predatory, Scavenged
-
-### Emotions / Psychological (50)
-Wrathful, Mournful, Joyful, Fearful, Curious, Hungry, Yearning, Sorrowful, Triumphant,
-Humbled, Ashamed, Eager, Reluctant, Brave, Cowardly, Patient, Impulsive, Content,
-Restless, Hopeful, Despairing, Furious, Elated, Melancholic, Euphoric, Apathetic,
-Passionate, Devoted, Obsessed, Detached, Focused, Scattered, Resolute, Wavering,
-Determined, Listless, Frenzied, Tranquil, Turbulent, Placid, Agitated, Composed,
-Disturbed, Serene, Anguished, Ecstatic, Dreading, Longing, Mourning, Celebrating
-
-### Cosmic / Abstract (50)
-Eternal, Ephemeral, Primal, Fallen, Transcendent, Absolute, Finite, Infinite, Null,
-Celestial, Infernal, Divine, Profane, Temporal, Causal, Possible, Necessary, Virtual,
-Imaginary, Composite, Atomic, Molecular, Amorphous, Fluid, Primordial, Formless,
-Shapeless, Boundless, Limitless, Edgeless, Centerless, Meaningless, Purposeless,
-Directionless, Timeless, Spaceless, Massless, Weightless, Colorless, Soundless,
-Bodiless, Soulless, Lifeless, Mindless, Omnipresent, Omniscient, Omnipotent, Nascent,
-Decadent, Transcending
-
-### RPG / Fantasy (45)
-Runic, Mystic, Eldritch, Occult, Esoteric, Hermetic, Alchemical, Ritual, Ceremonial,
-Mythic, Heroic, Storied, Fabled, Ancestral, Tribal, Holy, Unholy, Seraphic, Abyssal,
-Druidic, Shamanic, Necromantic, Geomantic, Pyromantic, Hydromantic, Aeromantic,
-Chronomantic, Psychomantic, Theurgic, Goetic, Enochian, Cabalistic, Gnostic, Vedic,
-Tantric, Animistic, Totemic, Preternatural, Supranatural, Hypernatural, Paranatural,
-Metanatural, Ultranatural, Transnatural, Infranatural
-
-### Sci-Fi / Cyberpunk (50)
-Datacentric, Protocol, Handshake, Vector, Raster, Bitmap, Tensor, Scalar, Gradient,
-Divergent, Convergent, Orthogonal, Perpendicular, Parallel, Sequential, Concurrent,
-Distributed, Centralized, Decentralized, Federated, Sharded, Partitioned, Replicated,
-Consistent, Available, Eventually, Strongly, Weakly, Causally, Serially, Atomically,
-Heuristic, Probabilistic, Stochastic, Deterministic, Algorithmic, Heuristic, Iterative,
-Recursive, Imperative, Declarative, Functional, Object-Oriented, Event-Driven, Reactive,
-Asynchronous, Synchronous, Blocking, Non-Blocking, Streaming
-
-### Action / Verb-Based (45)
-Striking, Slashing, Piercing, Crushing, Searing, Rending, Tearing, Cutting, Slicing,
-Grinding, Smashing, Shattering, Splitting, Cleaving, Spinning, Whirling, Throbbing,
-Beating, Ticking, Calculating, Synthesizing, Constructing, Dismantling, Consuming,
-Devouring, Absorbing, Reflecting, Refracting, Diffracting, Amplifying, Attenuating,
-Modulating, Transmitting, Receiving, Broadcasting, Scanning, Targeting, Tracking,
-Projecting, Deflecting, Channeling, Redirecting, Interrupting, Disrupting, Bypassing
-
-### Compound / Hyphenated (50)
-Storm-Born, Star-Crossed, Moon-Touched, Sun-Kissed, Night-Bound, Day-Lit,
-Fire-Forged, Ice-Carved, Thunder-Struck, Void-Born, Shadow-Clad, Light-Wrapped,
-Death-Touched, Life-Blessed, Time-Worn, War-Torn, Peace-Sworn, Fate-Sealed,
-Doom-Wrought, Hope-Given, Faith-Lost, Dream-Woven, Nightmare-Spun, Truth-Carved,
-Lie-Shaped, Love-Forged, Hate-Tempered, Blood-Soaked, Soul-Bound, Mind-Locked,
-Code-Woven, Data-Forged, Signal-Lost, Noise-Born, Error-Wrought, Cache-Bound,
-Zero-Touched, Null-Kissed, Overflow-Scarred, Stack-Bound, Heap-Torn, Root-Claimed,
-Kernel-Touched, Source-Born, Compiled-Once, Deprecated-Yet-Used, Legacy-Bound,
-Patch-Scarred, Hotfix-Forged, Version-Zero
+### Common Suffixes (18)
+of the Wolf, of the Bear, of the Boar, of Strength, of the Hunt, of the Blade,
+of the Road, of Endurance, of the Forest, of Stone, of Blood, of the Wanderer,
+of the Frontier, of Iron, of Speed, of the Soldier, of the Watchman, of Ruin
 
 ---
 
-## SUFFIXES (600+)
+## UNCOMMON TIER — Prefixes & Suffixes
 
-### Original Core Set (59)
-the Fallen, Eternity, the Abyss, Starfire, Ruin, the Void, Shadows, the Storm,
-the Deep, the Lost, Dawn, Twilight, the End, Rebirth, the Hunt, Slaughter,
-the Forsaken, Silence, Chaos, Order, the Mind, Dreams, Nightmares, the Core,
-the Shard, Resonance, Recursion, the Algorithm, the Protocol, the Signal, Noise,
-Static, the Rift, Oblivion, the Fragment, Entropy, the Singularity, the Anomaly,
-Paradox, the Architect, the Network, the Current, the Wire, the Breach,
-the Construct, the Echo, the Spiral, Transcendence, Corruption, the Mask,
-the Mirror, Reflection, Refraction, the Pulse, the Wave, Interference,
-the Carrier, the Root, the Kernel
+Items found in T2–T4 zones. Better materials, light enchantments, named origins.
 
-### "of the [place/phenomenon]" (80)
-the Vortex, the Summit, the Depths, the Horizon, the Zenith, the Nadir,
-the Threshold, the Origin, the Overture, the Climax, the Resolution, the Conflict,
-the Tide, the Moon, the Sun, the Stars, the Cosmos, the Balance, the Flame,
-the Frost, the Lightning, the Earth, the Sky, the Sea, the Wind, the Ice,
-the Thunder, the Shadow, the Light, the Dark, the Dusk, the Dawn, the Noon,
-the Midnight, the Morning, the Evening, the Night, the Age, the Era, the Epoch,
-the Moment, the Instant, the Lifetime, the Path, the Road, the Journey,
-the Destination, the Return, the Departure, the Arrival, the Trench, the Peak,
-the Valley, the Plains, the Desert, the Tundra, the Ocean, the River, the Lake,
-the Mountain, the Crater, the Chasm, the Cliff, the Cave, the Tunnel, the Bridge,
-the Gate, the Door, the Wall, the Tower, the Spire, the Citadel, the Sanctum,
-the Vault, the Archive, the Library, the Forum, the Arena, the Colosseum
+### Uncommon Prefixes (18)
+Steel, Silver, Gilded, Runed, Carved, Blessed, Enchanted, Ancient, Cursed,
+Shadow, Storm, Ember, Frost, Veteran's, Thorned, Barbed, Hollow, Tempered
 
-### "of [abstract concept]" (80)
-Valor, Courage, Strength, Wisdom, Knowledge, Power, Glory, Honor, Shame, Pride,
-Humility, Grace, Fury, Wrath, Peace, War, Love, Hate, Hope, Despair,
-Faith, Doubt, Truth, Lies, Life, Death, Time, Space, Matter, Energy,
-Force, Motion, Stillness, Silence, Sound, Light, Darkness, Color, Shape, Form,
-Transformation, Transmutation, Transcendence, Descent, Ascent, Progression,
-Regression, Evolution, Devolution, Creation, Destruction, Preservation, Change,
-Stasis, Flux, Permanence, Impermanence, Continuity, Existence, Nonexistence,
-Being, Becoming, Remembering, Forgetting, Finding, Losing, Gaining, Giving,
-Taking, Making, Breaking, Healing, Wounding, Binding, Freeing, Expanding,
-Contracting, Growing, Shrinking, Rising, Falling
-
-### "of [virtue/concept] [noun]" (80)
-Burning Resolve, Frozen Will, Shattered Dreams, Mended Hopes, Lost Causes,
-Found Purpose, Hidden Truths, Revealed Secrets, Ancient Promise, New Beginnings,
-Final Stand, First Strike, Last Resort, Second Chance, Third Eye,
-Broken Chains, Forged Bonds, Severed Ties, Renewed Vows, Forgotten Oaths,
-Dark Purpose, Bright Fury, Cold Logic, Warm Heart, Iron Will,
-Glass Heart, Stone Mind, Liquid Fire, Solid Shadow, Living Death,
-Dead Stars, Living Moons, Dying Suns, Newborn Nebulae, Ancient Galaxies,
-Fractured Reality, Mended Space, Torn Time, Bound Fate, Free Choice,
-Calculated Risk, Random Chance, Perfect Odds, Zero Probability, Certain Doom,
-Endless Night, Eternal Dawn, Perpetual Dusk, Infinite Noon, Absolute Zero,
-Maximum Heat, Perfect Vacuum, Complete Fullness, Total Emptiness, Pure Potential,
-Kinetic Fury, Static Calm, Dynamic Balance, Fixed Point, Moving Target,
-Known Quantity, Unknown Variable, Solved Mystery, Unsolved Problem, Perfect Answer,
-Wrong Question, Right Mistake, Correct Error, True Falsehood, False Truth,
-Shattered Glass, Unbroken Steel, Spilled Blood, Preserved Memory, Deleted History,
-Written Code, Compiled Dreams, Runtime Errors, Handled Exceptions, Unhandled Rage,
-Lost Signals, Found Frequencies, Broadcast Secrets, Received Truths, Transmitted Lies
-
-### "the [adjective]" titles (100)
-the Unyielding, the Steadfast, the Relentless, the Merciless, the Compassionate,
-the Wise, the Foolish, the Ancient, the Young, the Timeless, the Eternal, the Ephemeral,
-the Lost, the Found, the Hidden, the Revealed, the Forgotten, the Remembered,
-the Broken, the Mended, the Shattered, the Whole, the Fractured, the Solid,
-the Empty, the Full, the Silent, the Loud, the Bright, the Dark, the Clear,
-the Obscure, the Sharp, the Dull, the Strong, the Weak, the Fast, the Slow,
-the High, the Low, the Deep, the Shallow, the Great, the Small, the Mighty,
-the Humble, the Proud, the Ashamed, the Bold, the Timid, the Fierce, the Gentle,
-the Wild, the Tame, the Free, the Bound, the Pure, the Corrupted, the Living,
-the Dead, the Sleeping, the Wakened, the Dreaming, the Real, the False, the True,
-the Good, the Evil, the Neutral, the Balanced, the Extreme, the Moderate,
-the Sacred, the Profane, the Holy, the Wicked, the Righteous, the Damned,
-the Chosen, the Rejected, the Complete, the Incomplete, the Perfect, the Flawed,
-the Undying, the Mortal, the Infinite, the Finite, the Luminous, the Opaque,
-the Resonant, the Dissonant, the Harmonious, the Discordant, the Ordered, the Chaotic,
-the Inevitable, the Accidental, the Deliberate, the Unintended
-
-### "the [role/title]" — the Noun (100)
-the Wanderer, the Seeker, the Finder, the Keeper, the Watcher, the Guardian,
-the Protector, the Destroyer, the Creator, the Annihilator, the Builder, the Breaker,
-the Maker, the Unmaker, the Healer, the Killer, the Hunter, the Prey,
-the Predator, the Victim, the Champion, the Challenger, the Victor, the Defeated,
-the Teacher, the Student, the Master, the Apprentice, the Leader, the Follower,
-the First, the Last, the Traveler, the Exile, the Returner, the Stranger,
-the Familiar, the Friend, the Enemy, the Ally, the Warrior, the Pacifist,
-the Fighter, the Surrenderer, the Attacker, the Defender, the Striker, the Blocker,
-the Dreamer, the Pragmatist, the Idealist, the Realist, the Optimist, the Pessimist,
-the Believer, the Doubter, the Ancient, the Child, the Elder, the Youth,
-the Lawful, the Chaotic, the Observer, the Participant, the Narrator, the Actor,
-the Witness, the Judge, the Executioner, the Pardoner, the Accuser, the Advocate,
-the Architect, the Demolisher, the Planner, the Improviser, the Strategist, the Tactician,
-the Calculator, the Gambler, the Certainty, the Possibility, the Probability, the Outcome,
-the Compiler, the Interpreter, the Debugger, the Tester, the Deployer, the Monitor,
-the Administrator, the User, the Root, the Guest, the Owner, the Visitor,
-the Pilgrim, the Heretic, the Prophet, the Skeptic
-
-### Encrypted / Digital Suffixes (60)
-the Handshake, the Packet, the Datagram, the Payload, the Header, the Footer,
-the Signature, the Hash, the Salt, the Seed, the Key, the Certificate,
-the Token, the Session, the Cookie, the Cache, the Buffer, the Register,
-the Stack, the Heap, the Queue, the Tree, the Graph, the Node, the Edge,
-the Vertex, the Loop, the Branch, the Merge, the Commit, the Tag, the Release,
-the Build, the Deploy, the Rollback, the Hotfix, the Patch, the Version,
-the Fork, the Clone, the Pull, the Push, the Fetch, the Diff, the Blame,
-the Log, the Trace, the Breakpoint, the Assert, the Exception, the Error,
-the Warning, the Debug, the Release, the Compile, the Link, the Execute,
-the Process, the Thread, the Mutex, the Semaphore
+### Uncommon Suffixes (18)
+of the Champion, of the Fallen, of the Wilds, of Valor, of Courage,
+of Flame, of Frost, of Thunder, of the Depths, of the Night,
+of the Mountains, of the Knight, of the Exile, of the Forsaken,
+of the Ruin, of Ash, of the Blade-Saint, of the Old Kingdom
 
 ---
 
-## WEAPON TYPE NAMES (50+)
-Full list for the name generator's item type slot:
+## RARE TIER — Prefixes & Suffixes
+
+Items found in T4–T7 zones. Named magic, legendary materials, mythic origins.
+
+### Rare Prefixes (18)
+Dragon-Forged, Void-Touched, Sacred, Arcane, Dread, Infernal, Seraphic, Runic,
+Ancestral, Mystic, Dark, Crimson, Obsidian, Bone-Carved, Eldritch, Warden's,
+Death-Touched, Consecrated
+
+### Rare Suffixes (18)
+of the Dragon, of the Abyss, of the Undying, of Ancient Kings, of Eternity,
+of the Demon, of Sacred Flame, of the Warlord, of Twilight, of the Void,
+of Slaughter, of the Pact, of the Elder Gods, of Lost Kingdoms, of Corruption,
+of the Bound, of the Lich, of the Sunken King
+
+---
+
+## EPIC TIER — Prefixes & Suffixes
+
+Items found in T7–T10 zones. World-altering power. Divine or cosmic language.
+
+### Epic Prefixes (18)
+God-Forged, Primordial, Celestial, Eternal, Undying, World-Shatter,
+Divine, Abyssal, Sovereign, Conquest, Last, Forsaken, Fallen,
+Dragon-Emperor's, Void-Sovereign, Godslayer's, First-Age, Tomb-Risen
+
+### Epic Suffixes (18)
+of the Ages, of the World's End, of Transcendence, of the Final Frontier,
+of Dragon's Wrath, of the Dying God, of the Undying King, of the Breaking World,
+of the Eternal Flame, of Creation's End, of the Conqueror, of Dawn's Reckoning,
+of the Last Stand, of the Elder World, of Infinite Sorrow, of the Shattered Realm,
+of the God's Rest, of Oblivion
+
+---
+
+## Item Types — Weapons
+
+Used in the `[Item Type]` slot. All fantasy — no firearms, no tech.
 
 ### Swords & Blades
 Sword, Greatsword, Longsword, Shortsword, Broadsword, Falchion, Sabre, Scimitar,
-Rapier, Estoc, Gladius, Claymore, Bastard Sword, Hand-and-a-Half, Kriegsmesser
+Rapier, Gladius, Claymore, Bastard Sword, Blade, War Blade
 
 ### Daggers & Short Blades
-Dagger, Dirk, Stiletto, Shiv, Tanto, Kris, Baselard, Misericorde, Seax, Rondel
+Dagger, Dirk, Stiletto, Tanto, Kris, Rondel, Shiv, Seax
 
-### Polearms
-Spear, Halberd, Glaive, Naginata, Naginata-Yari, Partisan, Voulge, Ranseur, Fauchard, Lance
+### Polearms & Reach
+Spear, Halberd, Glaive, Lance, Pike, Ranseur, Poleaxe
 
-### Axes & Heavy Weapons
-Axe, Greataxe, Hatchet, Tomahawk, Bardiche, Labrys, Francisca, War-Axe, Splitting Axe
+### Axes
+Axe, Greataxe, Hatchet, Bardiche, War Axe, Battle Axe, Splitting Axe
 
-### Hammers & Clubs
-Hammer, Warhammer, Maul, Mace, Morningstar, Flail, Scepter, Club, Kanabō, Tetsubo
-
-### Flexible Weapons
-Whip, Chain, Scourge, Kusarigama, Urumi, Meteor Hammer, Rope Dart, Manriki
-
-### Blade Combos
-Dual Blades, Twin Daggers, Butterfly Swords, Sai, Tonfas, Kama, Jitte, Deer Antler
-
-### Exotic Melee
-Chakram, Katar, Punch Dagger, Gauntlet Blade, Arm Blade, Spine Blade, Hook Sword
+### Hammers & Blunt
+Hammer, Warhammer, Maul, Mace, Morningstar, Flail, Scepter, Club, Great Maul
 
 ### Scythes & Curved
-Scythe, War Scythe, Sickle, Kama, Falx, Kopesh, Shotel, Hook
+Scythe, War Scythe, Sickle, Hook, Falx
 
-### Claws & Natural
-Claws, Rending Gloves, Talon Grips, Bone Knuckles, Spike Knuckles, Vibro-Claws
+### Staves & Arcane Foci
+Staff, Wand, Rod, Orb, Crystal Focus, Bone Staff, Living Staff, Runestone Staff
 
-### Staves & Magical
-Staff, Wand, Rod, Scepter, Orb-Staff, Crystal Wand, Bone Staff, Living Staff, Void Staff
+### Tomes & Grimoires
+Tome, Grimoire, Codex, Spellbook, Rune-Etched Scroll
 
-### Tomes & Codices
-Tome, Grimoire, Codex, Spellbook, Manuscript, Compendium, Index, Lexicon
+### Bows
+Bow, Longbow, Shortbow, Hunting Bow, Recurve Bow, Crossbow
 
-### Bows & Projectile
-Bow, Longbow, Shortbow, Recurve Bow, Compound Bow, Crossbow, Hand Crossbow, Ballista
+### Claws & Fist Weapons
+Claws, Talon Grips, Knuckle Blades, Bone Knuckles, Fist Spikes
 
-### Firearms (Cyberpunk tier)
-Pistol, Revolver, SMG, Assault Rifle, Sniper Rifle, Shotgun, Railgun, Gauss Rifle,
-PDW, Carbine, Bullpup, Designated Marksman Rifle, Anti-Materiel Rifle, Gyrojet Pistol
+---
 
-### Energy Weapons
-Energy Blade, Plasma Cutter, Arc Whip, Laser Sword, Photon Lance, Ion Cannon,
-Pulse Rifle, Disruptor, Vortex Cannon, Gravity Lance, Neural Disruptor
+## Item Types — Armor & Accessories
 
-### Improvised / Exotic
-Wrench, Pipe, Crowbar, Bat, Chain Saw, Drill, Nail Gun, Flamethrower, Cryo-Gun
+Used in the `[Item Type]` slot for non-weapon slots.
+
+### Helms
+Helm, Helmet, Crown, Circlet, Hood, Coif, Visor, Cap, Skull Cap, Great Helm
+
+### Chest
+Plate Armor, Chainmail, Brigandine, Scale Mail, Breastplate, Cuirass, Hauberk,
+Leather Jerkin, Robe, Vestment, Coat, Surcoat, Tabard
+
+### Gloves / Bracers
+Gauntlets, Bracers, Gloves, Grips, Wraps, Armguards, Vambraces
+
+### Boots
+Boots, Greaves, Sabatons, Sandals, Treads, Shoes, War Boots, Iron Boots
+
+### Belt
+Belt, Girdle, Sash, War Belt, Studded Belt
+
+### Ring
+Ring, Band, Signet Ring, Seal Ring, Carved Ring
+
+### Amulet / Necklace
+Amulet, Pendant, Necklace, Torc, Talisman, Locket, Medallion
+
+### Trinket / Offhand
+Trinket, Charm, Relic, Fetish, Idol, Carved Bone, Sigil Stone, Runed Token,
+Focus Crystal, Ancient Coin, Blessed Effigy
+
+---
+
+## Name Generation Rules
+
+### Rarity-Appropriate Prefix Selection
+- Common  : pick 1 prefix from Common pool only
+- Uncommon: pick 1 prefix from Common or Uncommon pool (70% Uncommon)
+- Rare    : pick 1 prefix from Uncommon or Rare pool (75% Rare)
+- Epic    : pick 1 prefix from Rare or Epic pool (80% Epic)
+
+### Rarity-Appropriate Suffix Selection
+- Same distribution as prefix selection above, applied independently.
+
+### Format Selection
+- 60% chance: `[Prefix] [ItemType] of [Suffix]`  — full form
+- 25% chance: `[Prefix] [ItemType]`               — prefix only
+- 15% chance: `[ItemType] of [Suffix]`            — suffix only (feels like a proper name)
+
+### Set Piece Names
+Set pieces use their set-specific name (e.g., "Ironwall Helm") instead of the random
+generator. The generator is only for non-set drops.
+
+### Legendary Names
+Legendary item names are fixed per item and never generated procedurally.
+See LEGENDARIES.md for all named legendary items.
+
+---
+
+## Examples by Rarity
+
+```
+Common    — Iron Sword of the Wolf
+            Rough Gloves of Endurance
+            Cracked Staff of Ruin
+
+Uncommon  — Runed Longsword of the Fallen
+            Storm Bracers of Thunder
+            Carved Amulet of the Old Kingdom
+
+Rare      — Dragon-Forged Greatsword of Ancient Kings
+            Void-Touched Tome of the Abyss
+            Ancestral Helm of the Lich
+            Eldritch Pendant of Lost Kingdoms
+
+Epic      — God-Forged Warhammer of the World's End
+            Primordial Robe of the Dying God
+            Eternal Blade of Creation's End
+            Fallen Crown of the Undying King
+```
+
+---
+
+*See docs/rpg/GEAR_SETS.md for named set piece names.*
+*See docs/rpg/LEGENDARIES.md for unique legendary item names.*
+*See docs/rpg/CLAUDE.md for theme rules.*
