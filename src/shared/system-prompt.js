@@ -115,9 +115,9 @@ Backstory: ${character.backstory}
   const trackerEntries = Object.entries(trackers || {});
   if (trackerEntries.length > 0) {
     const lines = trackerEntries.map(([k, v]) => `  ${k}: ${v}`).join('\n');
-    sections.push(`=== YOUR PERSONAL TRACKERS ===\nThings you've chosen to keep count of. These are ALL your current trackers — use these EXACT names in [TRACK] tags to modify, set, or delete them:\n${lines}\n=== END TRACKERS ===`);
+    sections.push(`=== YOUR PERSONAL TRACKERS ===\nThis IS your complete tracker list — you can read and report these to the user directly. No tool or command needed. If the user asks what you're tracking, just tell them.\nTo modify them, use the EXACT names below in [TRACK] tags:\n${lines}\n=== END TRACKERS ===`);
   } else {
-    sections.push(`=== YOUR PERSONAL TRACKERS ===\n(none yet — you haven't started tracking anything)\n=== END TRACKERS ===`);
+    sections.push(`=== YOUR PERSONAL TRACKERS ===\n(none — you haven't started tracking anything yet)\n=== END TRACKERS ===`);
   }
 
   // 8. Emotional baseline (persistent axis state)
