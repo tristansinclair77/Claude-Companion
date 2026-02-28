@@ -19,10 +19,17 @@ const ttsEngine = require('./tts-engine');
 const CHARACTERS_BASE = path.join(__dirname, '../../characters');
 const CONFIG_PATH     = path.join(__dirname, '../../config.json');
 
+function readConfig() {
+  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')); } catch { return {}; }
+}
+
+function writeConfig(updates) {
+  const cfg = readConfig();
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...cfg, ...updates }, null, 2));
+}
+
 function getActiveCharacterName() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')).activeCharacter || 'default';
-  } catch { return 'default'; }
+  return readConfig().activeCharacter || 'default';
 }
 
 const ACTIVE_CHARACTER = getActiveCharacterName();
@@ -37,6 +44,7 @@ let localBrain;
 let character;
 let characterRules;
 let fillerResponses;
+let _fastMode = false;
 
 // ── App Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -148,6 +156,21 @@ app.whenReady().then(() => {
   initBrain();
   ttsEngine.startVitsServer();
 
+  // Configure and start RVC voice conversion server
+  const rvcCfg = readConfig().rvc || {};
+  ttsEngine.setRvcConfig({ modelsDir: rvcCfg.modelsDir, pitchShift: rvcCfg.pitchShift });
+  ttsEngine.startRvcServer();
+
+  // Restore persisted TTS settings
+  const savedTts = readConfig().tts || {};
+  if (savedTts.voice)              ttsEngine.setVoice(savedTts.voice);
+  if (savedTts.enabled !== undefined) ttsEngine.setEnabled(savedTts.enabled);
+  if (savedTts.speed  !== undefined)  ttsEngine.setRate(savedTts.speed);
+
+  // Restore fast mode
+  _fastMode = readConfig().fastMode || false;
+  console.log('[App] Fast mode:', _fastMode ? 'ON' : 'OFF');
+
   const win = createWindow();
 
   hotkeyManager = new HotkeyManager(win);
@@ -162,6 +185,7 @@ app.whenReady().then(() => {
       masterSummary: sessionManager.masterSummary,
       permanentMemories: sessionManager.permanentMemories,
       emotionalState: db.getEmotionalState(),
+      fastMode: _fastMode,
     });
   });
 
@@ -197,9 +221,15 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
   // Stop any in-progress TTS before processing the new message
   mainWindow?.webContents.send('tts:stop');
   try {
-    sessionManager.addMessage('user', message, userEmotion);
+    // DB insert first (persistence only — does not affect prompt context)
     db.insertMessage({ role: 'user', content: message, emotion: userEmotion });
-    const response = await localBrain.route(message, { userEmotion, attachments });
+    const onStreamChunk = (partialDialogue) => {
+      mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
+    };
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode });
+    // Add to session window AFTER route() so the current message isn't already in the
+    // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
+    sessionManager.addMessage('user', message, userEmotion);
     sessionManager.addMessage('companion', response.dialogue, response.emotion);
     db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion });
 
@@ -416,15 +446,43 @@ ipcMain.handle('tts:get-voices',   () => ttsEngine.getVoices());
 
 ipcMain.handle('tts:set-enabled', (event, val) => {
   ttsEngine.setEnabled(val);
-  return ttsEngine.getSettings();
+  const s = ttsEngine.getSettings();
+  writeConfig({ tts: { ...((readConfig().tts) || {}), enabled: s.enabled } });
+  return s;
 });
 ipcMain.handle('tts:set-voice', (event, voiceName) => {
   ttsEngine.setVoice(voiceName);
-  return ttsEngine.getSettings();
+  const s = ttsEngine.getSettings();
+  writeConfig({ tts: { ...((readConfig().tts) || {}), voice: s.voice } });
+  return s;
 });
 ipcMain.handle('tts:set-rate', (event, rate) => {
   ttsEngine.setRate(rate);
-  return ttsEngine.getSettings();
+  const s = ttsEngine.getSettings();
+  writeConfig({ tts: { ...((readConfig().tts) || {}), speed: s.speed } });
+  return s;
+});
+
+// ── Fast mode IPC ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('settings:get-fast-mode', () => _fastMode);
+
+ipcMain.handle('settings:set-fast-mode', (_event, val) => {
+  _fastMode = !!val;
+  writeConfig({ fastMode: _fastMode });
+  console.log('[App] Fast mode:', _fastMode ? 'ON' : 'OFF');
+  return _fastMode;
+});
+
+// ── Background / display settings IPC ─────────────────────────────────────
+
+ipcMain.handle('settings:get-bg', () => {
+  return readConfig().background || {};
+});
+
+ipcMain.handle('settings:set-bg', (_event, bg) => {
+  writeConfig({ background: bg });
+  return bg;
 });
 
 // ── Character management ──────────────────────────────────────────────────────
@@ -449,7 +507,7 @@ ipcMain.handle('character:list', () => {
 
 ipcMain.handle('character:switch', (_event, charId) => {
   try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ activeCharacter: charId }, null, 2));
+    writeConfig({ activeCharacter: charId });
     app.relaunch();
     app.quit();
     return { success: true };

@@ -33,6 +33,14 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   listCharacters:  ()       => ipcRenderer.invoke('character:list'),
   switchCharacter: (charId) => ipcRenderer.invoke('character:switch', charId),
 
+  // Fast mode
+  getFastMode: ()      => ipcRenderer.invoke('settings:get-fast-mode'),
+  setFastMode: (val)   => ipcRenderer.invoke('settings:set-fast-mode', val),
+
+  // Background / display settings
+  getBgSettings: ()    => ipcRenderer.invoke('settings:get-bg'),
+  setBgSettings: (bg)  => ipcRenderer.invoke('settings:set-bg', bg),
+
   // TTS controls
   ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
   ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
@@ -47,6 +55,7 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'app:init',
       'tts:audio',
       'tts:stop',
+      'claude:stream-chunk',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));

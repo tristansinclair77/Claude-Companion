@@ -61,7 +61,7 @@ class LocalBrain {
    * @param {Array}  [opts.attachments]
    * @returns {Promise<{dialogue, thoughts, emotion, source, id: number|null}>}
    */
-  async route(userMessage, { userEmotion = 'neutral', attachments = [] } = {}) {
+  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false } = {}) {
     const normalized = normalizeText(userMessage);
     const lower = userMessage.toLowerCase().trim();
 
@@ -124,6 +124,8 @@ class LocalBrain {
         attachments,
         relatedContext,
         emotionalState,
+        onStreamChunk,
+        fastMode,
       });
     } catch (err) {
       throw err;

@@ -1,0 +1,15 @@
+# RVC Voice Conversion Server dependencies
+#
+# IMPORTANT: fairseq (required by rvc_python) only works on Python 3.10 or 3.11.
+# The app automatically uses the dedicated Python 3.10 venv at scripts/rvc-server/venv/
+#
+# To (re)create the venv and install dependencies:
+#   py -3.10 -m venv scripts/rvc-server/venv
+#   scripts/rvc-server/venv/Scripts/pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   scripts/rvc-server/venv/Scripts/pip install -r scripts/rvc-server/requirements.txt
+#
+# (The venv/ folder is gitignored — recreate it on any new machine.)
+
+rvc_python
+flask
+soundfile

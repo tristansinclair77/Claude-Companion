@@ -44,6 +44,21 @@ function resolveClaudeSpawn() {
 }
 
 /**
+ * Extracts the partial [DIALOGUE] text from an in-progress accumulated response.
+ * Returns null if the [DIALOGUE] marker hasn't appeared yet.
+ */
+function extractPartialDialogue(text) {
+  const start = text.indexOf('[DIALOGUE]');
+  if (start === -1) return null;
+  const after = text.slice(start + '[DIALOGUE]'.length);
+  // Find the earliest terminator: emotion tag, [THOUGHTS], [MEMORY], [SELF], [MEMORY_UPDATE]
+  const terminatorRe = /\s*\([a-z_]+\)|\s*\[(?:THOUGHTS|MEMORY(?:_UPDATE)?|SELF|UPDATE)\]/i;
+  const m = after.search(terminatorRe);
+  const raw = m === -1 ? after : after.slice(0, m);
+  return raw.trim() || null;
+}
+
+/**
  * Sends a message to Claude CLI and returns the parsed response.
  *
  * @param {object} opts
@@ -56,6 +71,7 @@ function resolveClaudeSpawn() {
  * @param {Array}  [opts.conversationWindow] - Array of {role, content} messages
  * @param {string} [opts.detectedEmotion] - User's detected emotion
  * @param {Array}  [opts.attachments]     - Array of file paths to include as context
+ * @param {Function} [opts.onStreamChunk] - Called with partial dialogue text as Claude streams
  * @returns {Promise<{dialogue, thoughts, emotion, memories, raw}>}
  */
 async function sendToClaude({
@@ -70,6 +86,8 @@ async function sendToClaude({
   attachments = [],
   relatedContext = [],
   emotionalState = null,
+  onStreamChunk = null,
+  fastMode = false,
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -78,6 +96,7 @@ async function sendToClaude({
     permanentMemories,
     userProfile,
     emotionalState,
+    fastMode,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -106,16 +125,23 @@ async function sendToClaude({
   );
   const hasScreenshot = screenshotAtts.length > 0;
 
+  // Attachment content limits — fast mode uses tight caps to keep context small
+  const FILE_LIMIT   = fastMode ?  2000 : 10000;
+  const FOLDER_LIMIT = fastMode ?  3000 : 20000;
+  const URL_LIMIT    = fastMode ?  2000 : 15000;
+
   // Add attachment context (text-based)
   for (const att of attachments) {
     if (att.type === 'file' && att.content) {
-      fullPrompt += `[Attached file: ${att.name}]\n\`\`\`\n${att.content.slice(0, 10000)}\n\`\`\`\n\n`;
+      const excerpt = att.content.slice(0, FILE_LIMIT);
+      const truncNote = att.content.length > FILE_LIMIT ? '\n[... truncated for speed ...]' : '';
+      fullPrompt += `[Attached file: ${att.name}]\n\`\`\`\n${excerpt}${truncNote}\n\`\`\`\n\n`;
     } else if (att.type === 'folder' && att.content) {
-      fullPrompt += `[Attached folder: ${att.path}]\n${att.content.slice(0, 20000)}\n\n`;
+      fullPrompt += `[Attached folder: ${att.path}]\n${att.content.slice(0, FOLDER_LIMIT)}\n\n`;
     } else if (att.type === 'screenshot') {
       // Actual image data is injected via stream-json stdin below — skip text placeholder
     } else if (att.type === 'url' && att.content) {
-      fullPrompt += `[Web page content from ${att.url}]\n${att.content.slice(0, 15000)}\n\n`;
+      fullPrompt += `[Web page content from ${att.url}]\n${att.content.slice(0, URL_LIMIT)}\n\n`;
     }
   }
 
@@ -142,6 +168,7 @@ async function sendToClaude({
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
+      '--model', 'claude-haiku-4-5-20251001',
       '--system-prompt', systemPrompt,
       '--dangerously-skip-permissions',
     ];
@@ -186,9 +213,33 @@ async function sendToClaude({
 
     let stdout = '';
     let stderr = '';
+    // Buffer for incomplete lines during streaming
+    let _lineBuffer = '';
+    let _lastStreamedDialogue = '';
 
     claudeProcess.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
+      const text = chunk.toString();
+      stdout += text;
+
+      // Stream partial dialogue to caller as Claude generates
+      if (onStreamChunk) {
+        _lineBuffer += text;
+        let nl;
+        while ((nl = _lineBuffer.indexOf('\n')) !== -1) {
+          const line = _lineBuffer.slice(0, nl).trim();
+          _lineBuffer = _lineBuffer.slice(nl + 1);
+          if (!line) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (obj.type === 'system') {
+              // CLI has connected and is ready — signal UI to show thinking state
+              onStreamChunk(null);
+            }
+            // Note: the CLI only emits one final 'assistant' event (complete text, not incremental),
+            // so we don't use it for streaming — showResponse will handle the typewriter instead.
+          } catch { /* incomplete or non-JSON line — skip */ }
+        }
+      }
     });
 
     claudeProcess.stderr.on('data', (chunk) => {
@@ -330,6 +381,7 @@ async function summarizeConversation({ messages, characterName }) {
       ...prefix,
       '-p', userPrompt,
       '--output-format', 'json',
+      '--model', 'claude-haiku-4-5-20251001',
       '--system-prompt', systemPrompt,
       '--dangerously-skip-permissions',
     ];
@@ -415,6 +467,7 @@ async function extractMemories({ messages, characterName }) {
       ...prefix,
       '-p', userPrompt,
       '--output-format', 'json',
+      '--model', 'claude-haiku-4-5-20251001',
       '--system-prompt', systemPrompt,
       '--dangerously-skip-permissions',
     ];

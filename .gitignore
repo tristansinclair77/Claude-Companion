@@ -27,3 +27,6 @@ src/main/neural/models/*.json
 
 # Personal reference assets (not part of repo)
 ref/
+
+# RVC server Python 3.10 venv (large, recreatable — see scripts/rvc-server/requirements.txt)
+scripts/rvc-server/venv/

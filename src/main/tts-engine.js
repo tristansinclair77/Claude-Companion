@@ -1,10 +1,16 @@
 'use strict';
-// TTS engine — two backends:
+// TTS engine — three backends:
 //   kokoro  : kokoro-js (English, local ONNX, no internet after first download)
 //   vits    : local Python Flask server on localhost:5002 (anime JP voices)
+//   rvc     : local Python Flask server on localhost:5003 (RVC voice conversion)
+//             RVC pipeline: Kokoro generates source audio → RVC converts to target voice
 //
-// The active backend is determined by whether _voice is a VITS voice ID.
-// If VITS synthesis fails for any reason, it falls back to kokoro silently.
+// The active backend is determined by the voice ID prefix:
+//   rvc:<FolderName>   → RVC backend
+//   <vitsModelId>      → VITS backend (if the ID appears in the VITS models dir)
+//   <kokoroId>         → Kokoro backend (default)
+//
+// If VITS or RVC synthesis fails, it falls back to kokoro silently.
 
 const http   = require('http');
 const path   = require('path');
@@ -18,7 +24,11 @@ let _enabled    = true;
 let _voice      = 'af_heart';
 let _speed      = 1.0;
 let _isVitsVoice = false;
-let _vitsProc   = null; // child_process handle for the Python server
+let _isRvcVoice  = false;
+let _vitsProc   = null; // child_process handle for the VITS server
+let _rvcProc    = null; // child_process handle for the RVC server
+let _rvcModelsDir = '';
+let _pitchShift   = 0;
 
 // ── Kokoro helpers ─────────────────────────────────────────────────────────────
 
@@ -140,7 +150,6 @@ async function _synthesizeVits(text) {
     return await _fetchVitsAudio(text, _voice);
   } catch (err) {
     console.warn('[TTS] VITS failed, falling back to kokoro:', err.message);
-    // Graceful fallback: switch to default kokoro voice for this call only
     const saved = _voice;
     _voice = 'af_heart';
     try {
@@ -148,8 +157,89 @@ async function _synthesizeVits(text) {
       const audio = await tts.generate(text, { voice: 'af_heart', speed: _speed });
       return _toWav(audio.audio, audio.sampling_rate);
     } finally {
-      _voice = saved; // restore VITS voice for next call (user may fix server)
+      _voice = saved;
     }
+  }
+}
+
+// ── RVC helpers ───────────────────────────────────────────────────────────────
+
+const _RVC_PORT = 5003;
+
+/** Return the folder names of all valid RVC model directories. */
+function _getRvcModelIds() {
+  if (!_rvcModelsDir) return [];
+  try {
+    return fs.readdirSync(_rvcModelsDir).filter(name => {
+      const dir = path.join(_rvcModelsDir, name);
+      try {
+        if (!fs.statSync(dir).isDirectory()) return false;
+        const files = fs.readdirSync(dir);
+        return files.some(f => f.endsWith('.pth')) && files.some(f => f.endsWith('.index'));
+      } catch { return false; }
+    });
+  } catch { return []; }
+}
+
+/**
+ * POST a WAV buffer to the RVC server and return the converted WAV buffer.
+ * voice should be in "rvc:ModelId" or "ModelId" format.
+ */
+function _fetchRvcAudio(wavBuffer, voice) {
+  return new Promise((resolve, reject) => {
+    const modelId = voice.startsWith('rvc:') ? voice.slice(4) : voice;
+    const params  = new URLSearchParams({
+      voice: modelId,
+      pitch: String(_pitchShift),
+    });
+    const options = {
+      hostname: '127.0.0.1',
+      port:     _RVC_PORT,
+      path:     `/convert?${params}`,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'audio/wav',
+        'Content-Length': wavBuffer.length,
+      },
+    };
+    const req = http.request(options, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`RVC server returned HTTP ${res.statusCode}`));
+        return;
+      }
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end',  ()    => resolve(Buffer.concat(chunks)));
+    });
+    req.on('error', reject);
+    req.setTimeout(120000, () => { req.destroy(); reject(new Error('RVC request timeout')); });
+    req.write(wavBuffer);
+    req.end();
+  });
+}
+
+/**
+ * RVC synthesis pipeline:
+ *   1. Generate source audio with Kokoro (neutral English voice)
+ *   2. POST to RVC server for voice conversion
+ *   3. Return converted WAV buffer (falls back to raw Kokoro on error)
+ */
+async function _synthesizeRvc(text) {
+  let kokoroWav = null;
+  try {
+    const tts   = await _getTTS();
+    const audio = await tts.generate(text, { voice: 'af_heart', speed: _speed });
+    kokoroWav   = _toWav(audio.audio, audio.sampling_rate);
+  } catch (err) {
+    console.warn('[TTS] Kokoro generation failed for RVC pipeline:', err.message);
+    return null;
+  }
+
+  try {
+    return await _fetchRvcAudio(kokoroWav, _voice);
+  } catch (err) {
+    console.warn('[TTS] RVC conversion failed, returning Kokoro audio:', err.message);
+    return kokoroWav; // graceful fallback — user hears Kokoro voice
   }
 }
 
@@ -185,14 +275,62 @@ function startVitsServer() {
 }
 
 /**
+ * Start the RVC Python server as a background child process.
+ * Called once at app startup if rvc.modelsDir is configured.
+ * Failures are silent — kokoro audio is returned as fallback.
+ */
+function startRvcServer() {
+  const scriptPath = path.join(__dirname, '../../scripts/rvc-server/server.py');
+  // Prefer the dedicated Python 3.10 venv — fairseq (required by rvc_python) needs Python < 3.12.
+  const venvPython = path.join(__dirname, '../../scripts/rvc-server/venv/Scripts/python.exe');
+  const pythonExe  = fs.existsSync(venvPython) ? venvPython : 'python';
+
+  if (!fs.existsSync(scriptPath)) {
+    console.warn('[RVC] server script not found:', scriptPath);
+    return;
+  }
+  if (!_rvcModelsDir) {
+    console.log('[RVC] No modelsDir configured — RVC server not started.');
+    return;
+  }
+  try {
+    _rvcProc = spawn(pythonExe, [scriptPath, '--models-dir', _rvcModelsDir, '--port', String(_RVC_PORT)], {
+      stdio: 'pipe',
+      cwd:   path.dirname(scriptPath),
+      detached: false,
+    });
+    _rvcProc.stdout.on('data', d => console.log('[RVC]', d.toString().trimEnd()));
+    _rvcProc.stderr.on('data', d => console.log('[RVC]', d.toString().trimEnd()));
+    _rvcProc.on('error', err => console.warn('[RVC] server error:', err.message));
+    _rvcProc.on('exit',  code => {
+      if (code !== 0 && code !== null) console.warn('[RVC] server exited with code', code);
+      _rvcProc = null;
+    });
+    console.log('[TTS] RVC server starting on port', _RVC_PORT, '| models:', _rvcModelsDir);
+  } catch (err) {
+    console.warn('[TTS] Could not start RVC server (Python not found?):', err.message);
+  }
+}
+
+/**
+ * Configure the RVC backend. Call this from main.js after reading config.json.
+ * @param {{ modelsDir?: string, pitchShift?: number }} opts
+ */
+function setRvcConfig({ modelsDir = '', pitchShift = 0 } = {}) {
+  _rvcModelsDir = modelsDir || '';
+  _pitchShift   = parseInt(pitchShift, 10) || 0;
+}
+
+/**
  * Synthesise text to a WAV Buffer. Returns null if disabled or on error.
- * Routes to VITS if a VITS voice is active, otherwise uses Kokoro.
+ * Routes to RVC, VITS, or Kokoro depending on the active voice ID.
  */
 async function synthesize(text) {
   if (!_enabled) return null;
   const clean = _cleanText(text);
   if (!clean) return null;
 
+  if (_isRvcVoice)  return _synthesizeRvc(clean);
   if (_isVitsVoice) return _synthesizeVits(clean);
 
   try {
@@ -208,9 +346,14 @@ async function synthesize(text) {
 function setEnabled(val) { _enabled = !!val; }
 
 function setVoice(voiceName) {
-  _voice = voiceName;
-  const { modelId } = _parseVoiceId(voiceName);
-  _isVitsVoice = _getVitsModelIds().includes(modelId);
+  _voice       = voiceName;
+  _isRvcVoice  = voiceName.startsWith('rvc:');
+  if (_isRvcVoice) {
+    _isVitsVoice = false;
+  } else {
+    const { modelId } = _parseVoiceId(voiceName);
+    _isVitsVoice = _getVitsModelIds().includes(modelId);
+  }
 }
 
 function setSpeed(speed) { _speed = parseFloat(speed) || 1.0; }
@@ -245,19 +388,20 @@ const VOICES = KOKORO_VOICES;
 /**
  * Returns all voices grouped with section headers.
  * isHeader entries are non-selectable dividers.
- * Multi-speaker VITS models (config.json has "speakers" list) are expanded to
- * one entry per speaker: id = "<model_id>:<speaker_index>".
+ * Multi-speaker VITS models are expanded to one entry per speaker.
+ * RVC models appear as a third section with id = "rvc:<FolderName>".
  */
 function getVoices() {
-  const modelIds = _getVitsModelIds();
-  const list = [];
+  const vitsIds = _getVitsModelIds();
+  const rvcIds  = _getRvcModelIds();
+  const list    = [];
 
   list.push({ id: '__kokoro_hdr__', label: '── KOKORO ──────────────────', isHeader: true });
   list.push(...KOKORO_VOICES);
 
-  if (modelIds.length > 0) {
+  if (vitsIds.length > 0) {
     list.push({ id: '__vits_hdr__', label: '── VITS ANIME ──────────────', isHeader: true });
-    for (const modelId of modelIds) {
+    for (const modelId of vitsIds) {
       const configPath = path.join(_MODELS_DIR, modelId, 'config.json');
       let speakers = null;
       try {
@@ -278,6 +422,14 @@ function getVoices() {
     }
   }
 
+  if (rvcIds.length > 0) {
+    list.push({ id: '__rvc_hdr__', label: '── RVC ─────────────────────', isHeader: true });
+    for (const folderId of rvcIds) {
+      const label = folderId.replace(/model$/i, '').replace(/[_-]/g, ' ').trim() + ' [RVC]';
+      list.push({ id: `rvc:${folderId}`, label });
+    }
+  }
+
   return list;
 }
 
@@ -286,6 +438,6 @@ _initModel();
 
 module.exports = {
   synthesize, setEnabled, setVoice, setSpeed, setRate, getSettings,
-  getVoices, startVitsServer,
+  getVoices, startVitsServer, startRvcServer, setRvcConfig,
   VOICES, KOKORO_VOICES,
 };

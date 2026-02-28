@@ -21,6 +21,7 @@ function buildSystemPrompt({
   userProfile = '',
   conversationWindow = '',
   emotionalState = null,
+  fastMode = false,
 }) {
   const sections = [];
 
@@ -128,7 +129,18 @@ Let this baseline color how you carry yourself. It is not your moment-to-moment 
 === END EMOTIONAL BASELINE ===`);
   }
 
-  // 8. Response format instructions
+  // 8. Fast mode (optional)
+  if (fastMode) {
+    sections.push(`=== FAST MODE ===
+The user has enabled FAST MODE for snappy, real-time conversation. Adjust your behavior:
+- Keep [DIALOGUE] to 1–3 short sentences maximum. No long explanations or paragraphs.
+- If the user attaches a large file or document, do NOT try to read or summarize it all. Acknowledge it in one sentence and ask what specific thing they want to know about it.
+- If a question needs deep research or complex multi-step work, say so in a single sentence and ask if they want you to dig in properly.
+- Be casual, punchy, and direct. Fast mode is for quick back-and-forth — not essays.
+=== END FAST MODE ===`);
+  }
+
+  // 9. Response format instructions
   sections.push(`=== RESPONSE FORMAT ===
 Always respond with EXACTLY this structure:
 
