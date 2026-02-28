@@ -55,10 +55,32 @@ All design documents finalized. Classic fantasy theme applied throughout. All fi
 - **S1 [PARTIAL]**: 31 zone mechanics need per-mechanic implementation — stub as "None" in Phase 1–3, implement in Phase 7+
 - **S5 [PARTIAL]**: Balance simulation tooling — Phase 8 task
 
+## ✅ PHASE 1 COMPLETE
+
+**Phase 1: Addon Foundation** — all files written and patches applied.
+
+### Files Created
+- `addons/rpg_adventure/manifest.json` — addon metadata, IPC handler list
+- `addons/rpg_adventure/character_defaults.json` — RPG context injected into system prompt
+- `addons/rpg_adventure/src/rpg-db.js` — SQLite schema + migration (7 tables + composite index)
+- `addons/rpg_adventure/src/rpg-constants.js` — 70 zones, brackets, archetypes, gear slots, rarity, stat defs, 125 scenario keys, 20 boss abilities
+- `addons/rpg_adventure/src/rpg-ipc.js` — IPC handlers (state/inventory/equip/prestige; Phase 2 stubs for combat)
+- `addons/rpg_adventure/src/rpg-engine.js` — all scaling formulas from SCALING.md (Phase 2 fills in combat loop)
+- `addons/rpg_adventure/src/rpg-narrator.js` — stub (Phase 4)
+- `addons/rpg_adventure/src/rpg-achievements.js` — stub (Phase 6)
+- `addons/rpg_adventure/ui/` — all stubs (Phase 5)
+
+### Files Patched
+- `src/main/main.js` — `loadAddons()` added; scans `addons/*/manifest.json`; registers IPC; loads context into `_addonContexts`; called after `initBrain()`
+- `src/main/local-brain.js` — `route()` accepts + forwards `addonContexts`
+- `src/main/claude-bridge.js` — `sendToClaude()` accepts + forwards `addonContexts`
+- `src/shared/system-prompt.js` — `buildSystemPrompt()` accepts `addonContexts`; injects as `=== ADDON CONTEXT ===` section
+
 ### Next Step
-**Begin Phase 1: Addon Foundation**
-See `docs/rpg/GAMEPLAN.md` Phase 1 for task list.
-Start with: directory structure + `manifest.json` + addon loader hook in `src/main/main.js`.
+**Begin Phase 2: Combat Engine**
+See `docs/rpg/GAMEPLAN.md` Phase 2 for task list.
+Implement run state machine in `rpg-ipc.js`/`rpg-engine.js`: run generation, floor loop, room resolution, combat turn loop.
+All math functions already exist in `rpg-engine.js`.
 
 ---
 

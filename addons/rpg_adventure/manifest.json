@@ -1,0 +1,27 @@
+{
+  "id": "rpg_adventure",
+  "name": "Aria's Adventure",
+  "version": "0.1.0",
+  "description": "Classic fantasy RPG addon for Claude Companion. Dungeons, loot, enemies, and an AI companion who reacts to everything.",
+  "author": "Claude Companion",
+  "ipcModule": "src/rpg-ipc.js",
+  "contextFile": "character_defaults.json",
+  "ipcHandlers": [
+    "rpg:get-state",
+    "rpg:start-adventure",
+    "rpg:take-action",
+    "rpg:end-run",
+    "rpg:get-inventory",
+    "rpg:equip-item",
+    "rpg:unequip-slot",
+    "rpg:sell-item",
+    "rpg:drop-item",
+    "rpg:get-zones",
+    "rpg:get-achievements",
+    "rpg:get-responses",
+    "rpg:refresh-responses",
+    "rpg:get-run-history",
+    "rpg:prestige",
+    "rpg:allocate-stat"
+  ]
+}
