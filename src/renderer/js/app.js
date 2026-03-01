@@ -124,6 +124,15 @@
     CompanionDisplay?.updateSensationReadout?.(data.current);
   });
 
+  // ── RPG Adventure panel ────────────────────────────────────────────────────
+  if (typeof RPGPanel !== 'undefined') {
+    RPGPanel.init();
+    const btnAdventure = document.getElementById('btn-adventure');
+    if (btnAdventure) {
+      btnAdventure.addEventListener('click', () => RPGPanel.open());
+    }
+  }
+
   // Focus input on load
   const inputEl = document.getElementById('user-input');
   if (inputEl) setTimeout(() => inputEl.focus(), 300);

@@ -89,6 +89,7 @@ async function sendToClaude({
   onStreamChunk = null,
   fastMode = false,
   addonContexts = [],
+  trackers = {},
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -99,6 +100,7 @@ async function sendToClaude({
     emotionalState,
     fastMode,
     addonContexts,
+    trackers,
   });
 
   // Build the full user prompt: conversation window + current message
