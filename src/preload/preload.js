@@ -100,4 +100,5 @@ contextBridge.exposeInMainWorld('rpgAPI', {
   levelUpBundle:     ()                     => ipcRenderer.invoke('rpg:level-up-bundle'),
   getScenarioResponse: (key, gameState)     => ipcRenderer.invoke('rpg:get-scenario-response', { key, gameState }),
   generateResponsePool: (key, gameState)    => ipcRenderer.invoke('rpg:generate-response-pool', { key, gameState }),
+  suggestZone:         ()                   => ipcRenderer.invoke('rpg:suggest-zone'),
 });

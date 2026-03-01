@@ -270,13 +270,14 @@ class RpgDB {
       .get(scenarioKey).count;
   }
 
-  /** Pick one response, avoiding the N most recently used. */
+  /** Pick one response, avoiding the N most-used entries. */
   pickResponse(scenarioKey, avoidN = 5) {
-    const all = this.getResponses(scenarioKey);
+    const all = this.getResponses(scenarioKey); // sorted use_count ASC (least-used first)
     if (all.length === 0) return null;
+    // Take from the least-used end; exclude the last N (most-used) if pool is large enough
     const pool =
       all.length > avoidN
-        ? all.slice(avoidN) // lowest use_count, skip top N most recent
+        ? all.slice(0, all.length - avoidN)
         : all;
     const picked = pool[Math.floor(Math.random() * pool.length)];
     this.markResponseUsed(picked.id);
@@ -376,6 +377,14 @@ class RpgDB {
     return this.db
       .prepare('SELECT * FROM rpg_run_history ORDER BY created_at DESC LIMIT ?')
       .all(limit);
+  }
+
+  /** Return array of zone_ids that have at least one successful run. */
+  getClearedZoneIds() {
+    return this.db
+      .prepare("SELECT DISTINCT zone_id FROM rpg_run_history WHERE result = 'success'")
+      .all()
+      .map(r => r.zone_id);
   }
 }
 

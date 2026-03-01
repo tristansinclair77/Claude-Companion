@@ -1304,7 +1304,7 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
 
   events.push({
     type: 'enemy_died',
-    enemy: { name: enemy.name, isShiny, isBoss },
+    enemy: { name: enemy.name, isShiny, isBoss, archetype: enemy.archetype },
     xpGained: xpFinal,
     goldGained: goldFinal,
     scenario: winScenario,
@@ -1323,9 +1323,13 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
   runState.isFirstFight = false;
 
   // Level-up computation (XP not yet committed to DB — engine just reports)
-  const currentXP    = char.xp + runState.xpBag;
+  // Correctly subtract XP cost per level as we advance.
+  let   xpPool      = char.xp + runState.xpBag;
   let   currentLevel = char.level;
-  while (currentLevel < 200 && currentXP >= _xpToLevel(currentLevel, char.xp, runState.xpBag)) {
+  while (currentLevel < 200) {
+    const needed = xpRequired(currentLevel);
+    if (xpPool < needed) break;
+    xpPool -= needed;
     currentLevel++;
     const statPts = 3;
     levelUps.push({ newLevel: currentLevel, statPointsGained: statPts });
@@ -1351,15 +1355,6 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
     runState.phase   = 'run_complete';
     events.push({ type: 'run_complete', result: 'success', scenario: 'run_complete_boss' });
   }
-}
-
-// Approximate XP needed to reach level+1 given current accumulated bags
-function _xpToLevel(currentLevel, baseXp, xpBag) {
-  let xpNeeded = 0;
-  for (let lv = currentLevel; lv < currentLevel + 1; lv++) {
-    xpNeeded += xpRequired(lv);
-  }
-  return xpNeeded - baseXp; // simplified: if bag exceeds this, level up
 }
 
 function _handlePlayerDeath(runState, floor, enemy, events, levelUps) {

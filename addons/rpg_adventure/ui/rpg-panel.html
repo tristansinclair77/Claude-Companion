@@ -1,5 +1,95 @@
-<!-- RPG Panel — Phase 5 -->
-<!-- Full implementation in Phase 5 (UI layer). Stub only. -->
-<div id="rpg-panel-stub">
-  <p>RPG Addon — UI Phase 5 not yet implemented.</p>
+<!-- RPG Adventure Panel — HTML reference structure -->
+<!-- This file documents the DOM built by rpg-panel.js init(). -->
+<!-- It is NOT loaded by the browser directly. -->
+
+<div class="rpg-header">
+  <span class="rpg-title">⚔ ADVENTURE</span>
+  <div class="rpg-nav-tabs">
+    <button class="rpg-tab" data-tab="zone-select">ZONES</button>
+    <button class="rpg-tab" data-tab="character">CHAR</button>
+    <button class="rpg-tab" data-tab="inventory">GEAR</button>
+    <button class="rpg-tab" data-tab="achievements">ACH</button>
+  </div>
+  <button id="rpg-panel-close">✕</button>
+</div>
+
+<!-- Status bar (always visible) -->
+<div id="rpg-status-bar">
+  <span>LV <span id="rpg-lv">1</span></span>
+  <div class="rpg-bar-wrap"><div class="rpg-bar-fill xp" id="rpg-xp-fill" style="width:0%"></div></div>
+  <span>HP</span>
+  <div class="rpg-bar-wrap"><div class="rpg-bar-fill hp" id="rpg-hp-fill" style="width:100%"></div></div>
+  <span id="rpg-gold">◆ 0</span>
+</div>
+
+<!-- ── ZONE SELECT ── -->
+<div class="rpg-screen active" id="rpg-screen-zone-select">
+  <div class="rpg-screen-title">// SELECT ZONE</div>
+  <div class="rpg-scroll" id="rpg-zone-list"></div>
+</div>
+
+<!-- ── COMBAT ── -->
+<div class="rpg-screen" id="rpg-screen-combat">
+  <div class="rpg-floor-header">
+    <span id="rpg-zone-name-lbl">—</span>
+    <span id="rpg-floor-lbl">Floor —/—</span>
+  </div>
+  <div id="rpg-enemy-card" class="rpg-enemy-card" style="display:none">
+    <div class="rpg-enemy-name" id="rpg-enemy-name">—</div>
+    <div class="rpg-enemy-hp-row">
+      <span class="rpg-enemy-hp-text">HP</span>
+      <div class="rpg-enemy-hp-bar">
+        <div class="rpg-enemy-hp-fill" id="rpg-enemy-hp-fill" style="width:100%"></div>
+      </div>
+      <span id="rpg-enemy-hp-text" style="font-size:9px;color:#ff224466;white-space:nowrap">—/—</span>
+    </div>
+  </div>
+  <div id="rpg-combat-log"></div>
+  <div class="rpg-actions">
+    <button class="rpg-btn"         id="rpg-btn-fight"   style="display:none">FIGHT</button>
+    <button class="rpg-btn danger"  id="rpg-btn-flee"    style="display:none">FLEE</button>
+    <button class="rpg-btn"         id="rpg-btn-item"    style="display:none">ITEM</button>
+    <button class="rpg-btn primary" id="rpg-btn-next"    style="display:none">NEXT FLOOR</button>
+    <button class="rpg-btn"         id="rpg-btn-extract" style="display:none">EXTRACT</button>
+  </div>
+</div>
+
+<!-- ── MERCHANT ── -->
+<div class="rpg-screen" id="rpg-screen-merchant">
+  <div class="rpg-screen-title">// TRAVELING MERCHANT</div>
+  <p class="rpg-merchant-intro">The merchant eyes your equipment with interest...</p>
+  <div class="rpg-scroll" id="rpg-merchant-list"></div>
+  <div class="rpg-actions">
+    <button class="rpg-btn primary" id="rpg-btn-merchant-leave">LEAVE</button>
+  </div>
+</div>
+
+<!-- ── RUN END ── -->
+<div class="rpg-screen" id="rpg-screen-run-end">
+  <div class="rpg-scroll" id="rpg-run-end-content"></div>
+  <div class="rpg-actions">
+    <button class="rpg-btn primary" id="rpg-btn-run-end-close">RETURN TO TOWN</button>
+  </div>
+</div>
+
+<!-- ── CHARACTER ── -->
+<div class="rpg-screen" id="rpg-screen-character">
+  <div class="rpg-screen-title">// CHARACTER</div>
+  <div class="rpg-scroll" id="rpg-char-content"></div>
+</div>
+
+<!-- ── INVENTORY ── -->
+<div class="rpg-screen" id="rpg-screen-inventory">
+  <div class="rpg-screen-title">// GEAR</div>
+  <div class="rpg-scroll" id="rpg-inventory-content"></div>
+</div>
+
+<!-- ── ACHIEVEMENTS ── -->
+<div class="rpg-screen" id="rpg-screen-achievements">
+  <div class="rpg-ach-tabs">
+    <button class="rpg-ach-tab active" data-bracket="easy">EASY</button>
+    <button class="rpg-ach-tab"        data-bracket="mid">MID</button>
+    <button class="rpg-ach-tab"        data-bracket="hard">HARD</button>
+  </div>
+  <div class="rpg-scroll" id="rpg-ach-list"></div>
 </div>

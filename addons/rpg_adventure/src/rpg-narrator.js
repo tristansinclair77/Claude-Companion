@@ -649,6 +649,8 @@ function _parseJsonResponses(raw, expectedCount) {
       dialogue: r.dialogue.trim(),
       emotion:  VALID_EMOTIONS.has(r.emotion) ? r.emotion : 'neutral',
       thoughts: (r.thoughts && r.thoughts.trim()) ? r.thoughts.trim() : null,
+      // Preserve zone_id when present (used by suggestZone)
+      ...(r.zone_id ? { zone_id: r.zone_id } : {}),
     }));
 }
 
@@ -668,4 +670,59 @@ function _getFallback(scenarioKey) {
   return { ...pool[Math.floor(Math.random() * pool.length)] };
 }
 
-module.exports = { init, getResponse, generateResponsePool };
+/**
+ * Ask Claude to suggest a zone for the player.
+ * Always real-time. Returns { zoneId, dialogue, emotion, thoughts }.
+ * @param {object} char - character DB row
+ * @param {Array}  availableZones - unlocked zones (not locked by level req)
+ */
+async function suggestZone(char, availableZones) {
+  if (!availableZones || availableZones.length === 0) {
+    throw new Error('No available zones to suggest');
+  }
+  const { charJson } = _loadCharacter();
+  const name        = charJson.name || 'Companion';
+  const personality = charJson.personality_summary || charJson.personality || charJson.description || '';
+  const speechStyle = charJson.speech_style || '';
+
+  const zoneList = availableZones.map(z => {
+    const lr  = Array.isArray(z.levelRange) ? `Lv ${z.levelRange[0]}–${z.levelRange[1]}` : '';
+    const mec = z.mechanic ? `, special: ${z.mechanic}` : '';
+    return `  id="${z.id}" name="${z.name}" tier=${z.tier} ${lr}${mec}`;
+  }).join('\n');
+
+  const systemPrompt =
+    `You are ${name}, a companion in a classic fantasy RPG adventure.\n` +
+    `Personality: ${personality}\nSpeech style: ${speechStyle}\n\n` +
+    `The player asked you to recommend a zone to adventure in next.\n` +
+    `Pick ONE zone from the list below and recommend it in character.\n\n` +
+    `Return ONLY a valid JSON object with no markdown, no preamble, no explanation:\n` +
+    `{ "zone_id": "exact_id_from_list", "dialogue": "...", "emotion": "...", "thoughts": "..." }\n\n` +
+    `Valid emotions: neutral, happy, soft_smile, laughing, confident, smug, surprised, shocked, ` +
+    `confused, thinking, concerned, sad, angry, determined, embarrassed, exhausted, pout, crying, lustful_desire\n` +
+    `"thoughts" is your private inner thought (1–2 sentences), may be null.\n` +
+    `zone_id must exactly match one id from the list. Choose based on the player's level and what would be exciting.`;
+
+  const userPrompt =
+    `Player level: ${char.level || 1}\n` +
+    `Available zones:\n${zoneList}\n\n` +
+    `Suggest one zone as a JSON object.`;
+
+  const results = await _callClaude(systemPrompt, userPrompt, 1);
+  if (!results.length) throw new Error('suggestZone: no response from Claude');
+
+  const r       = results[0];
+  const zoneId  = r.zone_id;
+  const validIds = new Set(availableZones.map(z => z.id));
+
+  return {
+    zoneId:   validIds.has(zoneId)
+      ? zoneId
+      : availableZones[Math.floor(Math.random() * availableZones.length)].id,
+    dialogue: r.dialogue || '',
+    emotion:  r.emotion  || 'neutral',
+    thoughts: r.thoughts || null,
+  };
+}
+
+module.exports = { init, getResponse, generateResponsePool, suggestZone };

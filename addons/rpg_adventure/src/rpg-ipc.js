@@ -4,10 +4,11 @@
 // Registers all IPC handlers for the RPG addon.
 // Manages the in-memory run state machine. DB writes happen at run end.
 
-const path     = require('path');
-const RpgDB    = require('./rpg-db');
-const engine   = require('./rpg-engine');
-const narrator = require('./rpg-narrator');
+const path         = require('path');
+const RpgDB        = require('./rpg-db');
+const engine       = require('./rpg-engine');
+const narrator     = require('./rpg-narrator');
+const achievements = require('./rpg-achievements');
 const { ZONES, CHALLENGE_ZONES, SCENARIO_KEYS, TIER_COUNTS } = require('./rpg-constants');
 
 let rpgDb     = null;
@@ -23,6 +24,7 @@ function register({ ipcMain, characterDir }) {
   const dbPath = path.join(characterDir, 'rpg.db');
   rpgDb = new RpgDB(dbPath).open();
   narrator.init(rpgDb, characterDir);
+  achievements.init(rpgDb);
   console.log('[RPG] IPC registered. DB at:', dbPath);
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -46,7 +48,10 @@ function register({ ipcMain, characterDir }) {
   ipcMain.handle('rpg:equip-item', (_e, { slot, inventoryId }) => {
     try {
       rpgDb.equipItem(slot, inventoryId);
-      return { ok: true };
+      const char    = rpgDb.getCharacter();
+      const equipped = rpgDb.getEquipped();
+      const achEquip = achievements.onEquip(equipped, char);
+      return { ok: true, achievementsUnlocked: achEquip };
     } catch (err) {
       return { ok: false, error: err.message };
     }
@@ -72,7 +77,25 @@ function register({ ipcMain, characterDir }) {
   // ── Zones ──────────────────────────────────────────────────────────────────
 
   ipcMain.handle('rpg:get-zones', () => {
-    return { zones: ZONES, challengeZones: CHALLENGE_ZONES };
+    const clearedZoneIds = rpgDb.getClearedZoneIds();
+    return { zones: ZONES, challengeZones: CHALLENGE_ZONES, clearedZoneIds };
+  });
+
+  ipcMain.handle('rpg:suggest-zone', async () => {
+    try {
+      const char     = rpgDb.getCharacter();
+      // Only offer zones the player can actually enter
+      const available = [...ZONES, ...CHALLENGE_ZONES].filter(
+        z => char.level >= (z.charLevelReq || 1)
+      );
+      if (!available.length) return { ok: false, error: 'No zones available at your level' };
+
+      const suggestion = await narrator.suggestZone(char, available);
+      return { ok: true, ...suggestion };
+    } catch (err) {
+      console.error('[RPG] suggest-zone error:', err);
+      return { ok: false, error: err.message };
+    }
   });
 
   // ── Stat allocation ────────────────────────────────────────────────────────
@@ -86,7 +109,9 @@ function register({ ipcMain, characterDir }) {
       [stat]:      char[stat] + 1,
       stat_points: char.stat_points - 1,
     });
-    return { ok: true };
+    const updatedChar = rpgDb.getCharacter();
+    const achStat = achievements.onStatAllocate(updatedChar);
+    return { ok: true, achievementsUnlocked: achStat };
   });
 
   // ── Run History ────────────────────────────────────────────────────────────
@@ -98,7 +123,7 @@ function register({ ipcMain, characterDir }) {
   // ── Achievements ───────────────────────────────────────────────────────────
 
   ipcMain.handle('rpg:get-achievements', () => {
-    return rpgDb.getAllAchievements();
+    return achievements.getAll();
   });
 
   // ── Prestige ───────────────────────────────────────────────────────────────
@@ -109,15 +134,17 @@ function register({ ipcMain, characterDir }) {
       return { ok: false, error: 'Must reach level 200 to prestige' };
     }
     const totalStats = char.str + char.int + char.agi + char.vit + char.lck + char.cha;
+    const newPrestigeCount = char.prestige_count + 1;
     rpgDb.updateCharacter({
       level:          1,
       xp:             0,
       stat_points:    totalStats - 30, // base 5×6 = 30 are free, refund the rest
       str: 5, int: 5, agi: 5, vit: 5, lck: 5, cha: 5,
-      prestige_count: char.prestige_count + 1,
+      prestige_count: newPrestigeCount,
       hp_current:     80, // reset to base starting HP
     });
-    return { ok: true, prestigeCount: char.prestige_count + 1 };
+    const achPrestige = achievements.onPrestige(newPrestigeCount);
+    return { ok: true, prestigeCount: newPrestigeCount, achievementsUnlocked: achPrestige };
   });
 
   // ── Responses ──────────────────────────────────────────────────────────────
@@ -183,18 +210,28 @@ function register({ ipcMain, characterDir }) {
       }
 
       // Start run
+      const equippedWithGear  = equipped.filter(e => e.inventory_id);
+      const startedWithNoGear = equippedWithGear.length === 0;
+      const isFirstRun        = char.total_runs === 0;
+
+      achievements.resetRun({ startedWithNoGear, isFirstRun });
+
       const { runState, events } = engine.startRun(char, zone, equipped, bonusData.bonus);
       activeRun = runState;
 
       // Track in DB: increment total_runs
       rpgDb.updateCharacter({ total_runs: char.total_runs + 1 });
 
+      // Achievement checks for run-start events
+      const achUnlocked = achievements.processEvents(events, activeRun, char);
+
       return {
-        ok:     true,
-        run:    _serializeRun(activeRun),
+        ok:         true,
+        run:        _serializeRun(activeRun),
         events,
         dailyBonus: bonusData.isNewDay ? bonusData.bonus : null,
         scenario:   `zone_enter_tier${zone.tier}`,
+        achievementsUnlocked: achUnlocked,
       };
     } catch (err) {
       console.error('[RPG] start-adventure error:', err);
@@ -228,9 +265,7 @@ function register({ ipcMain, characterDir }) {
         if (levelUps.length > 0) {
           const char     = rpgDb.getCharacter();
           let   newLevel = char.level;
-          let   newXP    = char.xp;
           let   totalPts = char.stat_points;
-          let   totalXP  = char.xp + activeRun.xpBag;
 
           for (const lu of levelUps) {
             if (lu.newLevel > newLevel) {
@@ -249,12 +284,17 @@ function register({ ipcMain, characterDir }) {
           activeRun.charSnapshot.level = newLevel;
         }
 
+        // Achievement checks after combat turn
+        const char2 = rpgDb.getCharacter();
+        const achUnlocked2 = achievements.processEvents(events, activeRun, char2);
+
         return {
           ok:         true,
           run:        _serializeRun(activeRun),
           events,
           levelUps:   levelUpResults,
           runDone:    activeRun.phase === 'run_complete',
+          achievementsUnlocked: achUnlocked2,
         };
       }
 
@@ -372,11 +412,15 @@ function _doAdvanceFloor() {
   allEvents.push({ type: 'floor_advanced', floorNum: activeRun.floors[nextIdx].floorNum,
                    scenario: 'floor_advance' });
 
+  const char3 = rpgDb.getCharacter();
+  const achUnlocked3 = achievements.processEvents(allEvents, activeRun, char3);
+
   return {
     ok:     true,
     run:    _serializeRun(activeRun),
     events: allEvents,
     runDone: activeRun.phase === 'run_complete',
+    achievementsUnlocked: achUnlocked3,
   };
 }
 
@@ -425,12 +469,18 @@ function _doBuyItem({ itemIndex }) {
   // Remove from merchant stock
   floor.merchant.items.splice(itemIndex, 1);
 
+  // Naked run: buying gear counts as gaining gear mid-run
+  const purchaseEvents = [{ type: 'item_purchased', item, price, scenario: 'item_sold' }];
+  const char4 = rpgDb.getCharacter();
+  const achPurchase = achievements.processEvents(purchaseEvents, activeRun, char4);
+
   return {
     ok:       true,
     inventoryId: invId,
     goldSpent:   price,
     run:         _serializeRun(activeRun),
-    events:      [{ type: 'item_purchased', item, price, scenario: 'item_sold' }],
+    events:      purchaseEvents,
+    achievementsUnlocked: achPurchase,
   };
 }
 
@@ -469,20 +519,19 @@ function _commitRun(result) {
     rpgDb.updateCharacter({ gold: char.gold + goldEarned });
   }
 
-  // XP goes to DB always (death forfeits XP in bag — but level-ups already applied)
-  // Level-ups were already committed mid-run; just sync XP progress
+  // XP commit: recompute from run-start snapshot to avoid double-counting.
+  // Mid-run level-up writes already updated `level` + `stat_points` but never `xp`,
+  // so we must loop from the original level to correctly subtract XP costs.
   if (!isDeath) {
-    const currentChar = rpgDb.getCharacter();
-    const totalXP     = currentChar.xp + activeRun.xpBag;
-    const targetLevel = currentChar.level;
-    let   xpAfterLevels = totalXP;
-    let   lv = targetLevel;
-    // Subtract XP consumed by level-ups
-    while (lv < 200 && xpAfterLevels >= engine.xpRequired(lv)) {
-      xpAfterLevels -= engine.xpRequired(lv);
+    const origLevel = activeRun.charSnapshot.level;
+    const origXP    = activeRun.charSnapshot.xp;
+    let   xpPool    = origXP + activeRun.xpBag;
+    let   lv        = origLevel;
+    while (lv < 200 && xpPool >= engine.xpRequired(lv)) {
+      xpPool -= engine.xpRequired(lv);
       lv++;
     }
-    rpgDb.updateCharacter({ xp: xpAfterLevels, level: lv });
+    rpgDb.updateCharacter({ xp: xpPool, level: lv });
   }
 
   // Update kill counts and current HP
@@ -507,6 +556,11 @@ function _commitRun(result) {
     duration_ms:     Date.now() - (activeRun.startedAt || Date.now()),
   });
 
+  // Achievement end-of-run checks (after DB commit so run_history queries work)
+  const freshChar = rpgDb.getCharacter();
+  const committedIds = committedItems.map(i => i.id);
+  const achEnd = achievements.onRunEnd(result, activeRun, freshChar, committedIds);
+
   return {
     result,
     goldEarned,
@@ -517,6 +571,7 @@ function _commitRun(result) {
     scenario: result === 'success' ? 'companion_debrief_success' :
               result === 'death'   ? 'companion_debrief_death'   :
                                     'companion_debrief_extract',
+    achievementsUnlocked: achEnd,
   };
 }
 
