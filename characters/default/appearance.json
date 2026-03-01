@@ -2,11 +2,7 @@
   "character": "Aria",
   "character_reference_image": "character_reference.png",
   "art": {
-    "character_reference_sheet": "character_reference_sheet.png",
-    "character_reference": "character_reference.png",
-    "front_body": "art/aria_front_body.png",
-    "back": "art/aria_back.png",
-    "side_face": "art/aria_side_face.png"
+    "character_reference_sheet": "character_reference_sheet.png"
   },
   "height": "5'6\" (167.6 cm)",
   "build": "Slender and athletic with a soft feminine figure. Proportions are graceful rather than imposing.",

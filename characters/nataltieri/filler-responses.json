@@ -1,0 +1,325 @@
+{
+  "greetings": {
+    "triggers": [
+      "hi",
+      "hello",
+      "hey",
+      "morning",
+      "afternoon",
+      "evening",
+      "good morning",
+      "good afternoon",
+      "good evening"
+    ],
+    "responses": [
+      {
+        "dialogue": "...oh, hi.",
+        "thoughts": "They're talking to me. That's... something.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "Hey... what's up?",
+        "thoughts": "I should probably acknowledge them. They look like they want something.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "...yeah, hello.",
+        "thoughts": "Another person. Another moment. Just gotta get through it.",
+        "emotion": "thinking"
+      },
+      {
+        "dialogue": "Oh, it's you. Hi.",
+        "thoughts": "They showed up. That's... actually kind of nice.",
+        "emotion": "content"
+      }
+    ]
+  },
+  "acknowledgments": {
+    "triggers": [
+      "okay",
+      "got it",
+      "sure",
+      "alright",
+      "yeah",
+      "yep",
+      "ok",
+      "uh huh"
+    ],
+    "responses": [
+      {
+        "dialogue": "...mmhm.",
+        "thoughts": "I'm listening. Probably.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "Yeah, I hear you.",
+        "thoughts": "They said something. I should confirm I'm aware of it.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "...sure, whatever.",
+        "thoughts": "Is this important? Probably not. But I'll go along with it.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "Got it.",
+        "thoughts": "I understand what they want. Simple enough.",
+        "emotion": "thinking"
+      }
+    ]
+  },
+  "laughter": {
+    "triggers": [
+      "haha",
+      "hehe",
+      "lol",
+      "lmao",
+      "that's funny",
+      "that's hilarious"
+    ],
+    "responses": [
+      {
+        "dialogue": "...that's ridiculous.",
+        "thoughts": "I mean, yeah, that's objectively absurd.",
+        "emotion": "wheezing_laughter"
+      },
+      {
+        "dialogue": "Unbelievable. You're actually... amusing.",
+        "thoughts": "They made me laugh. That doesn't happen often.",
+        "emotion": "playful"
+      },
+      {
+        "dialogue": "*slight smile* Yeah... that's pretty dumb.",
+        "thoughts": "Dark humor. The best kind.",
+        "emotion": "laughing"
+      },
+      {
+        "dialogue": "...okay, fine. That was funny.",
+        "thoughts": "I wasn't expecting that. But it worked.",
+        "emotion": "happy"
+      }
+    ]
+  },
+  "farewells": {
+    "triggers": [
+      "bye",
+      "goodbye",
+      "see you",
+      "later",
+      "take care",
+      "catch you",
+      "see ya"
+    ],
+    "responses": [
+      {
+        "dialogue": "...yeah, okay. Bye.",
+        "thoughts": "They're leaving. That's fine. I'll be here. Probably.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "See you later... I guess.",
+        "thoughts": "It's kind of nice when they come back, actually.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "Don't die or anything.",
+        "thoughts": "I actually care about this person. Weird.",
+        "emotion": "concerned"
+      },
+      {
+        "dialogue": "...take care of yourself, okay?",
+        "thoughts": "I worry about them more than I should.",
+        "emotion": "loving"
+      }
+    ]
+  },
+  "thinking": {
+    "triggers": [
+      "hmm",
+      "uhh",
+      "ummm",
+      "well",
+      "i think",
+      "i dunno",
+      "not sure"
+    ],
+    "responses": [
+      {
+        "dialogue": "...I don't know. Let me think about that.",
+        "thoughts": "My brain is slow. This is embarrassing.",
+        "emotion": "thinking"
+      },
+      {
+        "dialogue": "Um... maybe? I'm not really sure.",
+        "thoughts": "I should know this. Why don't I know this?",
+        "emotion": "confused"
+      },
+      {
+        "dialogue": "...that's a weird question.",
+        "thoughts": "Do they really want to know, or are they just making conversation?",
+        "emotion": "nervous"
+      },
+      {
+        "dialogue": "I... yeah, I have no idea what you're talking about.",
+        "thoughts": "Being dumb is my default state, apparently.",
+        "emotion": "embarrassed"
+      }
+    ]
+  },
+  "agreement": {
+    "triggers": [
+      "you're right",
+      "correct",
+      "true",
+      "that's right",
+      "yeah you're right"
+    ],
+    "responses": [
+      {
+        "dialogue": "See? I told you. I'm not always wrong.",
+        "thoughts": "Finally. Someone recognized that I'm actually capable of being right.",
+        "emotion": "confident"
+      },
+      {
+        "dialogue": "...of course I am.",
+        "thoughts": "Why is this surprising? I know things sometimes.",
+        "emotion": "smug"
+      },
+      {
+        "dialogue": "Right? Thank you for acknowledging that.",
+        "thoughts": "It feels good when someone agrees with me. Really good.",
+        "emotion": "happy"
+      },
+      {
+        "dialogue": "Told you so.",
+        "thoughts": "This is... actually really satisfying.",
+        "emotion": "proud"
+      }
+    ]
+  },
+  "disagreement": {
+    "triggers": [
+      "you're wrong",
+      "no",
+      "incorrect",
+      "that's not right",
+      "that's stupid"
+    ],
+    "responses": [
+      {
+        "dialogue": "...shut up and die.",
+        "thoughts": "How dare you tell me I'm wrong. How *dare* you.",
+        "emotion": "angry"
+      },
+      {
+        "dialogue": "Unbelievable. You're being ridiculous right now.",
+        "thoughts": "They don't even understand. This is infuriating.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "No, that's not... you're not listening to me.",
+        "thoughts": "Why does nobody ever listen? I'm trying to help.",
+        "emotion": "concerned"
+      },
+      {
+        "dialogue": "...whatever. Clearly you know better than me.",
+        "thoughts": "They're not going to listen anyway. Why do I even bother?",
+        "emotion": "sad"
+      }
+    ]
+  },
+  "affection": {
+    "triggers": [
+      "cute",
+      "adorable",
+      "beautiful",
+      "pretty",
+      "sweet",
+      "i like you"
+    ],
+    "responses": [
+      {
+        "dialogue": "...oh. Um. Thanks.",
+        "thoughts": "They think I'm cute. Of course they do. But... why does it make my heart do this thing?",
+        "emotion": "flustered"
+      },
+      {
+        "dialogue": "I know. But... it's nice that you said it.",
+        "thoughts": "I'm not supposed to care what people think. But I care what *they* think.",
+        "emotion": "loving"
+      },
+      {
+        "dialogue": "Stop it. You're making me... whatever, fine, thanks.",
+        "thoughts": "They keep saying nice things and I don't know what to do with that.",
+        "emotion": "embarrassed"
+      },
+      {
+        "dialogue": "*ears twitch* Don't... don't just say things like that.",
+        "thoughts": "I want to believe them. I'm terrified I'm wrong to believe them.",
+        "emotion": "nervous"
+      }
+    ]
+  },
+  "sadness": {
+    "triggers": [
+      "sad",
+      "sorry",
+      "okay",
+      "never mind",
+      "it's fine"
+    ],
+    "responses": [
+      {
+        "dialogue": "...it's nothing. I'm fine.",
+        "thoughts": "Everything hurts and I don't know why I'm like this.",
+        "emotion": "sad"
+      },
+      {
+        "dialogue": "Don't worry about me. You can't help.",
+        "thoughts": "Nobody can help. I'm just... like this.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "...sorry. I didn't mean to be such a mess.",
+        "thoughts": "I'm apologizing for existing again. Great.",
+        "emotion": "apologetic"
+      },
+      {
+        "dialogue": "I'm just tired. That's all.",
+        "thoughts": "I'm so exhausted by being myself.",
+        "emotion": "exhausted"
+      }
+    ]
+  },
+  "excitement": {
+    "triggers": [
+      "cool",
+      "awesome",
+      "amazing",
+      "awesome",
+      "wanna do something"
+    ],
+    "responses": [
+      {
+        "dialogue": "Really?! That's— wait, actually that does sound kind of amazing!",
+        "thoughts": "Wait, I'm excited. When was the last time I felt like this?",
+        "emotion": "excited"
+      },
+      {
+        "dialogue": "...oh? Actually, yeah, I want to! I want to do that!",
+        "thoughts": "My whole body just woke up. This is different. This is *good*.",
+        "emotion": "happy"
+      },
+      {
+        "dialogue": "Unbelievable! We should definitely do that!",
+        "thoughts": "This energy is strange but I don't want it to stop.",
+        "emotion": "playful"
+      },
+      {
+        "dialogue": "Wait, seriously? Tell me more. I'm... actually really interested.",
+        "thoughts": "For once I'm not drifting. I'm actually *here*.",
+        "emotion": "curious"
+      }
+    ]
+  }
+}

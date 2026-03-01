@@ -10,4 +10,8 @@ contextBridge.exposeInMainWorld('charBuilderAPI', {
   pickImage:   ()         => ipcRenderer.invoke('character-builder:pick-image'),
   pickSaveDir: ()         => ipcRenderer.invoke('character-builder:pick-save-dir'),
   readImage:   (filePath) => ipcRenderer.invoke('character-builder:read-image', filePath),
+
+  // Wizard: ask Claude to fill in a single field or generate a block.
+  // payload: { field, userDescription, characterContext, emotionOptions, imagePaths }
+  askClaude:   (payload)  => ipcRenderer.invoke('character-builder:ask-claude', payload),
 });

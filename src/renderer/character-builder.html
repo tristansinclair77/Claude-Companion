@@ -6,6 +6,7 @@
   <title>Character Builder</title>
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/crt-effects.css" />
+  <link rel="stylesheet" href="styles/character-wizard.css" />
   <style>
     :root { --cb-tab-h: 34px; --cb-status-h: 26px; }
 
@@ -369,9 +370,10 @@
       <span id="cb-char-path">— no character loaded —</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag;">
-      <button class="cb-action-btn" id="cb-btn-new"  title="Start a new blank character">NEW</button>
-      <button class="cb-action-btn" id="cb-btn-load" title="Load a character from disk">LOAD</button>
+      <button class="cb-action-btn" id="cb-btn-new"    title="Start a new blank character">NEW</button>
+      <button class="cb-action-btn" id="cb-btn-load"   title="Load a character from disk">LOAD</button>
       <button class="cb-action-btn save" id="cb-btn-save" title="Save current character to disk">SAVE</button>
+      <button class="cb-action-btn" id="cb-btn-wizard" title="Open the step-by-step AI Wizard" style="border-color:#aa44ff44;color:#aa44ffcc;">WIZARD</button>
       <div id="window-controls">
         <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
         <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
@@ -450,6 +452,9 @@
         <div class="cb-section-title">// FILES</div>
         <div class="cb-row"><span class="cb-label">character_reference_image</span>
           <input class="cb-input" id="id-ref-image" type="text" placeholder="character_reference.png" />
+        </div>
+        <div class="cb-row"><span class="cb-label">reference_sheet</span>
+          <input class="cb-input" id="app-art-sheet" type="text" placeholder="CharacterName_ReferenceSheet.png" />
         </div>
         <div class="cb-row"><span class="cb-label">appearance_file</span>
           <input class="cb-input" id="id-appearance-file" type="text" placeholder="appearance.json" />
@@ -546,14 +551,6 @@
         </div>
       </div>
 
-      <div class="cb-section">
-        <div class="cb-section-title">// ART REFERENCES</div>
-        <div class="cb-row"><span class="cb-label">character_reference</span>       <input class="cb-input" id="app-art-ref" type="text" /></div>
-        <div class="cb-row"><span class="cb-label">character_reference_sheet</span> <input class="cb-input" id="app-art-sheet" type="text" /></div>
-        <div class="cb-row"><span class="cb-label">front_body</span>               <input class="cb-input" id="app-art-front" type="text" /></div>
-        <div class="cb-row"><span class="cb-label">back</span>                     <input class="cb-input" id="app-art-back" type="text" /></div>
-        <div class="cb-row"><span class="cb-label">side_face</span>                <input class="cb-input" id="app-art-side" type="text" /></div>
-      </div>
     </div>
 
     <!-- ── PORTRAITS ──────────────────────────────────────────────────── -->
@@ -580,6 +577,75 @@
   <!-- Toast -->
   <div id="cb-toast"></div>
 
+  <!-- ── Character Builder Wizard overlay ───────────────────────────────── -->
+  <div id="wizard-overlay" style="display:none;">
+    <div id="wizard-panel">
+
+      <!-- Header -->
+      <div id="wizard-header">
+        <span id="wizard-title">CHARACTER BUILDER HELPER</span>
+        <button id="wizard-close-btn" title="Close wizard">✕</button>
+      </div>
+
+      <!-- Progress bar -->
+      <div id="wizard-progress-bar">
+        <div id="wizard-progress-fill" style="width:0%"></div>
+      </div>
+
+      <!-- Section + step counter -->
+      <div id="wizard-progress-info">
+        <span id="wizard-section-label"></span>
+        <span id="wizard-step-counter"></span>
+      </div>
+
+      <!-- Field label + description + input area -->
+      <div id="wizard-field-area">
+        <div id="wizard-field-label"></div>
+        <div id="wizard-field-desc"></div>
+        <div id="wizard-input-area"></div>
+      </div>
+
+      <!-- AI help area (hidden for image/scenario/generate steps) -->
+      <div id="wizard-ai-area">
+
+        <!-- Image analysis section (shown only for supportsImages fields) -->
+        <div id="wizard-image-section" style="display:none;">
+          <div id="wizard-image-section-label">◈ REFERENCE IMAGES — Claude will analyze these</div>
+          <div id="wizard-image-thumbnails"></div>
+          <button id="wizard-add-image-btn">+ ADD IMAGE</button>
+        </div>
+
+        <!-- AI text input + button -->
+        <div id="wizard-ai-row">
+          <input id="wizard-ai-input" type="text"
+                 placeholder="Describe what you want (or add an image above)…" />
+          <button id="wizard-ai-btn">AI HELP</button>
+        </div>
+
+        <!-- AI suggestion panel -->
+        <div id="wizard-suggestion" style="display:none;">
+          <div id="wizard-suggestion-label">◈ AI SUGGESTION</div>
+          <div id="wizard-suggestion-preview"></div>
+          <div id="wizard-suggestion-btns">
+            <button class="wz-accept-btn" id="wizard-accept-btn">✓ ACCEPT</button>
+            <button class="wz-decline-btn" id="wizard-decline-btn">✗ DECLINE</button>
+          </div>
+        </div>
+
+      </div><!-- /wizard-ai-area -->
+
+      <!-- Navigation -->
+      <div id="wizard-nav">
+        <button id="wizard-back-btn">← BACK</button>
+        <button id="wizard-skip-btn">SKIP →</button>
+        <button id="wizard-next-btn">NEXT →</button>
+        <button id="wizard-finish-btn" style="display:none;">FINISH ✓</button>
+      </div>
+
+    </div><!-- /wizard-panel -->
+  </div><!-- /wizard-overlay -->
+
   <script src="js/character-builder.js"></script>
+  <script src="js/character-wizard.js"></script>
 </body>
 </html>

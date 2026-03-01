@@ -607,11 +607,7 @@ function populateForm(data) {
   listEditors.visualNotes = buildListEditor($('editor-visual-notes'), ap.visual_notes || [], true);
 
   const art = ap.art || {};
-  $('app-art-ref').value   = art.character_reference || '';
   $('app-art-sheet').value = art.character_reference_sheet || '';
-  $('app-art-front').value = art.front_body || '';
-  $('app-art-back').value  = art.back || '';
-  $('app-art-side').value  = art.side_face || '';
 
   // — PORTRAITS — (store paths, actual images loaded lazily when tab is viewed)
   portraitState.base     = {};
@@ -719,11 +715,7 @@ function serializeAppearance(characterName) {
     },
     visual_notes: listEditors.visualNotes?.getItems() || [],
     art: {
-      character_reference:       $('app-art-ref').value.trim(),
       character_reference_sheet: $('app-art-sheet').value.trim(),
-      front_body:                $('app-art-front').value.trim(),
-      back:                      $('app-art-back').value.trim(),
-      side_face:                 $('app-art-side').value.trim(),
     },
   };
 }
@@ -885,3 +877,21 @@ function init() {
 }
 
 init();
+
+// ── Internal API for the wizard ────────────────────────────────────────────
+// The wizard reads/writes form state through this object.
+// All keys must remain stable — the wizard depends on them by name.
+window._cbInternal = {
+  EMOTIONS,
+  COMBINED_EMOTIONS,
+  listEditors,
+  portraitState,
+  setDirty,
+  buildFillerCategoryEl,
+  buildListEditor,
+  applyPortraitPreview,
+  // For wizard: shared save state + save trigger
+  state,
+  setPathDisplay,
+  handleSave,
+};
