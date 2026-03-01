@@ -30,3 +30,21 @@ ref/
 
 # RVC server Python 3.10 venv (large, recreatable — see scripts/rvc-server/requirements.txt)
 scripts/rvc-server/venv/
+
+# Python cache
+**/__pycache__/
+*.pyc
+*.pyo
+
+# TTS / voice model weights (large binaries, not tracked)
+# These are downloaded at runtime and can be hundreds of MB each.
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+models/
+voices/
+weights/
+checkpoints/
