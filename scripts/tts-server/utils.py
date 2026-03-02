@@ -72,7 +72,7 @@ def load_filepaths_and_text(filename, split="|"):
 
 
 def get_hparams_from_file(config_path):
-  with open(config_path, "r") as f:
+  with open(config_path, "r", encoding="utf-8", errors="replace") as f:
     data = f.read()
   config = json.loads(data)
 
@@ -82,7 +82,7 @@ def get_hparams_from_file(config_path):
 
 def get_hparams_from_dir(model_dir):
   config_save_path = os.path.join(model_dir, "config.json")
-  with open(config_save_path, "r") as f:
+  with open(config_save_path, "r", encoding="utf-8", errors="replace") as f:
     data = f.read()
   config = json.loads(data)
 

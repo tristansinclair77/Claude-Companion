@@ -28,6 +28,7 @@ import sys
 import tempfile
 import logging
 import traceback
+import torch
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -106,6 +107,20 @@ def _get_rvc() -> RVCInference:
     return _rvc
 
 
+def _detect_model_version(pth_path: str) -> str:
+    """Auto-detect v1 vs v2 by inspecting the phone embedding weight shape."""
+    try:
+        cpt = torch.load(pth_path, map_location='cpu')
+        if 'version' in cpt:
+            return str(cpt['version'])
+        weight = cpt.get('weight', {}).get('enc_p.emb_phone.weight')
+        if weight is not None:
+            return 'v2' if weight.shape[1] == 768 else 'v1'
+    except Exception as exc:
+        logger.warning(f'Version detection failed for {pth_path}: {exc}')
+    return 'v1'
+
+
 def _load_voice(model_id: str) -> bool:
     """Ensure the model is loaded and set as current. Returns True on success."""
     model = next((m for m in _available_models if m['id'] == model_id), None)
@@ -120,8 +135,9 @@ def _load_voice(model_id: str) -> bool:
         return True
 
     try:
-        logger.info(f'Loading model: {model_id} ...')
-        rvc.load_model(model['pth'], version='v2', index_path=model['index'])
+        version = _detect_model_version(model['pth'])
+        logger.info(f'Loading model: {model_id} (detected {version}) ...')
+        rvc.load_model(model['pth'], version=version, index_path=model['index'])
         # rvc.current_model is now set to os.path.basename(pth_path)
         pth_basename = os.path.basename(model['pth'])
         _loaded[model_id] = pth_basename
