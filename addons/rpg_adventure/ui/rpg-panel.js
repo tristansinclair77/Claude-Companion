@@ -56,6 +56,8 @@ const RPGPanel = (() => {
     <button class="rpg-popout-btn" data-win="gear" title="Pop out Gear">↗</button>
     <button class="rpg-popout-btn" data-win="ach"  title="Pop out Achievements">↗</button>
   </div>
+  <button id="rpg-btn-copylog" class="rpg-devtools-btn" title="Copy battle log + state to clipboard">LOG</button>
+  <button id="rpg-btn-devtools" class="rpg-devtools-btn" title="Open DevTools (F12)">DEV</button>
   <button id="rpg-panel-close">✕</button>
 </div>
 
@@ -104,7 +106,7 @@ const RPGPanel = (() => {
 
 <div class="rpg-screen" id="rpg-screen-merchant">
   <div class="rpg-screen-title">// TRAVELING MERCHANT</div>
-  <p class="rpg-merchant-intro">The merchant eyes your equipment with interest...</p>
+  <div id="rpg-merchant-gold-bar" class="rpg-merchant-gold-bar">YOUR GOLD: ◆ <span id="rpg-merchant-gold-val">0</span></div>
   <div class="rpg-scroll" id="rpg-merchant-list"></div>
   <div class="rpg-actions">
     <button class="rpg-btn primary" id="rpg-btn-merchant-leave">LEAVE</button>
@@ -200,9 +202,10 @@ const RPGPanel = (() => {
   function _autoRoute() {
     if (!_currentRun) return;
     const phase = _currentRun.phase;
-    if (phase === 'merchant')      _showScreen('merchant');
+    console.log('[RPG] _autoRoute phase:', phase, 'floorType:', _currentRun.currentFloor?.roomType);
+    if (phase === 'merchant')          _showScreen('merchant');
     else if (phase === 'run_complete') _showScreen('run-end');
-    else                           _showScreen('combat');
+    else                               _showScreen('combat');
   }
 
   // ── Status bar ────────────────────────────────────────────────────────────
@@ -322,6 +325,26 @@ const RPGPanel = (() => {
     }
   }
 
+  function _copyLog() {
+    const logEl   = document.getElementById('rpg-log');
+    const logText = logEl ? logEl.textContent.trim() : '(no log)';
+    const state   = {
+      phase:       _currentRun?.phase,
+      floorType:   _currentRun?.currentFloor?.roomType,
+      floorNum:    _currentRun?.currentFloor?.floorNum,
+      totalFloors: _currentRun?.totalFloors,
+      zoneName:    _currentRun?.zoneName,
+      playerHp:    _currentRun?.playerHp,
+      playerMaxHp: _currentRun?.playerMaxHp,
+      charLevel:   _char?.level,
+    };
+    const text = `=== RPG STATE ===\n${JSON.stringify(state, null, 2)}\n\n=== BATTLE LOG ===\n${logText}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('rpg-btn-copylog');
+      if (btn) { const p = btn.textContent; btn.textContent = '✓'; setTimeout(() => { btn.textContent = p; }, 1500); }
+    }).catch(console.error);
+  }
+
   async function _doRest() {
     if (_busy || _currentRun) return;
     _setBusy(true);
@@ -394,8 +417,13 @@ const RPGPanel = (() => {
         _appendLog(`★ DAILY BONUS: XP ×${xpMult}  Gold ×${goldMult}`, 'level');
       }
       _updateStatusBar();
-      _showScreen('combat');
-      _renderCombat();
+      console.log('[RPG] startAdventure run:', {
+        phase:      _currentRun?.phase,
+        floorType:  _currentRun?.currentFloor?.roomType,
+        totalFloors: _currentRun?.totalFloors,
+        zoneName:   _currentRun?.zoneName,
+      });
+      _autoRoute();
     } catch (err) {
       console.error('[RPGPanel] startAdventure error:', err);
     }
@@ -442,6 +470,7 @@ const RPGPanel = (() => {
   }
 
   function _updateActionButtons(phase) {
+    console.log('[RPG] _updateActionButtons phase:', phase);
     const ids = ['rpg-btn-fight', 'rpg-btn-flee', 'rpg-btn-item', 'rpg-btn-next', 'rpg-btn-extract'];
     for (const id of ids) {
       const b = document.getElementById(id);
@@ -573,11 +602,17 @@ const RPGPanel = (() => {
     player_fled:     ()  => '▶ You escaped!',
     flee_failed:     ()  => '▶ Couldn\'t flee!',
     enemy_fled:      ()  => '▶ The enemy fled!',
-    enemy_died:      (e) => `▶ ☠ ${e.name || 'Enemy'} defeated!  +${e.xp || 0} XP  ◆${e.gold || 0}`,
+    enemy_died:      (e) => `▶ ☠ ${e.enemy?.name || 'Enemy'} defeated!  +${e.xpGained || 0} XP  ◆${e.goldGained || 0}`,
     level_up:        (e) => `★ LEVEL UP → ${e.newLevel}! (+${e.statPointsGained || 3} pts)`,
     player_died:     ()  => '☠ YOU HAVE FALLEN',
     rest_taken:      (e) => `▶ You rest and recover ${e.healAmount} HP.`,
-    trap_triggered:  (e) => `▶ ⚠ Trap! ${e.damage} true damage.`,
+    trap_triggered:      (e) => `▶ ⚠ Trap! ${e.damage} true damage.`,
+    empty_gold_find:     (e) => `▶ You find ${e.gold} gold scattered on the ground.  ◆${e.gold}`,
+    empty_dying_enemy:   (e) => `▶ A dying enemy — you finish it.  +${e.xp} XP  ◆${e.gold}`,
+    empty_healing_spring:(e) => `▶ A hidden spring. You drink and recover ${e.healAmount} HP.`,
+    empty_scavenge:      (e) => `▶ Scavenged ${e.loot?.name || 'an item'} from the ruins.`,
+    empty_inscription:   (e) => `▶ Ancient inscriptions... knowledge absorbed.  +${e.xp} XP`,
+    empty_abandoned_cache:(e)=> `▶ Abandoned cache found!  +${e.xp} XP  ◆${e.gold}`,
     trap_avoided:    ()  => '▶ You avoided the trap!',
     treasure_found:  ()  => '▶ Found a treasure chest!',
     boss_floor:      ()  => '☠ BOSS FLOOR!',
@@ -629,6 +664,10 @@ const RPGPanel = (() => {
   function _renderMerchant() {
     const el = document.getElementById('rpg-merchant-list');
     if (!el || !_currentRun) return;
+
+    const goldVal = document.getElementById('rpg-merchant-gold-val');
+    if (goldVal) goldVal.textContent = (_char && _char.gold != null ? _char.gold : 0).toLocaleString();
+
     const items = (_currentRun.currentFloor && _currentRun.currentFloor.merchant)
       ? (_currentRun.currentFloor.merchant.items || [])
       : [];
@@ -948,6 +987,8 @@ const RPGPanel = (() => {
 
   function _bindStaticEvents() {
     document.getElementById('rpg-panel-close').addEventListener('click', close);
+    document.getElementById('rpg-btn-devtools').addEventListener('click', () => window.rpgAPI.openDevTools());
+    document.getElementById('rpg-btn-copylog').addEventListener('click', _copyLog);
 
     // Nav tabs
     document.querySelectorAll('#rpg-panel .rpg-tab').forEach(btn => {

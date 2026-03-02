@@ -128,13 +128,22 @@ function register({ ipcMain, characterDir }) {
     return achievements.getAll();
   });
 
+  // ── DevTools ───────────────────────────────────────────────────────────────
+
+  ipcMain.handle('rpg:open-devtools', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.webContents.openDevTools({ mode: 'detach' });
+    return { ok: true };
+  });
+
   // ── Pop-out windows ────────────────────────────────────────────────────────
 
   ipcMain.handle('rpg:open-window', (_e, { type }) => {
     const FILES = {
-      char: path.join(__dirname, '../ui/windows/rpg-char.html'),
-      gear: path.join(__dirname, '../ui/windows/rpg-gear.html'),
-      ach:  path.join(__dirname, '../ui/windows/rpg-ach.html'),
+      adventure: path.join(__dirname, '../ui/windows/rpg-adventure.html'),
+      char:      path.join(__dirname, '../ui/windows/rpg-char.html'),
+      gear:      path.join(__dirname, '../ui/windows/rpg-gear.html'),
+      ach:       path.join(__dirname, '../ui/windows/rpg-ach.html'),
     };
     if (!FILES[type]) return { ok: false, error: 'Unknown window type' };
     _openRpgWindow(type, FILES[type]);
@@ -683,6 +692,12 @@ function _openRpgWindow(type, htmlFile) {
   });
   win.setMenu(null);
   win.loadFile(htmlFile);
+  // F12 opens DevTools in frameless pop-out windows (no menu bar shortcut)
+  win.webContents.on('before-input-event', (_ev, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      win.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
   win.webContents.on('did-finish-load', () => {
     try {
       const cfg  = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config.json'), 'utf8'));
@@ -701,7 +716,7 @@ function _loadWinBounds(type) {
     const saved = (cfg.rpgWinBounds || {})[type];
     if (saved) return saved;
   } catch {}
-  return { width: 400, height: 600 };
+  return type === 'adventure' ? { width: 480, height: 720 } : { width: 400, height: 600 };
 }
 
 function _saveWinBounds(type, win) {

@@ -25,19 +25,30 @@
 .rpg-header {
   background: #0b0b18;
   border-bottom: 1px solid #00ffcc22;
-  padding: 5px 8px;
+  padding: 5px 28px 5px 8px; /* right padding reserves space for abs close btn */
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Pop-out windows: header is the drag handle */
+body.rpg-popout .rpg-header {
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+body.rpg-popout .rpg-header * {
+  -webkit-app-region: no-drag;
 }
 
 .rpg-title {
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: 9px;
+  letter-spacing: 1px;
   color: var(--orange);
   text-shadow: 0 0 8px var(--orange);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .rpg-nav-tabs {
@@ -95,15 +106,39 @@
   border-color: var(--cyan);
 }
 
+.rpg-devtools-btn {
+  background: none;
+  border: 1px solid #ffffff11;
+  color: #ffffff22;
+  font-size: 7px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 1px 3px;
+  line-height: 1;
+  transition: color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.rpg-devtools-btn:hover {
+  color: #ffffff88;
+  border-color: #ffffff44;
+}
+
 #rpg-panel-close {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
-  color: #ff224488;
+  color: #ff2244aa;
   font-size: 13px;
   cursor: pointer;
   padding: 2px 4px;
   line-height: 1;
   transition: color 0.12s;
+  z-index: 1;
 }
 
 #rpg-panel-close:hover { color: var(--red); }
@@ -516,6 +551,17 @@
 }
 
 /* ── Merchant screen ───────────────────────────────────────────────────────── */
+.rpg-merchant-gold-bar {
+  font-size: 11px;
+  color: var(--yellow);
+  text-shadow: 0 0 8px var(--yellow);
+  padding: 5px 10px;
+  background: #ffdd0010;
+  border-bottom: 1px solid #ffdd0033;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
 .rpg-merchant-intro {
   font-size: 9px;
   color: #00ffcc33;
@@ -574,6 +620,19 @@
 
 .rpg-info-row   { display: flex; justify-content: space-between; font-size: 9px; color: #00ffcc66; padding: 2px 0; }
 .rpg-info-label { color: #00ffcc33; }
+
+/* ── Inventory comparison panel ────────────────────────────────────────────── */
+.rpg-inv-compare {
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.rpg-inv-compare-label {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
 
 /* ── Adventure button in main toolbar ─────────────────────────────────────── */
 #btn-adventure.active {

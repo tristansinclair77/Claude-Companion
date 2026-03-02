@@ -91,7 +91,7 @@ const RPGInventory = (() => {
         return `<div class="rpg-item-card" id="rpg-inv-${item.id}"
                      onclick="RPGInventory._clickItem(${item.id})">
           <div class="rpg-item-name ${rc}">${_esc(item.name)}${legTag ? `<span style="color:var(--orange)">${legTag}</span>` : ''}</div>
-          <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)}${statStr ? ' · ' + statStr : ''}${_esc(setTag)}</div>
+          <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)} · iLvl ${item.zone_level || 1}${statStr ? ' · ' + statStr : ''}${_esc(setTag)}</div>
           ${passiveStr ? `<div class="rpg-item-meta" style="color:#aa44ff88;font-style:italic">${_esc(passiveStr)}</div>` : ''}
           <div class="rpg-item-actions" id="rpg-inv-act-${item.id}">
             <button class="rpg-btn"
@@ -116,9 +116,12 @@ const RPGInventory = (() => {
     if (_cbs.onUnequip) _cbs.onUnequip(slot);
   }
 
-  // ── Item click — expand / collapse action row ────────────────────────────
+  // ── Item click — expand / collapse action row + comparison ──────────────
 
   function _clickItem(id) {
+    // Remove any existing comparison panel
+    document.querySelectorAll('.rpg-inv-compare').forEach(el => el.remove());
+
     // Deselect everything
     document.querySelectorAll('#rpg-inventory-content .rpg-item-card').forEach(c => {
       c.classList.remove('selected');
@@ -130,6 +133,51 @@ const RPGInventory = (() => {
     const actions = document.getElementById(`rpg-inv-act-${id}`);
     if (card)    card.classList.add('selected');
     if (actions) actions.style.display = 'flex';
+
+    // Build comparison with currently equipped item in the same slot
+    const item = _allItems.find(i => i.id === id);
+    if (!item || !card) return;
+
+    const equippedItem = _equipped.find(e => e.slot === item.slot && e.id);
+    const newTotal     = _statTotal(item);
+    const eqTotal      = equippedItem ? _statTotal(equippedItem) : 0;
+
+    let glowColor, deltaLabel;
+    if (!equippedItem) {
+      glowColor  = 'var(--green)';
+      deltaLabel = 'Nothing equipped in this slot';
+    } else if (newTotal > eqTotal) {
+      glowColor  = 'var(--green)';
+      deltaLabel = `▲ +${newTotal - eqTotal} total stats vs equipped`;
+    } else if (newTotal < eqTotal) {
+      glowColor  = 'var(--red)';
+      deltaLabel = `▼ ${newTotal - eqTotal} total stats vs equipped`;
+    } else {
+      glowColor  = 'var(--yellow)';
+      deltaLabel = '= Same total stats as equipped';
+    }
+
+    const cmp = document.createElement('div');
+    cmp.className = 'rpg-inv-compare';
+    cmp.style.cssText = `border:1px solid ${glowColor};box-shadow:0 0 10px ${glowColor}55;margin:3px 0 0 0;padding:6px 8px;border-radius:2px;background:#05050f`;
+
+    if (!equippedItem) {
+      cmp.innerHTML = `
+        <div class="rpg-inv-compare-label" style="color:${glowColor}">${_esc(deltaLabel)}</div>`;
+    } else {
+      const rc      = RARITY_CLASS[(equippedItem.rarity || '').toLowerCase()] || 'rarity-common';
+      const stats   = _parseStats(equippedItem.stats);
+      const statStr = Object.entries(stats)
+        .filter(([, v]) => typeof v === 'number' && v !== 0)
+        .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
+        .join(' ');
+      cmp.innerHTML = `
+        <div class="rpg-inv-compare-label" style="color:${glowColor}">${_esc(deltaLabel)}</div>
+        <div class="rpg-item-name ${rc}" style="font-size:10px;margin-top:4px">${_esc(equippedItem.name)}</div>
+        <div class="rpg-item-meta">${_esc(equippedItem.slot)} · ${_esc(equippedItem.rarity)} · iLvl ${equippedItem.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>`;
+    }
+
+    card.after(cmp);
   }
 
   // ── Equip / sell / drop ──────────────────────────────────────────────────
@@ -166,6 +214,13 @@ const RPGInventory = (() => {
       if (!Array.isArray(arr)) return [];
       return arr.map(p => (typeof p === 'string' ? p : (p.name || p.id || '')));
     } catch { return []; }
+  }
+
+  function _statTotal(item) {
+    const stats = _parseStats(item.stats);
+    return Object.values(stats)
+      .filter(v => typeof v === 'number')
+      .reduce((sum, v) => sum + v, 0);
   }
 
   function _esc(str) {

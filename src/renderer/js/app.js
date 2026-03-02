@@ -124,12 +124,12 @@
     CompanionDisplay?.updateSensationReadout?.(data.current);
   });
 
-  // ── RPG Adventure panel ────────────────────────────────────────────────────
+  // ── RPG Adventure — opens as a pop-out window ─────────────────────────────
   if (typeof RPGPanel !== 'undefined') {
     RPGPanel.init();
     const btnAdventure = document.getElementById('btn-adventure');
     if (btnAdventure) {
-      btnAdventure.addEventListener('click', () => RPGPanel.open());
+      btnAdventure.addEventListener('click', () => window.rpgAPI.openWindow('adventure'));
     }
   }
 

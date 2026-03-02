@@ -703,15 +703,73 @@ function resolveFloorRoom(runState) {
       break;
     }
 
-    default: { // 'empty'
-      floor.completed = true;
-      runState.phase = 'floor_complete';
-      events.push({ type: 'room_entered', roomType: 'empty', scenario: 'room_empty' });
+    default: { // 'empty' — replaced with random mini-events
+      _resolveEmptyFloor(runState, floor, char, gear, events);
       break;
     }
   }
 
   return { events };
+}
+
+// ── Empty-floor random mini-events ───────────────────────────────────────────
+const EMPTY_EVENTS = [
+  'gold_find', 'dying_enemy', 'healing_spring',
+  'scavenge',  'inscription', 'abandoned_cache',
+];
+
+function _resolveEmptyFloor(runState, floor, char, gear, events) {
+  const zl     = runState.zoneLevel;
+  const effLCK = char.lck + (gear.totalLCKBonus || 0);
+  const pick   = EMPTY_EVENTS[Math.floor(Math.random() * EMPTY_EVENTS.length)];
+
+  switch (pick) {
+    case 'gold_find': {
+      const gold = Math.floor(zl * 3 + Math.random() * zl * 4);
+      runState.goldBag += gold;
+      events.push({ type: 'empty_gold_find', gold });
+      break;
+    }
+    case 'dying_enemy': {
+      const xp   = Math.floor(zl * 6 + Math.random() * zl * 8);
+      const gold = Math.floor(zl + Math.random() * zl * 2);
+      runState.xpBag   += xp;
+      runState.goldBag += gold;
+      runState.kills++;
+      events.push({ type: 'empty_dying_enemy', xp, gold });
+      break;
+    }
+    case 'healing_spring': {
+      const heal = Math.floor(runState.playerMaxHp * (0.08 + Math.random() * 0.07));
+      runState.playerHp = Math.min(runState.playerMaxHp, runState.playerHp + heal);
+      events.push({ type: 'empty_healing_spring', healAmount: heal });
+      break;
+    }
+    case 'scavenge': {
+      const loot = rollLootDrop(Math.max(1, zl - 2), effLCK,
+                                _bracketForTier(runState.zone.tier), char.level, false, false);
+      _applyLoot(runState, [loot], events);
+      events.push({ type: 'empty_scavenge', loot });
+      break;
+    }
+    case 'inscription': {
+      const xp = Math.floor(zl * 4 + Math.random() * zl * 5);
+      runState.xpBag += xp;
+      events.push({ type: 'empty_inscription', xp });
+      break;
+    }
+    case 'abandoned_cache': {
+      const gold = Math.floor(zl * 5 + Math.random() * zl * 8);
+      const xp   = Math.floor(zl * 3 + Math.random() * zl * 3);
+      runState.goldBag += gold;
+      runState.xpBag   += xp;
+      events.push({ type: 'empty_abandoned_cache', gold, xp });
+      break;
+    }
+  }
+
+  floor.completed  = true;
+  runState.phase   = 'floor_complete';
 }
 
 function _chestScenario(loot) {

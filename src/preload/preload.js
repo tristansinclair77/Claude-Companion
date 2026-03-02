@@ -103,4 +103,5 @@ contextBridge.exposeInMainWorld('rpgAPI', {
   getScenarioResponse: (key, gameState)     => ipcRenderer.invoke('rpg:get-scenario-response', { key, gameState }),
   generateResponsePool: (key, gameState)    => ipcRenderer.invoke('rpg:generate-response-pool', { key, gameState }),
   suggestZone:         ()                   => ipcRenderer.invoke('rpg:suggest-zone'),
+  openDevTools:        ()                   => ipcRenderer.invoke('rpg:open-devtools'),
 });
