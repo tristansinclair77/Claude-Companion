@@ -36,10 +36,12 @@
 /* Pop-out windows: header is the drag handle */
 body.rpg-popout .rpg-header {
   -webkit-app-region: drag;
+  user-select: none;
   cursor: grab;
 }
-body.rpg-popout .rpg-header * {
+body.rpg-popout .rpg-header button {
   -webkit-app-region: no-drag;
+  cursor: pointer;
 }
 
 .rpg-title {
