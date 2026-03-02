@@ -402,9 +402,22 @@ async function synthesize(text) {
   if (_isRvcVoice)  return _synthesizeRvc(clean);
   if (_isVitsVoice) return _synthesizeVits(clean);
 
+  // "None" selected — play the RVC source voice directly (no conversion).
+  // If source is a VITS/StyleTTS2 voice, fetch it from the VITS server.
+  const srcVoice    = _rvcSourceVoice;
+  const srcIsKokoro = !srcVoice || KOKORO_VOICES.some(v => v.id === srcVoice);
+  if (!srcIsKokoro) {
+    try {
+      return await _fetchVitsAudio(clean, srcVoice);
+    } catch (err) {
+      console.warn('[TTS] Source voice failed, falling back to Kokoro:', err.message);
+    }
+  }
+
   try {
-    const tts   = await _getTTS();
-    const audio = await tts.generate(clean, { voice: _voice || 'af_heart', speed: _speed });
+    const kokoroId = srcIsKokoro ? (srcVoice || 'af_heart') : 'af_heart';
+    const tts      = await _getTTS();
+    const audio    = await tts.generate(clean, { voice: kokoroId, speed: _speed });
     return _toWav(audio.audio, audio.sampling_rate);
   } catch (err) {
     console.warn('[TTS] synthesis failed:', err.message);
