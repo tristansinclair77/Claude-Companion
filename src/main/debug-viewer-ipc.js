@@ -210,7 +210,7 @@ function registerDebugViewerIPC(mainWindow, db) {
   ipcMain.on('debug-viewer:maximize', () => {
     debugWindow?.isMaximized() ? debugWindow.unmaximize() : debugWindow?.maximize();
   });
-  ipcMain.on('debug-viewer:close', () => debugWindow?.close());
+  ipcMain.on('debug-viewer:close', () => debugWindow?.destroy());
 
   // List available slots
   ipcMain.handle('debug-viewer:list-slots', () => {

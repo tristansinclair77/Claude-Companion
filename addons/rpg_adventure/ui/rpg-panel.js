@@ -103,6 +103,7 @@ const RPGPanel = (() => {
     <button class="rpg-btn"         id="rpg-btn-extract" style="display:none">EXTRACT</button>
   </div>
   <div id="rpg-combat-log"></div>
+  <div id="rpg-victory-overlay" style="display:none"></div>
 </div>
 
 <div class="rpg-screen" id="rpg-screen-merchant">
@@ -180,7 +181,12 @@ const RPGPanel = (() => {
 
   function close() {
     if (document.body.classList.contains('rpg-popout')) {
-      window.close();
+      try {
+        window.rpgAPI.closeWindow();
+      } catch (e) {
+        console.error('[RPGPanel] closeWindow failed, falling back to window.close()', e);
+        window.close();
+      }
       return;
     }
     _isOpen = false;
@@ -537,6 +543,70 @@ const RPGPanel = (() => {
     if (el) el.style.display = '';
   }
 
+  // ── Victory overlay (shown after enemy is defeated) ───────────────────────
+
+  function _showVictoryOverlay(events, levelUps) {
+    const overlay = document.getElementById('rpg-victory-overlay');
+    if (!overlay) return;
+
+    const dieEv  = events.find(e => e.type === 'enemy_died');
+    if (!dieEv) return;
+
+    const lootEv    = events.find(e => e.type === 'loot_drop' && e.loot && e.loot.item);
+    const isBoss    = !!(_currentRun?.currentFloor?.enemy?.isBoss);
+    const enemyName = dieEv.enemy?.name || _currentRun?.currentFloor?.enemy?.name || 'Enemy';
+    const xp        = dieEv.xpGained   || 0;
+    const gold      = dieEv.goldGained  || 0;
+
+    const titleColor = isBoss ? 'var(--red)' : 'var(--cyan)';
+    const titleText  = isBoss ? '☠ BOSS DEFEATED' : 'ENEMY DEFEATED';
+
+    let html = `
+      <div class="rpg-victory-title" style="color:${titleColor};text-shadow:0 0 16px ${titleColor}">${titleText}</div>
+      <div class="rpg-victory-name">${_esc(enemyName)}</div>
+      <div class="rpg-victory-rewards">
+        <div class="rpg-victory-row">
+          <span class="rpg-victory-label">XP</span>
+          <span class="rpg-victory-val" style="color:var(--purple)">+${xp.toLocaleString()}</span>
+        </div>
+        <div class="rpg-victory-row">
+          <span class="rpg-victory-label">GOLD</span>
+          <span class="rpg-victory-val" style="color:var(--yellow)">◆ ${gold.toLocaleString()}</span>
+        </div>`;
+
+    if (lootEv) {
+      const item   = lootEv.loot.item;
+      const rc     = 'rarity-' + (item.rarity || 'common').toLowerCase();
+      const rarLbl = (item.rarity || 'common').toUpperCase();
+      html += `
+        <div class="rpg-victory-row">
+          <span class="rpg-victory-label">LOOT</span>
+          <span class="rpg-victory-val ${rc}">[${rarLbl}] ${_esc(item.name)}</span>
+        </div>`;
+    }
+
+    if (levelUps && levelUps.length) {
+      for (const lu of levelUps) {
+        html += `
+        <div class="rpg-victory-row" style="color:var(--purple)">
+          <span class="rpg-victory-label">★</span>
+          <span class="rpg-victory-val">LEVEL UP → ${lu.newLevel}!</span>
+        </div>`;
+      }
+    }
+
+    html += `</div>
+      <button class="rpg-btn primary" id="rpg-victory-continue">CONTINUE</button>`;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+
+    document.getElementById('rpg-victory-continue').addEventListener('click', () => {
+      overlay.style.display = 'none';
+      _updateActionButtons(_currentRun?.phase || 'floor_complete');
+    });
+  }
+
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async function _takeAction(action, payload = {}) {
@@ -588,13 +658,18 @@ const RPGPanel = (() => {
         _currentRun = result.run;
         if (result.newGold !== undefined && _char) _char.gold = result.newGold;
         _updateStatusBar();
-        const phase = result.run.phase;
+        const phase    = result.run.phase;
+        const hasKill  = (result.events || []).some(e => e.type === 'enemy_died');
         if (phase === 'merchant') {
           _renderMerchant();
           _showScreen('merchant');
         } else {
           _renderCombat();
           if (_screen !== 'combat') _showScreen('combat');
+          // Show victory overlay — hides NEXT/EXTRACT until player clicks through
+          if (hasKill && phase === 'floor_complete') {
+            _showVictoryOverlay(result.events || [], result.levelUps || []);
+          }
         }
       }
     } catch (err) {

@@ -40,6 +40,7 @@ const DB_PATH          = path.join(CHARACTER_DIR, 'knowledge.db');
 let mainWindow;
 let hotkeyManager;
 let db;
+let _mainWindowClosing = false; // set true only when mainWindow itself closes
 let sessionManager;
 let localBrain;
 let character;
@@ -171,9 +172,15 @@ function createWindow() {
     mainWindow.show();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  // Save session when the main window is closed (before it's destroyed).
+  mainWindow.on('close', () => {
+    _mainWindowClosing = true;
+    try { saveSessionOnExit(); } catch {}
+    if (db) { try { db.close(); } catch {} db = null; }
+    if (hotkeyManager) { hotkeyManager.unregisterAll(); hotkeyManager = null; }
   });
+
+  mainWindow.on('closed', () => { mainWindow = null; });
 
   return mainWindow;
 }
@@ -248,11 +255,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (db) {
-    try { saveSessionOnExit(); } catch {}
-    db.close();
-  }
-  if (hotkeyManager) hotkeyManager.unregisterAll();
+  // Only quit when the main companion window itself was closed.
+  // Pop-out windows (adventure, char, gear, etc.) closing must never quit the app.
+  if (!_mainWindowClosing) return;
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -263,11 +268,22 @@ function saveSessionOnExit() {
 
 // ── IPC Handlers ──────────────────────────────────────────────────────────────
 
-ipcMain.on('window:minimize', () => mainWindow?.minimize());
-ipcMain.on('window:maximize', () => {
+ipcMain.on('window:minimize', (e) => { if (BrowserWindow.fromWebContents(e.sender) === mainWindow) mainWindow?.minimize(); });
+ipcMain.on('window:maximize', (e) => {
+  if (BrowserWindow.fromWebContents(e.sender) !== mainWindow) return;
   mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize();
 });
-ipcMain.on('window:close', () => mainWindow?.close());
+ipcMain.on('window:close', (e) => {
+  const sender = BrowserWindow.fromWebContents(e.sender);
+  if (!sender || sender.isDestroyed()) return;
+  // Main window: use close() so the 'close' event fires and session is saved.
+  // Any other window: destroy() directly (same fix that was needed for RPG pop-outs).
+  if (sender === mainWindow) {
+    mainWindow.close();
+  } else {
+    sender.destroy();
+  }
+});
 
 ipcMain.handle('claude:send-message', async (event, payload) => {
   const { message, userEmotion, attachments } = payload;
@@ -512,7 +528,7 @@ ipcMain.on('msgs:open', () => {
 });
 
 ipcMain.on('msgs:minimize', () => messageEditorWindow?.minimize());
-ipcMain.on('msgs:close',    () => messageEditorWindow?.close());
+ipcMain.on('msgs:close',    () => messageEditorWindow?.destroy());
 
 ipcMain.handle('msgs:list', () => {
   if (!db) return [];
@@ -574,7 +590,7 @@ ipcMain.on('emotional-state:open', () => {
 });
 
 ipcMain.on('emotional-state:minimize', () => emotionalStateWindow?.minimize());
-ipcMain.on('emotional-state:close',    () => emotionalStateWindow?.close());
+ipcMain.on('emotional-state:close',    () => emotionalStateWindow?.destroy());
 
 ipcMain.handle('emotional-state:get', () => {
   const state = db ? db.getEmotionalState() : { valence: 50, arousal: 40, social: 50, physical: 70 };

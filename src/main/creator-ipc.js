@@ -71,7 +71,7 @@ function registerCreatorIPC(mainWindow) {
     BrowserWindow.fromWebContents(event.sender)?.minimize();
   });
   ipcMain.on('creator:close', (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.close();
+    BrowserWindow.fromWebContents(event.sender)?.destroy();
   });
 }
 

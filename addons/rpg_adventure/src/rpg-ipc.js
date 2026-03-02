@@ -7,6 +7,7 @@
 const path               = require('path');
 const fs                 = require('fs');
 const { BrowserWindow }  = require('electron');
+
 const RpgDB              = require('./rpg-db');
 const engine       = require('./rpg-engine');
 const narrator     = require('./rpg-narrator');
@@ -134,6 +135,18 @@ function register({ ipcMain, characterDir }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.webContents.openDevTools({ mode: 'detach' });
     return { ok: true };
+  });
+
+  // Close only the RPG pop-out window that sent this message — never touches mainWindow.
+  ipcMain.on('rpg:close-window', (event) => {
+    const senderId = event.sender.id;
+    for (const [type, win] of Object.entries(_openWindows)) {
+      if (!win.isDestroyed() && win.webContents.id === senderId) {
+        _saveWinBounds(type, win); // save bounds manually — destroy() skips 'close' event
+        win.destroy();
+        return;
+      }
+    }
   });
 
   // ── Pop-out windows ────────────────────────────────────────────────────────
@@ -715,8 +728,7 @@ function _openRpgWindow(type, htmlFile) {
     } catch { /* ignore */ }
   });
   _openWindows[type] = win;
-  win.on('closed', () => { delete _openWindows[type]; });
-  win.on('close', () => _saveWinBounds(type, win));
+  win.on('close',  () => _saveWinBounds(type, win));
   win.on('closed', () => { delete _openWindows[type]; });
 }
 

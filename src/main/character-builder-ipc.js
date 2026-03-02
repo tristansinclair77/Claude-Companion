@@ -96,7 +96,7 @@ function registerCharacterBuilderIPC(mainWindow) {
   ipcMain.on('character-builder:maximize', () => {
     builderWindow?.isMaximized() ? builderWindow.unmaximize() : builderWindow?.maximize();
   });
-  ipcMain.on('character-builder:close', () => builderWindow?.close());
+  ipcMain.on('character-builder:close', () => builderWindow?.destroy());
 
   // Load character from a directory the user picks
   ipcMain.handle('character-builder:load', async () => {
