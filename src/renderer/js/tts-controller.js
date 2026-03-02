@@ -326,16 +326,15 @@
       voicePicker.appendChild(el);
     };
 
+    const hdr = document.createElement('div');
+    hdr.className = 'voice-section-header';
+    hdr.textContent = '── RVC CHARACTERS ──────────';
+    voicePicker.appendChild(hdr);
+
     // "None" — bypasses RVC, source voice plays directly
     addOption('', 'None (source voice only)');
 
-    if (rvcVoices.length > 0) {
-      const hdr = document.createElement('div');
-      hdr.className = 'voice-section-header';
-      hdr.textContent = '── RVC CHARACTERS ──────────';
-      voicePicker.appendChild(hdr);
-      for (const v of rvcVoices) addOption(v.id, v.label);
-    }
+    for (const v of rvcVoices) addOption(v.id, v.label);
   }
 
   // ── SYNC toggle ─────────────────────────────────────────────────────────────
