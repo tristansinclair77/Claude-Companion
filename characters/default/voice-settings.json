@@ -1,0 +1,13 @@
+{
+  "tts": {
+    "voice": "rvc:Ashley Graham",
+    "enabled": true
+  },
+  "rvc": {
+    "pitchShift": 4,
+    "indexRate": 0.5,
+    "f0method": "rmvpe",
+    "protect": 0.5,
+    "sourceVoice": "english_female_tts_22050Hz_Ljspeech"
+  }
+}

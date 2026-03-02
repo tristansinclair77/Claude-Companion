@@ -82,6 +82,68 @@ function _toWav(samples, sampleRate) {
   return buf;
 }
 
+/** Maximum characters per Kokoro synthesis call.
+ *  Kokoro's ONNX model silently truncates at ~512 phoneme tokens (~450 English chars). */
+const _KOKORO_CHUNK_LIMIT = 450;
+
+/**
+ * Split text into chunks of at most maxLen characters, breaking at sentence
+ * boundaries (. ! ? ;) where possible, then at word boundaries.
+ */
+function _splitChunks(text, maxLen = _KOKORO_CHUNK_LIMIT) {
+  if (text.length <= maxLen) return [text];
+
+  const chunks = [];
+  let remaining = text;
+
+  while (remaining.length > maxLen) {
+    let cutAt = -1;
+    // Prefer a sentence-end boundary within the window
+    for (let i = maxLen; i > 0; i--) {
+      if ('.!?;'.includes(remaining[i])) { cutAt = i + 1; break; }
+    }
+    // Fall back to last space
+    if (cutAt === -1) {
+      for (let i = maxLen; i > 0; i--) {
+        if (remaining[i] === ' ') { cutAt = i; break; }
+      }
+    }
+    // Hard cut
+    if (cutAt === -1) cutAt = maxLen;
+
+    const chunk = remaining.slice(0, cutAt).trim();
+    if (chunk) chunks.push(chunk);
+    remaining = remaining.slice(cutAt).trim();
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks.filter(c => c.length > 0);
+}
+
+/**
+ * Generate Kokoro audio for arbitrarily long text by chunking at the model
+ * limit, synthesising each piece, then concatenating the Float32 PCM samples.
+ * Returns the same shape as tts.generate(): { audio: Float32Array, sampling_rate }.
+ */
+async function _kokoroGenerate(tts, text, voice) {
+  const chunks = _splitChunks(text);
+  if (chunks.length === 1) {
+    return tts.generate(text, { voice, speed: _speed });
+  }
+  const parts = [];
+  let sampleRate = 24000;
+  for (const chunk of chunks) {
+    const result = await tts.generate(chunk, { voice, speed: _speed });
+    parts.push(result.audio);
+    sampleRate = result.sampling_rate;
+  }
+  const totalLen = parts.reduce((n, a) => n + a.length, 0);
+  const combined = new Float32Array(totalLen);
+  let offset = 0;
+  for (const part of parts) { combined.set(part, offset); offset += part.length; }
+  return { audio: combined, sampling_rate: sampleRate };
+}
+
 /** Strip markup that shouldn't be spoken aloud. */
 function _cleanText(text) {
   return text
@@ -160,7 +222,7 @@ async function _synthesizeVits(text) {
     _voice = 'af_heart';
     try {
       const tts   = await _getTTS();
-      const audio = await tts.generate(text, { voice: 'af_heart', speed: _speed });
+      const audio = await _kokoroGenerate(tts, text, 'af_heart');
       return _toWav(audio.audio, audio.sampling_rate);
     } finally {
       _voice = saved;
@@ -259,7 +321,7 @@ async function _synthesizeRvc(text) {
   if (!sourceWav) {
     try {
       const tts   = await _getTTS();
-      const audio = await tts.generate(text, { voice: kokoroId, speed: _speed });
+      const audio = await _kokoroGenerate(tts, text, kokoroId);
       sourceWav   = _toWav(audio.audio, audio.sampling_rate);
       if (isKokoro) console.log('[TTS] RVC source: Kokoro', kokoroId);
     } catch (err) {
@@ -417,7 +479,7 @@ async function synthesize(text) {
   try {
     const kokoroId = srcIsKokoro ? (srcVoice || 'af_heart') : 'af_heart';
     const tts      = await _getTTS();
-    const audio    = await tts.generate(clean, { voice: kokoroId, speed: _speed });
+    const audio    = await _kokoroGenerate(tts, clean, kokoroId);
     return _toWav(audio.audio, audio.sampling_rate);
   } catch (err) {
     console.warn('[TTS] synthesis failed:', err.message);

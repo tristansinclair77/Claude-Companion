@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Visual Effects Creator</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+  <link rel="stylesheet" href="styles/cyberpunk-bg.css" />
+  <style>
+    html, body { background: var(--bg-dark); overflow: hidden; height: 100%; }
+
+    /* ── Background layers (so effects preview in this window too) ── */
+    #bg-grid, #bg-noise, #bg-data-rain, #bg-circuit, #bg-edge-glow, #bg-chroma {
+      position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    }
+
+    /* ── Title bar ── */
+    #title-bar {
+      height: 32px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-glow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 100;
+    }
+    #title-bar-left { display: flex; align-items: center; gap: 8px; }
+    .title-text {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+    .title-pkg {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--cyan-dim);
+    }
+    #title-controls { display: flex; gap: 4px; -webkit-app-region: no-drag; }
+
+    /* ── Scrollable content ── */
+    #content {
+      height: calc(100vh - 32px);
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+      scrollbar-width: thin;
+      scrollbar-color: var(--cyan-dim) transparent;
+    }
+    #content::-webkit-scrollbar       { width: 3px; }
+    #content::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+
+    /* ── Package selector ── */
+    #pkg-section {
+      padding: 10px 14px 6px;
+      border-bottom: 1px solid rgba(0,255,204,0.06);
+    }
+    .section-label {
+      font-size: 8px;
+      letter-spacing: 3px;
+      color: rgba(0,255,204,0.35);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    #pkg-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .vfx-pkg-btn {
+      background: none;
+      border: 1px solid #2a3a4a;
+      color: #3a4a5a;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      letter-spacing: 2px;
+      padding: 4px 9px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .vfx-pkg-btn:hover  { border-color: var(--cyan-dim); color: var(--cyan-dim); }
+    .vfx-pkg-btn.active { border-color: var(--cyan); color: var(--cyan); text-shadow: 0 0 5px var(--cyan); }
+
+    /* ── Status bar ── */
+    #status-bar {
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: rgba(0,255,204,0.3);
+      padding: 4px 14px;
+      border-bottom: 1px solid rgba(0,255,204,0.04);
+    }
+    #status-bar span { color: rgba(0,255,204,0.6); }
+
+    /* ── Swatch color display for rain columns ── */
+    .rain-col {
+      position: absolute; top: -20%; font-family: 'Courier New', monospace;
+      font-size: 11px; writing-mode: vertical-rl; white-space: pre;
+      letter-spacing: 6px; animation: rain-fall linear infinite; will-change: transform;
+    }
+    @keyframes rain-fall {
+      0%   { transform: translateY(-20%); }
+      100% { transform: translateY(120vh); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background effect layers (preview in this window) -->
+  <div id="bg-grid"      aria-hidden="true"></div>
+  <div id="bg-noise"     aria-hidden="true"></div>
+  <div id="bg-data-rain" aria-hidden="true"></div>
+  <div id="bg-circuit"   aria-hidden="true"></div>
+  <div id="bg-edge-glow" aria-hidden="true"></div>
+  <div id="bg-chroma"    aria-hidden="true"></div>
+
+  <div id="title-bar">
+    <div id="title-bar-left">
+      <span class="title-text">// VISUAL_EFFECTS_CREATOR</span>
+      <span class="title-pkg" id="title-pkg-name"></span>
+    </div>
+    <div id="title-controls">
+      <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
+      <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- Package selector -->
+    <div id="pkg-section">
+      <div class="section-label">VISUAL PACKAGE</div>
+      <div id="pkg-list"></div>
+    </div>
+
+    <!-- Status -->
+    <div id="status-bar">editing: <span id="status-pkg">—</span></div>
+
+    <!-- Effect sections rendered dynamically by JS -->
+    <div id="effects-container" class="settings-body"></div>
+
+  </div>
+
+  <script>
+  'use strict';
+
+  // ── Builtin package defaults (mirrors settings.js) ────────────────────────
+
+  const BUILTIN_PACKAGES = [{
+    id: 'cybernetic', name: 'CYBERNETIC', desc: 'neon green / teal', builtin: true,
+    colors: {
+      '--cyan': '#00ffcc', '--cyan-dim': '#007755', '--green': '#00ff88',
+      '--magenta': '#ff00aa', '--purple': '#aa44ff', '--orange': '#ff8800',
+      '--red': '#ff2244', '--yellow': '#ffdd00',
+      '--bg-dark': '#0a0a0f', '--bg-panel': '#0d0d16', '--bg-mid': '#111122',
+      '--bg-input': '#0c0c18', '--border': '#001a0f', '--border-glow': '#00ff8833',
+    },
+    effects: {
+      grid: 'square', gridColor: 'cyan', gridAnimate: true, gridOpacity: 100,
+      filmGrain: true, filmGrainOpacity: 5, filmGrainAnimate: true,
+      dataRain: false, circuitPattern: false, edgeGlow: true,
+      chromaticAberration: true, scanlinesIntensity: 'light',
+    },
+  }];
+
+  const EFFECT_KEYS = [
+    'grid','gridColor','gridAnimate','gridOpacity',
+    'filmGrain','filmGrainOpacity','filmGrainAnimate',
+    'dataRain','circuitPattern','edgeGlow','chromaticAberration','scanlinesIntensity',
+  ];
+
+  // ── State ─────────────────────────────────────────────────────────────────
+
+  let bgState    = null;
+  let activeId   = null;
+  let _saveTimer = null;
+  let _rainCols  = [];
+
+  const GRID_COLORS = {
+    cyan:    { r: 0,   g: 255, b: 204 },
+    magenta: { r: 255, g: 0,   b: 170 },
+    green:   { r: 0,   g: 255, b: 136 },
+  };
+
+  const RAIN_CHARS =
+    '01アイウエオカキクケコサシスセソタチツテト' +
+    '10010110ナニヌネノハヒフヘホマミムメモラリルレロ';
+
+  function getPackages() {
+    return (bgState?.packages?.length > 0) ? bgState.packages : JSON.parse(JSON.stringify(BUILTIN_PACKAGES));
+  }
+
+  function getActivePkg() {
+    return getPackages().find(p => p.id === activeId) || getPackages()[0];
+  }
+
+  function fx() { return getActivePkg().effects; }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function schedSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(doSave, 200);
+  }
+
+  async function doSave() {
+    // Write current effect state back to the active package
+    const pkg = getActivePkg();
+    EFFECT_KEYS.forEach(k => { pkg.effects[k] = fx()[k]; });
+    if (bgState) bgState.activePackage = activeId;
+    try { await window.creatorAPI.setBgSettings({ ...bgState }); }
+    catch (e) { console.warn('[VFX] save error:', e); }
+  }
+
+  function applyColors(pkg) {
+    const root = document.documentElement;
+    Object.entries(pkg.colors).forEach(([k, v]) => root.style.setProperty(k, v));
+  }
+
+  // ── Effect applicators (same logic as settings.js) ────────────────────────
+
+  function applyGrid() {
+    const el = document.getElementById('bg-grid');
+    if (!el) return;
+    el.classList.remove('square','hex','grid-animate','active');
+    el.style.backgroundImage = '';
+    el.style.opacity = '';
+    const e = fx();
+    if (e.grid === 'off') return;
+    const c = GRID_COLORS[e.gridColor] || GRID_COLORS.cyan;
+    el.style.setProperty('--grid-line', `rgba(${c.r},${c.g},${c.b},0.08)`);
+    el.classList.add(e.grid, 'active');
+    el.style.opacity = (e.gridOpacity / 100).toFixed(2);
+    if (e.grid === 'hex') {
+      const hex = `${c.r.toString(16).padStart(2,'0')}${c.g.toString(16).padStart(2,'0')}${c.b.toString(16).padStart(2,'0')}`;
+      const stroke = `%23${hex}`;
+      el.style.backgroundImage =
+        `url("data:image/svg+xml,%3Csvg width='56' height='97' xmlns='http://www.w3.org/2000/svg'%3E` +
+        `%3Cpath d='M28 0 L56 16 L56 49 L28 65 L0 49 L0 16 Z' fill='none' stroke='${stroke}' stroke-width='1'/%3E` +
+        `%3Cline x1='28' y1='65' x2='28' y2='97' stroke='${stroke}' stroke-width='1'/%3E` +
+        `%3C/svg%3E")`;
+    }
+    if (e.gridAnimate) el.classList.add('grid-animate');
+  }
+
+  function applyFilmGrain() {
+    const el = document.getElementById('bg-noise');
+    if (!el) return;
+    const e = fx();
+    if (e.filmGrain) {
+      el.style.opacity = (e.filmGrainOpacity / 100).toFixed(3);
+      el.classList.toggle('grain-animate', e.filmGrainAnimate);
+    } else {
+      el.style.opacity = '0';
+      el.classList.remove('grain-animate');
+    }
+  }
+
+  function applyDataRain() {
+    const el = document.getElementById('bg-data-rain');
+    if (!el) return;
+    _rainCols.forEach(c => c.remove());
+    _rainCols = [];
+    el.classList.toggle('active', fx().dataRain);
+    if (!fx().dataRain) return;
+    const colCount = 14;
+    const colWidth = Math.floor(window.innerWidth / colCount);
+    for (let i = 0; i < colCount; i++) {
+      const col = document.createElement('div');
+      col.className = 'rain-col';
+      col.style.left = `${i * colWidth + Math.floor(Math.random() * colWidth * 0.6)}px`;
+      col.style.animationDuration = `${7 + Math.random() * 9}s`;
+      col.style.animationDelay    = `${-(Math.random() * 16)}s`;
+      col.style.color = `rgba(0,255,136,${(0.06 + Math.random() * 0.12).toFixed(3)})`;
+      let chars = '';
+      for (let j = 0; j < 35; j++) chars += RAIN_CHARS[Math.floor(Math.random() * RAIN_CHARS.length)];
+      col.textContent = chars;
+      el.appendChild(col);
+      _rainCols.push(col);
+    }
+  }
+
+  function applyCircuit() {
+    const el = document.getElementById('bg-circuit');
+    if (!el) return;
+    if (fx().circuitPattern) {
+      const W=500, H=500, G=25, col='#00ffcc', irnd=n=>Math.floor(Math.random()*n), parts=[];
+      for (let i=0;i<38;i++){let x=irnd(W/G)*G,y=irnd(H/G)*G,d=`M${x} ${y}`,h=Math.random()<.5;for(let s=0;s<2+irnd(4);s++){const l=(1+irnd(5))*G,sg=Math.random()<.5?1:-1;if(h)x=Math.max(0,Math.min(W,x+sg*l));else y=Math.max(0,Math.min(H,y+sg*l));h=!h;d+=` L${x} ${y}`;}parts.push(`<path d="${d}" stroke-width="0.8"/>`);parts.push(`<circle cx="${x}" cy="${y}" r="3"/>`);}
+      const svg=`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" stroke="${col}" fill="none">${parts.join('')}</svg>`;
+      el.style.backgroundImage=`url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+      el.style.backgroundSize='500px 500px';
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  }
+
+  function applyEdgeGlow()  { document.getElementById('bg-edge-glow')?.classList.toggle('active', fx().edgeGlow); }
+  function applyChroma()    { document.getElementById('bg-chroma')?.classList.toggle('active', fx().chromaticAberration); }
+
+  function applyAll() { applyGrid(); applyFilmGrain(); applyDataRain(); applyCircuit(); applyEdgeGlow(); applyChroma(); }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+
+  function makeToggle(id, getter, setter) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const val = getter();
+    btn.textContent = val ? 'ON' : 'OFF';
+    btn.classList.toggle('active', val);
+    btn.onclick = () => {
+      setter(!getter());
+      btn.textContent = getter() ? 'ON' : 'OFF';
+      btn.classList.toggle('active', getter());
+      applyAll();
+      schedSave();
+    };
+  }
+
+  function makeSlider(sliderId, valId, getter, setter, min, max, fmt) {
+    const slider = document.getElementById(sliderId);
+    const valEl  = document.getElementById(valId);
+    if (!slider) return;
+    const v = getter();
+    slider.value = v;
+    const pct = ((v - min) / (max - min)) * 100;
+    slider.style.setProperty('--pct', pct.toFixed(1));
+    if (valEl) valEl.textContent = fmt ? fmt(v) : v + '%';
+    slider.oninput = () => {
+      const nv = parseFloat(slider.value);
+      setter(nv);
+      const p2 = ((nv - min) / (max - min)) * 100;
+      slider.style.setProperty('--pct', p2.toFixed(1));
+      if (valEl) valEl.textContent = fmt ? fmt(nv) : nv + '%';
+      applyAll();
+    };
+    slider.onchange = schedSave;
+  }
+
+  // ── Render effect controls ────────────────────────────────────────────────
+
+  function renderEffects() {
+    const container = document.getElementById('effects-container');
+    if (!container) return;
+    const e = fx();
+
+    container.innerHTML = `
+    <!-- Background Grid -->
+    <div class="settings-section">
+      <div class="settings-section-title">BACKGROUND GRID</div>
+      <div class="settings-row">
+        <span class="settings-label">TYPE</span>
+        <div class="settings-radio-group">
+          <label><input type="radio" name="bg-grid" value="off"    ${e.grid==='off'?'checked':''}>    OFF</label>
+          <label><input type="radio" name="bg-grid" value="square" ${e.grid==='square'?'checked':''}> SQR</label>
+          <label><input type="radio" name="bg-grid" value="hex"    ${e.grid==='hex'?'checked':''}>    HEX</label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">COLOR</span>
+        <div class="settings-swatches">
+          <button class="swatch swatch-cyan    ${e.gridColor==='cyan'?'active':''}"    data-color="cyan">●</button>
+          <button class="swatch swatch-magenta ${e.gridColor==='magenta'?'active':''}" data-color="magenta">●</button>
+          <button class="swatch swatch-green   ${e.gridColor==='green'?'active':''}"   data-color="green">●</button>
+        </div>
+      </div>
+      <div class="settings-slider-row">
+        <span class="settings-label">OPACITY</span>
+        <input class="settings-slider" type="range" id="grid-opacity" min="10" max="100" step="5" />
+        <span class="settings-slider-val" id="grid-opacity-val"></span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">ANIMATE</span>
+        <button class="settings-toggle" id="toggle-grid-animate"></button>
+      </div>
+    </div>
+
+    <!-- Film Grain -->
+    <div class="settings-section">
+      <div class="settings-section-title">FILM GRAIN</div>
+      <div class="settings-row">
+        <span class="settings-label">ENABLED</span>
+        <button class="settings-toggle" id="toggle-film-grain"></button>
+      </div>
+      <div class="settings-slider-row">
+        <span class="settings-label">INTENSITY</span>
+        <input class="settings-slider" type="range" id="grain-opacity" min="1" max="15" step="1" />
+        <span class="settings-slider-val" id="grain-opacity-val"></span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">LIVE SHIFT</span>
+        <button class="settings-toggle" id="toggle-film-grain-animate"></button>
+      </div>
+    </div>
+
+    <!-- Overlay Effects -->
+    <div class="settings-section">
+      <div class="settings-section-title">OVERLAY EFFECTS</div>
+      <div class="settings-row">
+        <span class="settings-label">DATA RAIN</span>
+        <button class="settings-toggle" id="toggle-data-rain"></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">CIRCUIT</span>
+        <button class="settings-toggle" id="toggle-circuit"></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">EDGE GLOW</span>
+        <button class="settings-toggle" id="toggle-edge-glow"></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">CHROM. ABR.</span>
+        <button class="settings-toggle" id="toggle-chroma"></button>
+      </div>
+    </div>
+
+    <!-- Scanlines -->
+    <div class="settings-section">
+      <div class="settings-section-title">SCANLINES</div>
+      <div class="settings-row">
+        <span class="settings-label">INTENSITY</span>
+        <div class="settings-radio-group">
+          <label><input type="radio" name="bg-scanlines" value="off"    ${e.scanlinesIntensity==='off'?'checked':''}>    OFF</label>
+          <label><input type="radio" name="bg-scanlines" value="light"  ${e.scanlinesIntensity==='light'?'checked':''}>  LT</label>
+          <label><input type="radio" name="bg-scanlines" value="medium" ${e.scanlinesIntensity==='medium'?'checked':''}> MED</label>
+          <label><input type="radio" name="bg-scanlines" value="heavy"  ${e.scanlinesIntensity==='heavy'?'checked':''}>  HVY</label>
+        </div>
+      </div>
+    </div>`;
+
+    // Wire controls
+    makeToggle('toggle-grid-animate',      () => fx().gridAnimate,         v => { fx().gridAnimate = v; });
+    makeToggle('toggle-film-grain',        () => fx().filmGrain,           v => { fx().filmGrain = v; });
+    makeToggle('toggle-film-grain-animate',() => fx().filmGrainAnimate,    v => { fx().filmGrainAnimate = v; });
+    makeToggle('toggle-data-rain',         () => fx().dataRain,            v => { fx().dataRain = v; });
+    makeToggle('toggle-circuit',           () => fx().circuitPattern,      v => { fx().circuitPattern = v; });
+    makeToggle('toggle-edge-glow',         () => fx().edgeGlow,            v => { fx().edgeGlow = v; });
+    makeToggle('toggle-chroma',            () => fx().chromaticAberration, v => { fx().chromaticAberration = v; });
+
+    makeSlider('grid-opacity', 'grid-opacity-val', () => fx().gridOpacity, v => { fx().gridOpacity = v; }, 10, 100);
+    makeSlider('grain-opacity','grain-opacity-val', () => fx().filmGrainOpacity, v => { fx().filmGrainOpacity = v; }, 1, 15);
+
+    // Grid type radios
+    container.querySelectorAll('input[name="bg-grid"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        fx().grid = r.value;
+        applyGrid();
+        schedSave();
+      });
+    });
+
+    // Grid color swatches
+    container.querySelectorAll('.swatch[data-color]').forEach(s => {
+      s.addEventListener('click', () => {
+        fx().gridColor = s.dataset.color;
+        container.querySelectorAll('.swatch[data-color]').forEach(x =>
+          x.classList.toggle('active', x === s));
+        applyGrid();
+        schedSave();
+      });
+    });
+
+    // Scanlines radios
+    container.querySelectorAll('input[name="bg-scanlines"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        fx().scanlinesIntensity = r.value;
+        schedSave();
+      });
+    });
+  }
+
+  // ── Package selection ─────────────────────────────────────────────────────
+
+  function renderPkgList() {
+    const container = document.getElementById('pkg-list');
+    if (!container) return;
+    container.innerHTML = '';
+    getPackages().forEach(pkg => {
+      const btn = document.createElement('button');
+      btn.className = 'vfx-pkg-btn' + (pkg.id === activeId ? ' active' : '');
+      btn.textContent = pkg.name;
+      btn.addEventListener('click', () => selectPackage(pkg.id));
+      container.appendChild(btn);
+    });
+  }
+
+  function selectPackage(id) {
+    activeId = id;
+    if (bgState) bgState.activePackage = id;
+    applyColors(getActivePkg());
+    renderPkgList();
+    renderEffects();
+    applyAll();
+    updateLabels();
+  }
+
+  function updateLabels() {
+    const pkg = getActivePkg();
+    const el1 = document.getElementById('title-pkg-name');
+    const el2 = document.getElementById('status-pkg');
+    if (el1) el1.textContent = '◈ ' + pkg.name;
+    if (el2) el2.textContent = pkg.name;
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
+
+  document.getElementById('btn-minimize').addEventListener('click', () => window.creatorAPI.minimize());
+  document.getElementById('btn-close').addEventListener('click',    () => window.creatorAPI.close());
+
+  async function init() {
+    try { bgState = await window.creatorAPI.getBgSettings(); }
+    catch (e) { bgState = {}; }
+
+    if (!Array.isArray(bgState.packages) || bgState.packages.length === 0) {
+      bgState.packages = JSON.parse(JSON.stringify(BUILTIN_PACKAGES));
+    }
+    activeId = bgState.activePackage || bgState.packages[0]?.id;
+    applyColors(getActivePkg());
+    renderPkgList();
+    renderEffects();
+    applyAll();
+    updateLabels();
+  }
+
+  init();
+  </script>
+
+</body>
+</html>

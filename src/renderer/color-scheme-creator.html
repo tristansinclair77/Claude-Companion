@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Color Scheme Creator</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+  <style>
+    html, body { background: var(--bg-dark); overflow: hidden; height: 100%; }
+
+    /* ── Title bar ── */
+    #title-bar {
+      height: 32px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-glow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+    }
+    #title-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-text {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+    .title-pkg {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--cyan-dim);
+    }
+    #title-controls {
+      display: flex;
+      gap: 4px;
+      -webkit-app-region: no-drag;
+    }
+
+    /* ── Scrollable content ── */
+    #content {
+      height: calc(100vh - 32px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--cyan-dim) transparent;
+    }
+    #content::-webkit-scrollbar       { width: 3px; }
+    #content::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+
+    /* ── Package selector area ── */
+    #pkg-section {
+      padding: 10px 14px 6px;
+      border-bottom: 1px solid rgba(0,255,204,0.06);
+    }
+    .section-label {
+      font-size: 8px;
+      letter-spacing: 3px;
+      color: rgba(0,255,204,0.35);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    #pkg-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .csc-pkg-btn {
+      background: none;
+      border: 1px solid #2a3a4a;
+      color: #3a4a5a;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      letter-spacing: 2px;
+      padding: 4px 9px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .csc-pkg-btn:hover  { border-color: var(--cyan-dim); color: var(--cyan-dim); }
+    .csc-pkg-btn.active { border-color: var(--cyan); color: var(--cyan); text-shadow: 0 0 5px var(--cyan); }
+
+    /* ── Status bar ── */
+    #status-bar {
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: rgba(0,255,204,0.3);
+      padding: 4px 14px;
+      border-bottom: 1px solid rgba(0,255,204,0.04);
+    }
+    #status-bar span { color: rgba(0,255,204,0.6); }
+  </style>
+</head>
+<body>
+
+  <div id="title-bar">
+    <div id="title-bar-left">
+      <span class="title-text">// COLOR_SCHEME_CREATOR</span>
+      <span class="title-pkg" id="title-pkg-name"></span>
+    </div>
+    <div id="title-controls">
+      <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
+      <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- Package selector -->
+    <div id="pkg-section">
+      <div class="section-label">VISUAL PACKAGE</div>
+      <div id="pkg-list"></div>
+    </div>
+
+    <!-- Save status -->
+    <div id="status-bar">editing: <span id="status-pkg">—</span></div>
+
+    <!-- Color pickers rendered by JS -->
+    <div id="color-scheme-creator"></div>
+
+  </div>
+
+  <script>
+  'use strict';
+
+  // ── Data definitions (mirrors settings.js) ────────────────────────────────
+
+  const BUILTIN_PACKAGES = [{
+    id: 'cybernetic', name: 'CYBERNETIC', desc: 'neon green / teal', builtin: true,
+    colors: {
+      '--cyan': '#00ffcc', '--cyan-dim': '#007755', '--green': '#00ff88',
+      '--magenta': '#ff00aa', '--purple': '#aa44ff', '--orange': '#ff8800',
+      '--red': '#ff2244', '--yellow': '#ffdd00',
+      '--bg-dark': '#0a0a0f', '--bg-panel': '#0d0d16', '--bg-mid': '#111122',
+      '--bg-input': '#0c0c18', '--border': '#001a0f', '--border-glow': '#00ff8833',
+    },
+    effects: {
+      grid: 'square', gridColor: 'cyan', gridAnimate: true, gridOpacity: 100,
+      filmGrain: true, filmGrainOpacity: 5, filmGrainAnimate: true,
+      dataRain: false, circuitPattern: false, edgeGlow: true,
+      chromaticAberration: true, scanlinesIntensity: 'light',
+    },
+  }];
+
+  const COLOR_VARS = [
+    { key: '--cyan',        label: 'PRIMARY',     group: 'NEON' },
+    { key: '--cyan-dim',    label: 'DIM',         group: 'NEON' },
+    { key: '--green',       label: 'ACCENT',      group: 'NEON' },
+    { key: '--magenta',     label: 'HIGHLIGHT',   group: 'NEON' },
+    { key: '--purple',      label: 'PURPLE',      group: 'NEON' },
+    { key: '--orange',      label: 'ORANGE',      group: 'NEON' },
+    { key: '--red',         label: 'RED',         group: 'NEON' },
+    { key: '--yellow',      label: 'YELLOW',      group: 'NEON' },
+    { key: '--bg-dark',     label: 'DEEP',        group: 'BACKGROUNDS' },
+    { key: '--bg-panel',    label: 'PANEL',       group: 'BACKGROUNDS' },
+    { key: '--bg-mid',      label: 'MID',         group: 'BACKGROUNDS' },
+    { key: '--bg-input',    label: 'INPUT',       group: 'BACKGROUNDS' },
+    { key: '--border',      label: 'BORDER',      group: 'BACKGROUNDS' },
+    { key: '--border-glow', label: 'BORDER GLOW', group: 'BACKGROUNDS', hasAlpha: true },
+  ];
+
+  // ── State ─────────────────────────────────────────────────────────────────
+
+  let bgState      = null;   // full bgSettings object from main app
+  let activeId     = null;   // currently selected package id
+  let _saveTimer   = null;
+
+  function getPackages() {
+    return (bgState?.packages && bgState.packages.length > 0)
+      ? bgState.packages
+      : JSON.parse(JSON.stringify(BUILTIN_PACKAGES));
+  }
+
+  function getActivePkg() {
+    return getPackages().find(p => p.id === activeId) || getPackages()[0];
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function toHex6(color) {
+    if (typeof color !== 'string') return '#000000';
+    const h = color.trim();
+    if (/^#[0-9a-fA-F]{8}$/.test(h)) return h.slice(0, 7);
+    if (/^#[0-9a-fA-F]{6}$/.test(h)) return h;
+    return '#000000';
+  }
+
+  function schedSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(doSave, 200);
+  }
+
+  async function doSave() {
+    try {
+      await window.creatorAPI.setBgSettings({ ...bgState });
+    } catch (e) {
+      console.warn('[CSC] save error:', e);
+    }
+  }
+
+  // Apply the active package's color scheme to this standalone window
+  function applyColors(pkg) {
+    const root = document.documentElement;
+    Object.entries(pkg.colors).forEach(([k, v]) => root.style.setProperty(k, v));
+  }
+
+  // ── Render package selector ───────────────────────────────────────────────
+
+  function renderPkgList() {
+    const container = document.getElementById('pkg-list');
+    if (!container) return;
+    container.innerHTML = '';
+    getPackages().forEach(pkg => {
+      const btn = document.createElement('button');
+      btn.className = 'csc-pkg-btn' + (pkg.id === activeId ? ' active' : '');
+      btn.textContent = pkg.name;
+      btn.addEventListener('click', () => selectPackage(pkg.id));
+      container.appendChild(btn);
+    });
+  }
+
+  function selectPackage(id) {
+    activeId = id;
+    const pkg = getActivePkg();
+    if (bgState) bgState.activePackage = id;
+    applyColors(pkg);
+    renderPkgList();
+    renderCreator();
+    updateLabels();
+    schedSave();
+  }
+
+  function updateLabels() {
+    const pkg = getActivePkg();
+    const el1 = document.getElementById('title-pkg-name');
+    const el2 = document.getElementById('status-pkg');
+    if (el1) el1.textContent = '◈ ' + pkg.name;
+    if (el2) el2.textContent = pkg.name;
+  }
+
+  // ── Render color pickers ──────────────────────────────────────────────────
+
+  function renderCreator() {
+    const container = document.getElementById('color-scheme-creator');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const pkg = getActivePkg();
+    const groups = [...new Set(COLOR_VARS.map(v => v.group))];
+
+    groups.forEach(groupName => {
+      const section = document.createElement('div');
+      section.className = 'settings-section';
+
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'csc-group-label';
+      groupLabel.textContent = groupName;
+      section.appendChild(groupLabel);
+
+      COLOR_VARS.filter(v => v.group === groupName).forEach(varDef => {
+        const stored = pkg.colors[varDef.key] || '#000000';
+        const hex6   = toHex6(stored);
+
+        const row = document.createElement('div');
+        row.className = 'csc-row';
+
+        const label = document.createElement('span');
+        label.className = 'csc-label';
+        label.textContent = varDef.label;
+
+        const swatchWrap = document.createElement('label');
+        swatchWrap.className = 'csc-swatch-wrap';
+        if (varDef.hasAlpha) swatchWrap.title = 'alpha stripped for color picker';
+
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.className = 'csc-input';
+        colorInput.value = hex6;
+
+        const swatch = document.createElement('span');
+        swatch.className = 'csc-swatch';
+        swatch.style.background = stored;
+
+        swatchWrap.append(colorInput, swatch);
+
+        const hexDisplay = document.createElement('span');
+        hexDisplay.className = 'csc-hex';
+        hexDisplay.textContent = stored;
+
+        row.append(label, swatchWrap, hexDisplay);
+        section.appendChild(row);
+
+        colorInput.addEventListener('input', () => {
+          const val = colorInput.value;
+          pkg.colors[varDef.key] = val;
+          swatch.style.background = val;
+          hexDisplay.textContent  = val;
+          document.documentElement.style.setProperty(varDef.key, val);
+          schedSave();
+        });
+      });
+
+      container.appendChild(section);
+    });
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
+
+  document.getElementById('btn-minimize').addEventListener('click', () => window.creatorAPI.minimize());
+  document.getElementById('btn-close').addEventListener('click',    () => window.creatorAPI.close());
+
+  async function init() {
+    try {
+      bgState = await window.creatorAPI.getBgSettings();
+    } catch (e) {
+      bgState = {};
+    }
+
+    if (!Array.isArray(bgState.packages) || bgState.packages.length === 0) {
+      bgState.packages = JSON.parse(JSON.stringify(BUILTIN_PACKAGES));
+    }
+
+    activeId = bgState.activePackage || bgState.packages[0]?.id;
+    applyColors(getActivePkg());
+    renderPkgList();
+    renderCreator();
+    updateLabels();
+  }
+
+  init();
+  </script>
+
+</body>
+</html>

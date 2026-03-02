@@ -2,11 +2,11 @@
   "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
-    "pitchShift": 6,
-    "indexRate": 0.5,
+    "pitchShift": 8,
+    "indexRate": 0.2,
     "f0method": "rmvpe",
     "protect": 0.5,
-    "sourceVoice": "styletts2"
+    "sourceVoice": "af_heart"
   },
   "tts": {
     "voice": "rvc:Ashley Graham",

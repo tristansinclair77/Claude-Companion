@@ -155,6 +155,18 @@ var CompanionDisplay = (() => {
     characterDir = dir;
   }
 
+  /** Preload every emotion PNG into the browser's memory cache. */
+  function _preloadEmotionImages() {
+    for (const id of Object.keys(EMOTIONS)) {
+      const img = new Image();
+      img.src = `${characterDir}/emotions/${id}.png`;
+    }
+    for (const id of Object.keys(COMBINED_EMOTIONS)) {
+      const img = new Image();
+      img.src = `${characterDir}/emotions/combined/${id}.png`;
+    }
+  }
+
   // ── Audio-sync helpers ─────────────────────────────────────────────────────
 
   function _cancelAudioWait() {
@@ -262,21 +274,19 @@ var CompanionDisplay = (() => {
     emotionEl.style.color = info.color;
     emotionEl.style.borderColor = info.color + '44';
 
-    // Portrait image path
+    // Portrait image path — uses characterDir so custom character packs work
     const imgPath = isCombined
-      ? `../../characters/default/emotions/combined/${emotionId}.png`
-      : `../../characters/default/emotions/${emotionId}.png`;
+      ? `${characterDir}/emotions/combined/${emotionId}.png`
+      : `${characterDir}/emotions/${emotionId}.png`;
 
     if (portraitEl.getAttribute('src') !== imgPath) {
+      // With images preloaded, onload fires from cache in <10ms — transition feels instant.
+      portraitEl.style.transition = 'opacity 0.12s';
       portraitEl.style.opacity = '0';
       portraitEl.src = imgPath;
-      portraitEl.onload = () => {
-        portraitEl.style.transition = 'opacity 0.3s';
-        portraitEl.style.opacity = '1';
-      };
+      portraitEl.onload  = () => { portraitEl.style.opacity = '1'; };
       portraitEl.onerror = () => {
-        // Fallback to neutral
-        portraitEl.src = '../../characters/default/emotions/neutral.png';
+        portraitEl.src = `${characterDir}/emotions/neutral.png`;
         portraitEl.style.opacity = '1';
       };
     }
@@ -357,6 +367,9 @@ var CompanionDisplay = (() => {
   }
 
   function setGreeting(character, emotionalState) {
+    // Preload all emotion PNGs into browser memory cache — portrait swaps become near-instant.
+    _preloadEmotionImages();
+
     dialogueEl.textContent = '';
     thoughtsEl.textContent = character.initial_thoughts || '';
     setEmotion(character.initial_emotion || 'soft_smile');
