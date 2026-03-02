@@ -46,7 +46,7 @@ const BUILTIN_PACKAGES = [
     id: 'fantasy_rpg',
     name: 'FANTASY RPG',
     desc: 'warm amber / arcane',
-    effectModules: ['parchment'],
+    effectModules: ['parchment', 'seasons'],
     colors: {
       '--cyan':        '#ffaa00',   // amber gold — primary (replaces neon cyan)
       '--cyan-dim':    '#885500',   // tarnished bronze
@@ -76,8 +76,9 @@ const BUILTIN_PACKAGES = [
       dataRain: false, circuitPattern: false, edgeGlow: false,
       chromaticAberration: false, scanlinesIntensity: 'off',
       parchmentOpacity: 15,
+      seasonMode: 'off',
       vuAmp: 5, vuSpeed: 22,
-      moduleEnabled: { parchment: true },
+      moduleEnabled: { parchment: true, seasons: true },
     },
   },
 ];
@@ -101,6 +102,7 @@ const BackgroundSettings = (() => {
     chromaticAberration: true,
     scanlinesIntensity:  'light',   // 'off' | 'light' | 'medium' | 'heavy'
     parchmentOpacity:    0,         // 0–30 (integer %)
+    seasonMode:          'off',     // 'off' | 'random' | 'snow' | 'rain' | 'sunbeams' | 'leaves'
     vuAmp:               5,         // 1–15: VU meter bounce amplitude (÷100 = decimal offset)
     vuSpeed:             22,        // 5–60: VU meter speed (÷10 = seconds per cycle)
     moduleEnabled:       {},        // per-module on/off; missing key = enabled by default
@@ -137,6 +139,7 @@ const BackgroundSettings = (() => {
       chromaticAberration: state.chromaticAberration,
       scanlinesIntensity:  state.scanlinesIntensity,
       parchmentOpacity:    state.parchmentOpacity,
+      seasonMode:          state.seasonMode,
       vuAmp:               state.vuAmp,
       vuSpeed:             state.vuSpeed,
       moduleEnabled:       { ...(state.moduleEnabled || {}) },
@@ -433,6 +436,16 @@ const BackgroundSettings = (() => {
     root.style.setProperty('--vu-speed', (state.vuSpeed / 10).toFixed(1) + 's');
   }
 
+  function _applySeasons() {
+    if (typeof SeasonEffects === 'undefined') return;
+    const hasSeasons = (_getActivePackage()?.effectModules || []).includes('seasons');
+    if (hasSeasons && _isModuleEnabled('seasons')) {
+      SeasonEffects.setMode(state.seasonMode || 'off');
+    } else {
+      SeasonEffects.stop();
+    }
+  }
+
   // Override disabled modules — runs last in _applyAll so their effects are suppressed
   function _applyModuleEnabled() {
     if (!_isModuleEnabled('grid')) {
@@ -452,6 +465,9 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('parchment')) {
       const el = document.getElementById('bg-parchment');
       if (el) el.style.opacity = '0';
+    }
+    if (!_isModuleEnabled('seasons')) {
+      if (typeof SeasonEffects !== 'undefined') SeasonEffects.stop();
     }
   }
 
@@ -480,6 +496,7 @@ const BackgroundSettings = (() => {
     _applyBarWidth();
     _applyParchment();
     _applyVuBounce();
+    _applySeasons();
     _applyModuleEnabled(); // must run last — overrides state from disabled modules
   }
 
@@ -530,6 +547,9 @@ const BackgroundSettings = (() => {
     document.querySelectorAll('input[name="bg-scanlines"]').forEach(r => {
       r.checked = (r.value === state.scanlinesIntensity);
     });
+    // Season mode buttons
+    document.querySelectorAll('.season-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.season === (state.seasonMode || 'off')));
     // Parchment opacity
     _updateSlider('parchment-opacity', 'parchment-opacity-val', state.parchmentOpacity, 0, 30);
     // VU bounce controls
@@ -746,6 +766,17 @@ const BackgroundSettings = (() => {
       _applyParchment();
     });
     parchSlider?.addEventListener('change', _save);
+
+    // ── Seasons ──
+    document.querySelectorAll('.season-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.seasonMode = btn.dataset.season;
+        _applySeasons();
+        _save();
+        document.querySelectorAll('.season-btn').forEach(b =>
+          b.classList.toggle('active', b === btn));
+      });
+    });
 
     // ── VU Bounce ──
     const vuAmpSlider   = document.getElementById('vu-amp');

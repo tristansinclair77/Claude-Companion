@@ -293,6 +293,41 @@
   flex-shrink: 0;
 }
 
+/* ── Season picker ──────────────────────────────────────────────────────────── */
+
+.season-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 14px 8px;
+  -webkit-app-region: no-drag;
+}
+
+.season-btn {
+  background: none;
+  border: 1px solid #2a3a4a;
+  color: #3a4a5a;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 4px 9px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s, text-shadow 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.season-btn:hover {
+  border-color: var(--cyan-dim);
+  color: var(--cyan-dim);
+}
+
+.season-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  text-shadow: 0 0 5px var(--cyan);
+}
+
 /* ── Zoom stepper ───────────────────────────────────────────────────────────── */
 .zoom-stepper {
   display: flex;

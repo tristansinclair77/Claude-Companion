@@ -21,6 +21,7 @@
   <div id="bg-edge-glow" aria-hidden="true"></div>
   <div id="bg-chroma"    aria-hidden="true"></div>
   <div id="bg-parchment" aria-hidden="true"></div>
+  <canvas id="bg-season"    aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -169,6 +170,19 @@
             <span class="zoom-val" id="zoom-val">100%</span>
             <button class="zoom-btn" id="btn-zoom-in"  title="Zoom in">+</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Seasons (Fantasy RPG package) -->
+      <div class="settings-section" data-effect-module="seasons">
+        <div class="settings-section-title">SEASONS</div>
+        <div class="season-btns">
+          <button class="season-btn" data-season="off">OFF</button>
+          <button class="season-btn" data-season="random">RANDOM</button>
+          <button class="season-btn" data-season="snow">❄ SNOW</button>
+          <button class="season-btn" data-season="rain">☂ RAIN</button>
+          <button class="season-btn" data-season="sunbeams">☀ SUN</button>
+          <button class="season-btn" data-season="leaves">⊹ LEAVES</button>
         </div>
       </div>
 
@@ -357,6 +371,7 @@
   <script src="js/mic-controller.js"></script>
   <script src="js/tts-controller.js"></script>
   <script src="js/chat-controller.js"></script>
+  <script src="js/season-effects.js"></script>
   <script src="js/settings.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-inventory.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-panel.js"></script>

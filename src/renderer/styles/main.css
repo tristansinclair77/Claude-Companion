@@ -752,3 +752,41 @@ html { background: var(--bg-dark); }
 
 /* Mic recording state */
 .recording { animation: mic-pulse 0.6s ease-in-out infinite alternate; }
+
+/* ── Fantasy RPG — Package-wide font override ────────────────────────────────── */
+/* Redefines --font-mono so every element using var(--font-mono) automatically   */
+/* gets the serif/antiquarian face. Attributed to: Fantasy RPG package            */
+[data-package="fantasy_rpg"] {
+  --font-mono: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+}
+
+/* Tighten letter-spacing where monospace tracking would be too wide for serif */
+[data-package="fantasy_rpg"] .char-selector { letter-spacing: 1px; }
+[data-package="fantasy_rpg"] .source-badge  { letter-spacing: 1px; }
+[data-package="fantasy_rpg"] .panel-label   { letter-spacing: 1px; }
+[data-package="fantasy_rpg"] .loading-text  { letter-spacing: 1px; }
+
+/* ── Fantasy RPG — Seasonal UI Lighting ──────────────────────────────────────── */
+/* data-season is set on <body> by season-effects.js alongside data-package.      */
+/* Overrides border glows and accent dims to match each season's mood.            */
+/* These apply to body and its children; html viewport background is unaffected.  */
+
+[data-package="fantasy_rpg"][data-season="snow"] {
+  --border-glow: #aaccff1a;   /* icy blue haze */
+  --cyan-dim:    #6688aa;     /* cool steel */
+}
+
+[data-package="fantasy_rpg"][data-season="rain"] {
+  --border-glow: #889aaa1a;   /* grey-blue mist */
+  --cyan-dim:    #5f7077;     /* slate */
+}
+
+[data-package="fantasy_rpg"][data-season="sunbeams"] {
+  --border-glow: #ffdd8830;   /* bright golden shimmer */
+  --cyan-dim:    #aa7700;     /* warm bronze */
+}
+
+[data-package="fantasy_rpg"][data-season="leaves"] {
+  --border-glow: #ff771a22;   /* ember orange haze */
+  --cyan-dim:    #995522;     /* dark rust */
+}

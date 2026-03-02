@@ -89,6 +89,99 @@ var CompanionDisplay = (() => {
   // ── Meter bar setup ────────────────────────────────────────────────────────
   let metersEl = null;
 
+  // ── Divination Tremor — attributed to: Fantasy RPG package ─────────────────
+  // Bars idle at true value; a random tremor fires every 8–20s per bar.
+  // JS-driven (not CSS): fade → falsify → flicker → restore. Blood-red tint.
+  let _tremorTimers = [];
+
+  function _stopDivinationTremor() {
+    _tremorTimers.forEach(t => clearTimeout(t));
+    _tremorTimers = [];
+  }
+
+  function _startDivinationTremor() {
+    _stopDivinationTremor();
+    if (document.body.dataset.package !== 'fantasy_rpg') return;
+    const fills = metersEl?.querySelectorAll('.axis-bar-fill');
+    if (!fills?.length) return;
+
+    fills.forEach((fill) => {
+      const trueVal = parseFloat(fill.style.getPropertyValue('--bar-val')) || 0.5;
+
+      function scheduleTremor() {
+        const delay = 8000 + Math.random() * 12000; // 8–20s per bar, independent
+        const t = setTimeout(() => {
+          if (document.body.dataset.package !== 'fantasy_rpg' || !fill.isConnected) return;
+
+          // Step 1: Dim gently — stays visible, just less bright
+          fill.style.transition = 'opacity 200ms ease-in';
+          fill.style.opacity    = '0.55';
+
+          const t2 = setTimeout(() => {
+            if (!fill.isConnected) return;
+
+            // Step 2: Snap to a falsified value (±10–20%), keep bar's own color
+            const offset  = (Math.random() * 0.20) - 0.10;
+            const fakeVal = Math.max(0.08, Math.min(0.92, trueVal + offset));
+            fill.style.transition = 'none';
+            fill.style.width      = (fakeVal * 100).toFixed(1) + '%';
+
+            // Step 3: Narrow-range flicker with variable speed per pulse
+            // Opacity stays between 0.42–0.82 — never goes near-black
+            const flickerCount = 2 + Math.floor(Math.random() * 2);
+            let f = 0;
+            function flicker() {
+              if (!fill.isConnected) return;
+              if (f >= flickerCount * 2) {
+                // Step 4: Dim slightly, swap color+width while dim, fade back to full
+                const restoreDur = 80 + Math.floor(Math.random() * 60);
+                fill.style.transition = `opacity ${restoreDur}ms ease-out`;
+                fill.style.opacity    = '0.38';
+                const t5 = setTimeout(() => {
+                  if (!fill.isConnected) return;
+                  fill.style.transition = 'none';
+                  fill.style.width      = (trueVal * 100).toFixed(1) + '%';
+                  fill.style.transition = 'opacity 200ms ease-in';
+                  fill.style.opacity    = '1';
+                  const t6 = setTimeout(() => {
+                    if (!fill.isConnected) return;
+                    fill.style.transition = '';
+                    scheduleTremor();
+                  }, 200);
+                  _tremorTimers.push(t6);
+                }, restoreDur);
+                _tremorTimers.push(t5);
+                return;
+              }
+              // Variable speed: each half-cycle picks its own duration
+              const dur           = 55 + Math.floor(Math.random() * 95); // 55–150ms
+              const targetOpacity = (f % 2 === 0) ? '0.42' : '0.82';
+              fill.style.transition = `opacity ${dur}ms ease-in-out`;
+              fill.style.opacity    = targetOpacity;
+              f++;
+              const t4 = setTimeout(flicker, dur + 15);
+              _tremorTimers.push(t4);
+            }
+            const t3 = setTimeout(flicker, 30);
+            _tremorTimers.push(t3);
+          }, 200);
+          _tremorTimers.push(t2);
+        }, delay);
+        _tremorTimers.push(t);
+      }
+
+      scheduleTremor();
+    });
+  }
+
+  // Returns the display label for an axis key — runes in Fantasy RPG, text otherwise.
+  function _axisLabel(key) {
+    if (document.body.dataset.package === 'fantasy_rpg') {
+      return { VAL: '♥', ARO: '⚔', SOC: '☿', PHY: '✦' }[key] || key;
+    }
+    return key;
+  }
+
   function ensureMeters() {
     // Use the static DOM element added in index.html — no dynamic creation needed
     if (!metersEl) metersEl = document.getElementById('emotion-meters');
@@ -101,6 +194,8 @@ var CompanionDisplay = (() => {
   function updateMeters(state) {
     ensureMeters();
     if (!metersEl) return;
+    // Stop any running tremor before the DOM is replaced — timers hold refs to old elements.
+    _stopDivinationTremor();
     // undefined = re-render with cached state (called by _applyBarWidth after padding change)
     // null/object = update the cache too
     if (state !== undefined) _cachedMeterState = state;
@@ -108,10 +203,10 @@ var CompanionDisplay = (() => {
     // Read per-package axis color stops from CSS custom properties so bars adapt to any theme
     const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
     const axes = [
-      { label: 'VAL', val: s.valence,  low: cssVar('--axis-val-lo'), high: cssVar('--axis-val-hi') },
-      { label: 'ARO', val: s.arousal,  low: cssVar('--axis-aro-lo'), high: cssVar('--axis-aro-hi') },
-      { label: 'SOC', val: s.social,   low: cssVar('--axis-soc-lo'), high: cssVar('--axis-soc-hi') },
-      { label: 'PHY', val: s.physical, low: cssVar('--axis-phy-lo'), high: cssVar('--axis-phy-hi') },
+      { label: _axisLabel('VAL'), val: s.valence,  low: cssVar('--axis-val-lo'), high: cssVar('--axis-val-hi') },
+      { label: _axisLabel('ARO'), val: s.arousal,  low: cssVar('--axis-aro-lo'), high: cssVar('--axis-aro-hi') },
+      { label: _axisLabel('SOC'), val: s.social,   low: cssVar('--axis-soc-lo'), high: cssVar('--axis-soc-hi') },
+      { label: _axisLabel('PHY'), val: s.physical, low: cssVar('--axis-phy-lo'), high: cssVar('--axis-phy-hi') },
     ];
 
     // Show 3-letter labels in the left padding area when barWidth ≤ 80
@@ -122,8 +217,11 @@ var CompanionDisplay = (() => {
       const pct   = Math.max(10, Math.min(100, val ?? 50));
       const color = lerpHex(low, high, pct / 100);
       // Label sits in the left padding area via position:absolute right:calc(100% + 5px)
+      // Fantasy RPG uses single-glyph runes so font-size is slightly larger (9px vs 7px)
+      const isRpg     = document.body.dataset.package === 'fantasy_rpg';
+      const labelSize = isRpg ? '9px' : '7px';
       const labelHtml = showLabels
-        ? `<span style="position:absolute;right:calc(100% + 5px);top:0;font-size:7px;` +
+        ? `<span style="position:absolute;right:calc(100% + 5px);top:0;font-size:${labelSize};` +
           `letter-spacing:1px;color:var(--cyan-dim);line-height:8px;white-space:nowrap;">${label}</span>`
         : '';
       // --bar-val (0–1) drives width via CSS; animation-delay staggers per-bar phase
@@ -138,6 +236,9 @@ var CompanionDisplay = (() => {
         `<div style="position:absolute;right:0;top:-3px;width:1px;height:14px;background:var(--border-glow);"></div>` +
         `</div>`;
     }).join('');
+
+    // Start Divination Tremor for Fantasy RPG now that new bar elements exist in DOM
+    _startDivinationTremor();
   }
 
   function lerpHex(a, b, t) {

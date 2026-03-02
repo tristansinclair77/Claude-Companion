@@ -90,3 +90,8 @@
   animation: vu-bounce var(--vu-speed, 2.2s) linear infinite;
   transition: none;
 }
+
+/* Divination Tremor — attributed to: Fantasy RPG package */
+/* JS-driven (companion-display.js _startDivinationTremor).                  */
+/* Random tremor every 8–20s per bar: dim → width drift → soft-blink → restore. */
+/* No CSS animation needed — JS sets width/opacity/background directly.      */
