@@ -54,6 +54,11 @@ if hasattr(sys.stderr, 'reconfigure'):
 logging.basicConfig(level=logging.INFO, format='[VITS] %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
+# Suppress verbose debug spam from third-party libraries
+for _noisy in ('numba', 'numba.core', 'urllib3', 'cached_path', 'filelock',
+               'matplotlib', 'google', 'transformers'):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 # ── StyleTTS2 optional backend ────────────────────────────────────────────────
 # Detected once at startup; if importable, a 'styletts2:default' voice is added.
 
