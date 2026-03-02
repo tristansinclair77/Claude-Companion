@@ -54,6 +54,38 @@ if hasattr(sys.stderr, 'reconfigure'):
 logging.basicConfig(level=logging.INFO, format='[VITS] %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
+# ── StyleTTS2 optional backend ────────────────────────────────────────────────
+# Detected once at startup; if importable, a 'styletts2:default' voice is added.
+
+_STYLETTS2_AVAILABLE = False
+_styletts2_instance  = None
+
+try:
+    import styletts2  # just check importability — don't load the model yet
+    _STYLETTS2_AVAILABLE = True
+    logger.info('StyleTTS2 detected — will register styletts2:default voice.')
+except Exception as _e:
+    logger.info(f'StyleTTS2 not available ({_e}); skipping.')
+
+
+def _get_styletts2():
+    """Lazy-load the StyleTTS2 instance on first use."""
+    global _styletts2_instance
+    if _styletts2_instance is None:
+        logger.info('Loading StyleTTS2 model (first use, may download ~300 MB)...')
+        from styletts2 import tts as _stts_mod
+        _styletts2_instance = _stts_mod.StyleTTS2()
+        logger.info('StyleTTS2 model ready.')
+    return _styletts2_instance
+
+
+def _do_synthesize_styletts2(text: str):
+    """Synthesize text with StyleTTS2. Returns (numpy_float32_array, sample_rate)."""
+    stts = _get_styletts2()
+    import numpy as np
+    wav = stts.inference(text, diffusion_steps=5)
+    return np.array(wav, dtype=np.float32), 24000
+
 app = Flask(__name__)
 
 MODELS_DIR = os.path.join(_HERE, 'models')
@@ -182,6 +214,14 @@ def _discover_voices():
             })
             logger.info(f'Found model: {name}  ({pth_files[0]})')
 
+    if _STYLETTS2_AVAILABLE:
+        _available_voices.append({
+            'id':    'styletts2',
+            'label': 'StyleTTS2 LJSpeech [EN]',
+            'type':  'styletts2',
+        })
+        logger.info('Registered voice: styletts2:default')
+
     if not _available_voices:
         logger.info('No models found. Place <name>/config.json + <name>/<*.pth> in models/.')
 
@@ -294,6 +334,9 @@ def list_voices():
     """Return one entry per speaker for multi-speaker models, else one per model."""
     result = []
     for v in _available_voices:
+        if v.get('type') == 'styletts2':
+            result.append({'id': 'styletts2', 'label': v['label']})
+            continue
         try:
             hps = utils.get_hparams_from_file(v['config'])
             speakers = list(hps.speakers) if hasattr(hps, 'speakers') and hps.speakers else []
@@ -332,6 +375,15 @@ def synthesize():
 
     if not any(v['id'] == model_id for v in _available_voices):
         return jsonify({'error': f'unknown voice: {model_id}'}), 404
+
+    # Route StyleTTS2 voices to the dedicated backend
+    if model_id == 'styletts2':
+        try:
+            audio, sr = _do_synthesize_styletts2(text)
+        except Exception as exc:
+            logger.error(f'StyleTTS2 synthesis failed: {exc}')
+            return jsonify({'error': f'styletts2 synthesis failed: {exc}'}), 500
+        return send_file(_array_to_wav(audio, sr), mimetype='audio/wav')
 
     audio, sr = _do_synthesize(text, model_id, speaker_id=speaker_id,
                                 notranslate=notranslate)
