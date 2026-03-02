@@ -2,14 +2,14 @@
   "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
-    "pitchShift": 0,
-    "indexRate": 0.6,
+    "pitchShift": 6,
+    "indexRate": 0.5,
     "f0method": "rmvpe",
-    "protect": 0.45,
-    "sourceVoice": "moet-tts-18:40"
+    "protect": 0.5,
+    "sourceVoice": "styletts2"
   },
   "tts": {
-    "voice": "rvc:Shirori Novella",
+    "voice": "rvc:Ashley Graham",
     "enabled": true
   },
   "fastMode": true,

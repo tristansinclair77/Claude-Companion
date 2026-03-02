@@ -468,9 +468,11 @@ function getVoices() {
   list.push({ id: '__kokoro_hdr__', label: '── KOKORO ──────────────────', isHeader: true });
   list.push(...KOKORO_VOICES);
 
-  if (vitsIds.length > 0) {
-    list.push({ id: '__vits_hdr__', label: '── VITS ANIME ──────────────', isHeader: true });
-    for (const modelId of vitsIds) {
+  // StyleTTS2 is always listed under VITS (served by the same Flask server on port 5002).
+  list.push({ id: '__vits_hdr__', label: '── VITS / STYLETTS2 ─────────', isHeader: true });
+  list.push({ id: 'styletts2', label: 'StyleTTS2 LJSpeech [EN]' });
+
+  for (const modelId of vitsIds) {
       const configPath = path.join(_MODELS_DIR, modelId, 'config.json');
       let speakers = null;
       try {
@@ -488,7 +490,6 @@ function getVoices() {
         const label = modelId.charAt(0).toUpperCase() + modelId.slice(1).replace(/[_-]/g, ' ') + ' [JP]';
         list.push({ id: modelId, label });
       }
-    }
   }
 
   if (rvcIds.length > 0) {
