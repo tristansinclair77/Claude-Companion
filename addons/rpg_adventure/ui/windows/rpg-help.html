@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Adventure — Help</title>
+  <style>
+    :root {
+      --cyan:     #00ffcc;
+      --orange:   #ff8800;
+      --red:      #ff2244;
+      --yellow:   #ffdd00;
+      --purple:   #aa44ff;
+      --green:    #00ff88;
+      --magenta:  #ff00aa;
+      --font-mono: 'Consolas', 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #080812;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    #help-root { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Header ── */
+    #help-header {
+      background: #0b0b18;
+      border-bottom: 1px solid #00ffcc22;
+      padding: 7px 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #help-title {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--orange);
+      text-shadow: 0 0 8px var(--orange);
+      white-space: nowrap;
+    }
+    #help-search {
+      flex: 1;
+      background: #09091a;
+      border: 1px solid #00ffcc33;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 2px;
+      outline: none;
+      letter-spacing: 0.5px;
+    }
+    #help-search::placeholder { color: #00ffcc33; }
+    #help-search:focus { border-color: var(--cyan); }
+    #help-search-clear {
+      background: none;
+      border: none;
+      color: #00ffcc44;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      display: none;
+    }
+    #help-search-clear:hover { color: var(--red); }
+
+    /* ── Scrollable content ── */
+    #help-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px 12px 16px;
+      scrollbar-width: thin;
+      scrollbar-color: #00ffcc22 transparent;
+    }
+    #help-content::-webkit-scrollbar       { width: 3px; }
+    #help-content::-webkit-scrollbar-track { background: transparent; }
+    #help-content::-webkit-scrollbar-thumb { background: #00ffcc22; border-radius: 2px; }
+
+    /* ── Category blocks ── */
+    .h-category { margin-bottom: 4px; }
+
+    .h-cat-header {
+      width: 100%;
+      background: #0d0d1e;
+      border: 1px solid #00ffcc1a;
+      color: var(--orange);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 2px;
+      text-align: left;
+      transition: background 0.12s;
+      margin-top: 4px;
+    }
+    .h-cat-header:hover { background: #00ffcc0a; }
+    .h-cat-arrow { color: #00ffcc55; font-size: 8px; transition: transform 0.18s; }
+    .h-category.collapsed .h-cat-arrow { transform: rotate(-90deg); }
+
+    .h-cat-body {
+      overflow: hidden;
+      max-height: 3000px;
+      transition: max-height 0.25s ease;
+    }
+    .h-category.collapsed .h-cat-body { max-height: 0; }
+
+    /* ── Entries ── */
+    .h-entry {
+      border-left: 2px solid #00ffcc0e;
+      padding: 6px 8px 6px 12px;
+      margin: 2px 0 2px 2px;
+      transition: border-color 0.1s;
+    }
+    .h-entry:hover { border-left-color: #00ffcc44; background: #00ffcc04; }
+
+    .h-entry-title {
+      font-size: 10px;
+      color: var(--cyan);
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .h-entry-body {
+      font-size: 9px;
+      color: #00ffcc66;
+      line-height: 1.65;
+    }
+    .h-entry-body b   { color: var(--yellow); font-weight: normal; }
+    .h-entry-body .tag  { color: var(--magenta); }
+    .h-entry-body .good { color: var(--green); }
+    .h-entry-body .bad  { color: var(--red); }
+    .h-entry-body .boss { color: var(--purple); }
+    .h-entry-body .rare { color: #5599ff; }
+
+    /* ── No results ── */
+    #help-no-results {
+      display: none;
+      text-align: center;
+      color: #00ffcc33;
+      font-size: 9px;
+      font-style: italic;
+      padding: 30px 0;
+    }
+
+    /* ── Filtered-out entries ── */
+    .h-hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="help-root">
+  <div id="help-header">
+    <span id="help-title">? ADVENTURE HELP</span>
+    <input id="help-search" type="text" placeholder="Search mechanics, stats, abilities…" autocomplete="off" spellcheck="false">
+    <button id="help-search-clear" title="Clear search">✕</button>
+  </div>
+  <div id="help-content">
+    <div id="help-no-results">No results found. Try a different search term.</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Help content ──────────────────────────────────────────────────────────── */
+const HELP_DATA = [
+  {
+    id: 'getting-started',
+    title: '⚔ Getting Started',
+    entries: [
+      {
+        title: 'What is a Run?',
+        body:  'Select a zone from the ZONES tab to start a run. You explore <b>floors</b> one at a time, fighting enemies, finding loot, and managing your HP. Runs end by defeating the boss, <b>extracting</b> early, or dying.'
+      },
+      {
+        title: 'Extraction vs. Death',
+        body:  'After clearing any floor you can <b>Extract</b> — ending the run safely and keeping all loot + XP earned. If you <b>die</b>, all loot from that run is forfeited. XP gained mid-run is also lost on death.'
+      },
+      {
+        title: 'Daily Bonus',
+        body:  'Your first adventure each day activates a <b class="good">Daily Bonus</b>: multiplied XP and gold for that run. The bonus is shown in the combat log at run start (e.g., <b>★ DAILY BONUS: XP ×2.0  Gold ×1.5</b>).'
+      },
+      {
+        title: 'The Companion (Aria)',
+        body:  'Aria reacts to your adventures in real time — narrating encounters, celebrating victories, and mourning defeats. On the ZONES screen, click <b>ASK COMPANION</b> to have her suggest a zone matched to your current level.'
+      },
+      {
+        title: 'Zone Cleared ★',
+        body:  'Defeating a zone\'s boss earns a <b class="tag">★ cleared</b> marker on that zone card. Cleared zones can be replayed freely for XP and loot. There is no penalty for replaying easier zones.'
+      },
+    ]
+  },
+  {
+    id: 'stats',
+    title: '📊 Stats & Character',
+    entries: [
+      {
+        title: 'STR — Strength',
+        body:  '<b>Scales melee attack damage.</b> Effective ATK = STR + gear STR bonuses. The primary damage stat for most builds. Each point directly increases your damage output against same-DEF enemies.'
+      },
+      {
+        title: 'INT — Intelligence',
+        body:  '<b>Scales magical / ranged damage.</b> Uses the same ATK formula as STR in the current build — invest in whichever your gear emphasizes.'
+      },
+      {
+        title: 'AGI — Agility',
+        body:  '<b>Turn order + dodge.</b> If your AGI ≥ enemy AGI you attack first. Base dodge = 5%; each AGI point above enemy adds ~1% (capped at 40%). High AGI also lets you avoid some traps.'
+      },
+      {
+        title: 'VIT — Vitality',
+        body:  '<b>Max HP.</b> Formula: 40 + min(VIT, 300)×8 + max(0, VIT−300)×2. Example: VIT 10 = 120 HP. HP recovers at <b>Rest</b> rooms (+20% max HP). Critical for surviving long runs and late-game bosses.'
+      },
+      {
+        title: 'LCK — Luck',
+        body:  '<b>Crit chance + item rarity.</b> Crit chance = 5% + 0.5% per LCK, capped at 75%. Also shifts loot rarity weights upward so you see more Rare, Epic, and Legendary drops.'
+      },
+      {
+        title: 'CHA — Charisma',
+        body:  '<b>Companion assist chance.</b> Probability = min(80%, CHA×2%). When Aria assists after your attack, she deals an additional ~50% of your ATK as a free bonus hit on the same turn.'
+      },
+      {
+        title: 'Stat Points',
+        body:  'Each level-up grants <b>3 stat points</b>. Spend them on the CHAR screen. Points cannot be refunded except via <b>Prestige</b> at Level 200. Gear adds bonus stats on top of your base values (shown in <span class="good">green</span>).'
+      },
+      {
+        title: 'Prestige',
+        body:  'Unlocked at <b>Level 200</b>. Prestige resets your character to Level 1 and refunds all stat points. <span class="good">Gear and gold are kept.</span> A <b class="tag">✦</b> badge is added to your character. Repeat for additional prestige stacks.'
+      },
+    ]
+  },
+  {
+    id: 'combat',
+    title: '⚔ Combat Mechanics',
+    entries: [
+      {
+        title: 'Turn Order',
+        body:  '<b>Player goes first</b> if effective AGI ≥ enemy AGI. Ties go to the player. Boss abilities like <span class="boss">Ancient Ward</span> and <span class="boss">Petrify</span> can suspend your turns.'
+      },
+      {
+        title: 'Damage Formula',
+        body:  'Damage = max(1, ATK − DEF ± small random variance). <b>Critical hits</b> deal 2× damage. <b>True damage</b> (traps, boss abilities) bypasses DEF entirely and cannot be mitigated.'
+      },
+      {
+        title: 'Critical Hits',
+        body:  'Crit chance = <b>5% base + 0.5% per LCK</b>, hard-capped at 75%. Both you and enemies can crit. Crits appear in the log as <span class="tag">[CRIT!]</span> and deal 2× normal damage.'
+      },
+      {
+        title: 'Dodge (Miss)',
+        body:  'Base dodge = 5%. Each AGI point above the enemy adds ~1%, capped at 40%. When you dodge an attack no damage is taken. Enemies dodge symmetrically against your attacks.'
+      },
+      {
+        title: 'Companion Assist',
+        body:  'After your attack lands, Aria has a CHA×2% chance to deal a <b>free bonus hit</b> for ~50% of your ATK. This happens in the same action and does not count as a turn.'
+      },
+      {
+        title: 'Fleeing',
+        body:  '<b>60% base success rate.</b> On a failed flee, you still take the enemy\'s attack. The enemy can also attempt to flee on its turn (rare). Fleeing preserves any XP or gold already banked this run.'
+      },
+      {
+        title: 'Status Effects',
+        body:  '<b>Weaken</b> — Your ATK −30% for 5 turns (from Curse of Weakness).<br><b>Earth Bound</b> — All AGI bonuses zeroed for the fight (from Earth Binding).<br><b>Stunned</b> — Skip your turn(s) (from Petrify after 3 consecutive boss hits).'
+      },
+      {
+        title: 'Barrier (Gear)',
+        body:  'Some gear provides a damage-absorbing barrier. When the barrier is active, incoming hits are absorbed without dealing HP damage. A blocked hit does not count toward consecutive-hit trackers (e.g., Petrify).'
+      },
+    ]
+  },
+  {
+    id: 'rooms',
+    title: '🏠 Room Types',
+    entries: [
+      { title: 'Monster Encounter', body: 'Fight a regular enemy scaled to the zone level. Rewards XP and gold on kill. Item drop chance based on LCK and zone.' },
+      { title: 'Mini-Boss',         body: 'A stronger mid-boss variant with inflated stats. Yields better XP and a higher chance of loot drops than standard enemies.' },
+      { title: 'Boss Fight ☠',      body: 'Always the <b>final floor</b> of a zone. Bosses have 1–2 unique special abilities and significantly higher stats. Defeating the boss completes the run with a <b class="tag">★ VICTORY</b>.' },
+      { title: 'Treasure Chamber',  body: 'Find an item without combat. Rarity is determined by zone level and your LCK stat. A completely free loot roll — always advance into these.' },
+      { title: 'Rest Area',         body: 'Recover <b>20% of your max HP</b>, up to max. Invaluable in long runs when HP is critical. Cannot overheal.' },
+      { title: 'Traveling Merchant',body: 'Buy items with gold. Stock consists of 3–5 items generated for this run. Prices are set above sell value but reflect real power upgrades. Leave via the LEAVE button.' },
+      { title: 'Trapped Corridor',  body: 'Take <b>true damage</b> equal to ~5% of your max HP (bypasses all DEF). High AGI may cause the trap to miss. Shown with a ⚠ icon in the combat log.' },
+      { title: 'Empty Chamber',     body: 'Nothing happens. Advance freely to the next floor — consider it a minor blessing in long runs with limited HP recovery.' },
+      { title: 'Secret Room ★',     body: 'Rare encounter with bonus loot or a special event. Encounter rate is intentionally low. These are always positive outcomes.' },
+    ]
+  },
+  {
+    id: 'equipment',
+    title: '🎒 Equipment & Gear',
+    entries: [
+      {
+        title: 'Gear Slots (9)',
+        body:  '<b>Weapon · Head · Chest · Hands · Feet · Belt · Ring · Amulet · Trinket.</b> One item per slot. Items add bonus stats on top of your character\'s base stats. Manage gear on the GEAR screen.'
+      },
+      {
+        title: 'Rarity Tiers',
+        body:  '<span style="color:#999">Common</span> → <span class="good">Uncommon</span> → <span class="rare">Rare</span> → <span class="tag" style="color:var(--purple)">Epic</span> → <span style="color:var(--orange)">Legendary</span>. Higher rarity = more stats and potentially unique passive effects. Legendary stat multiplier is 6× common baseline.'
+      },
+      {
+        title: 'Drop Weights (Base)',
+        body:  'At LCK 0 and zone level 1: <b>Common 60%</b> · <b>Uncommon 25%</b> · <b class="rare">Rare 10%</b> · <b class="tag" style="color:var(--purple)">Epic 4%</b> · <b style="color:var(--orange)">Legendary 1%</b>. LCK shifts weight progressively toward better rarities.'
+      },
+      {
+        title: 'Shiny Enemies ★',
+        body:  'Rare enemy variant (~5% spawn chance per encounter). Shiny enemies have higher stats but <b>guarantee a Rare+ item drop</b> on kill. Their name appears in <b style="color:var(--yellow)">★ yellow</b> in the log and on the enemy card.'
+      },
+      {
+        title: 'Selling Items',
+        body:  'Sell items from the GEAR screen for gold. Formula: <b>zone_level × rarity_mult × 5 × 0.25</b>. Legendary multiplier = 6×, Common = 1×. Sales are permanent — you cannot recover a sold item.'
+      },
+      {
+        title: 'Dropping Items',
+        body:  '<b class="bad">Permanently destroys the item with no gold reward.</b> Only drop items you are certain have zero value. This action is irreversible.'
+      },
+      {
+        title: 'Loot Commitment',
+        body:  'Loot collected during a run is <b>tentative</b> until you extract or win. On death, all tentative loot from that run is lost. Your pre-run inventory is always safe regardless of outcome.'
+      },
+    ]
+  },
+  {
+    id: 'boss-abilities',
+    title: '👹 Boss Abilities',
+    entries: [
+      {
+        title: 'Blood Rage',
+        body:  '<span class="boss">Passive per turn.</span> The boss gains <b>+5 ATK each turn it survives</b>, with no cap. Long fights against Blood Rage bosses become exponentially more dangerous — prioritize speed.'
+      },
+      {
+        title: 'Thorned Hide',
+        body:  '<span class="boss">Passive on hit.</span> Returns <b>25% of your attack damage</b> back to you as true damage on every hit. Glass-cannon builds with high ATK and low VIT suffer most from this.'
+      },
+      {
+        title: 'Life Drain',
+        body:  '<span class="boss">Passive on hit.</span> Each boss attack heals the boss for <b>10% of your current HP</b>. The more HP you have, the more it heals — fights become a race against the boss\'s sustain.'
+      },
+      {
+        title: 'Enrage',
+        body:  '<span class="boss">Triggered at 50% HP.</span> <b>ATK permanently doubles.</b> Try to burst the boss below 50% without pausing. After Enrage triggers, every hit becomes significantly more dangerous.'
+      },
+      {
+        title: 'Shield of Ages',
+        body:  '<span class="boss">Triggered once at 75% HP.</span> Boss becomes <b>immune to all player attacks for 2 turns</b>. Your hits deal 0 damage (shown in log). Wait out the shield, then continue.'
+      },
+      {
+        title: 'Arcane Veil',
+        body:  '<span class="boss">Periodic.</span> Every <b>3 combat turns</b>, the boss is immune to your attack for 1 turn. Predictable — count turns in the log to plan around immunity windows.'
+      },
+      {
+        title: 'Petrify',
+        body:  '<span class="boss">Combo trigger.</span> After the boss lands <b>3 consecutive hits</b> on you (without missing), you are <b>stunned for 2 turns</b>. The counter resets on any miss or blocked hit.'
+      },
+      {
+        title: 'Regeneration',
+        body:  '<span class="boss">Passive per turn.</span> Restores <b>5% of max HP each turn</b>. Against high-HP bosses this can outpace your damage output. Maximise ATK and avoid long fights.'
+      },
+      {
+        title: 'Curse of Weakness',
+        body:  '<span class="boss">Once per fight.</span> Applies <b>Weaken</b> — reduces your ATK by 30% for 5 turns. Substantially cuts damage output. Stack VIT/DEF to survive while weakened.'
+      },
+      {
+        title: 'Cleave',
+        body:  '<span class="boss">Once per fight.</span> Deals <b>true damage</b> equal to the boss\'s ATK, bypassing all your DEF. Cannot be mitigated. Prepare by keeping HP above this threshold.'
+      },
+      {
+        title: 'Ancient Ward',
+        body:  '<span class="boss">Once per fight.</span> You can only act <b>every other turn for 3 boss-turns</b>. Effectively halves your damage output for that window. Flee is still available on locked turns.'
+      },
+      {
+        title: 'Divine Smite',
+        body:  '<span class="boss">Periodic.</span> Every <b>5 turns</b>, deals true damage equal to <b>20% of the boss\'s max HP</b>. In high-level zones this is frequently lethal. Never let a Divine Smite fight drag past 10 turns.'
+      },
+      {
+        title: 'Execute',
+        body:  '<span class="boss">Passive check.</span> When your HP drops below <b>20%</b>, each boss attack has a 25% chance of instant death. You cannot be reduced below 1 HP by Execute alone — but the next normal hit may finish you.'
+      },
+      {
+        title: 'Overload',
+        body:  '<span class="boss">Once per fight.</span> The boss skips one attack to wind up, then deals <b>3× normal ATK</b> the following turn. The wind-up is announced in the log — use an item or pray for a dodge during that turn.'
+      },
+      {
+        title: 'Ancient Resilience',
+        body:  '<span class="boss">Reactive.</span> If you land the <b>same attack type (crit vs. normal) twice in a row</b>, the boss gains +10% DEF against that type. Vary your attack patterns to avoid stacking this.'
+      },
+      {
+        title: 'Earth Binding',
+        body:  '<span class="boss">Once per fight.</span> <b>All your AGI-based bonuses are zeroed</b> for the entire fight — you lose turn order advantage and all dodge chance. Only raw DEF mitigates damage from this point.'
+      },
+      {
+        title: 'Soul Brand',
+        body:  '<span class="boss">Once per fight.</span> Marks one of your equipped items, reducing its <b>bonus stats by 50% until the run ends</b>. The selected item is random. High-rarity items losing half their stats can dramatically change the fight.'
+      },
+      {
+        title: 'Final Transformation',
+        body:  '<span class="boss">Triggered once at 25% HP.</span> The boss <b>fully restores its HP to max</b> but drops all DEF to 0. A tanky boss becomes a glass cannon. Pivot to burst damage immediately after transformation.'
+      },
+      {
+        title: 'Summon Minions',
+        body:  '<span class="boss">Once per fight.</span> Deals <b>chip true damage</b> equivalent to 2 phantom minions (15% of boss ATK each, bypasses DEF). Cannot be blocked. Be above 30% HP when entering boss fights.'
+      },
+      {
+        title: 'Death Rattle',
+        body:  '<span class="boss">On death.</span> When the boss is defeated, it triggers <b>one final random ability</b>. You may take a parting hit or debuff even as you win. Keep HP above lethal threshold on the killing blow.'
+      },
+    ]
+  },
+  {
+    id: 'progression',
+    title: '📈 Progression & Leveling',
+    entries: [
+      {
+        title: 'XP & Level Thresholds',
+        body:  'XP per kill scales with enemy bracket and zone level. <b>Level threshold = 100 × level^1.5</b>. Examples: Lv 1→2 = 100 XP; Lv 10→11 ≈ 3,162 XP; Lv 50→51 ≈ 35,355 XP. Max level: 200.'
+      },
+      {
+        title: 'Level-Up Mid-Run',
+        body:  'You can level up multiple times during a single run. Level-up announcements appear in purple in the combat log. Stat points gained are available immediately on the CHAR screen.'
+      },
+      {
+        title: 'Prestige (Level 200)',
+        body:  'At Level 200, the PRESTIGE NOW button appears on the CHAR screen. Confirm to reset to Level 1 with all stat points refunded. <span class="good">Gear and gold are kept.</span> Each prestige adds a ✦ badge to your character display.'
+      },
+      {
+        title: 'Run History',
+        body:  'Every completed run is saved to your character database, tracking zone, result, floors cleared, kills, XP, and gold. The run-end screen summarises the most recent run\'s stats.'
+      },
+    ]
+  },
+  {
+    id: 'zones',
+    title: '🗺 Zones & Tiers',
+    entries: [
+      {
+        title: 'Tier System (1–10)',
+        body:  'Zones are grouped into <b>10 tiers</b> of increasing difficulty. Higher-tier zones require a minimum character level to enter (shown on the zone card as [Req Lv N]). Locked zones are greyed out.'
+      },
+      {
+        title: 'Zone Level Range',
+        body:  'Each zone card shows a <b>level range</b> (e.g., "Lv 5–12") — the enemy stat levels inside. The zone mechanic text describes special rules for that zone (e.g., "more traps", "shiny boost").'
+      },
+      {
+        title: 'Challenge Zones ⚔',
+        body:  'Shown with an <span style="color:var(--purple)">Epic border</span> at the bottom of the list. Challenge zones have elevated enemy power for their tier but award proportionally better XP and loot.'
+      },
+      {
+        title: 'Companion Suggestion',
+        body:  'Click <b>ASK COMPANION</b> to ask Aria which zone to run. She analyses your level and cleared history, then highlights a recommended zone in <span class="good">green</span>. Accept with GO THERE or dismiss.'
+      },
+    ]
+  },
+  {
+    id: 'achievements',
+    title: '🏆 Achievements',
+    entries: [
+      {
+        title: 'Brackets (Easy / Mid / Hard)',
+        body:  'Achievements are divided into three brackets. <b>Easy</b> covers early milestones. <b>Mid</b> covers intermediate challenges. <b>Hard</b> covers endgame feats requiring significant investment (e.g., prestige, legendaries).'
+      },
+      {
+        title: 'Hidden Achievements',
+        body:  'Some achievements display as <b>??? (hidden)</b> until unlocked. Their conditions are intentionally secret — you\'ll discover them naturally through exploration, unusual actions, or endgame milestones.'
+      },
+      {
+        title: 'Progress Tracking',
+        body:  'Many achievements track cumulative totals (e.g., "kill 1,000 enemies"). The progress bar and raw count are visible on unlocked-but-incomplete achievements in the Achievements screen.'
+      },
+      {
+        title: 'Unlock Date',
+        body:  'Once unlocked, the achievement records the date and displays it on the card (e.g., "Unlocked: 2024-01-15").'
+      },
+    ]
+  },
+];
+
+/* ── Rendering ─────────────────────────────────────────────────────────────── */
+
+function escText(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildHelp() {
+  const container = document.getElementById('help-content');
+  const noResults = document.getElementById('help-no-results');
+
+  for (const cat of HELP_DATA) {
+    const catEl = document.createElement('div');
+    catEl.className   = 'h-category';
+    catEl.dataset.catId = cat.id;
+
+    const headerBtn = document.createElement('button');
+    headerBtn.className = 'h-cat-header';
+    headerBtn.innerHTML = `<span>${escText(cat.title)}</span><span class="h-cat-arrow">▼</span>`;
+    headerBtn.addEventListener('click', () => catEl.classList.toggle('collapsed'));
+
+    const body = document.createElement('div');
+    body.className = 'h-cat-body';
+
+    for (let i = 0; i < cat.entries.length; i++) {
+      const entry   = cat.entries[i];
+      const entryEl = document.createElement('div');
+      entryEl.className       = 'h-entry';
+      entryEl.dataset.idx     = i;
+      // Store plain-text versions for search matching
+      entryEl.dataset.srchTitle = entry.title.toLowerCase();
+      entryEl.dataset.srchBody  = entry.body.replace(/<[^>]+>/g, '').toLowerCase();
+
+      const titleEl = document.createElement('div');
+      titleEl.className   = 'h-entry-title';
+      titleEl.textContent = entry.title;
+
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'h-entry-body';
+      bodyEl.innerHTML = entry.body; // authored HTML — safe
+
+      entryEl.appendChild(titleEl);
+      entryEl.appendChild(bodyEl);
+      body.appendChild(entryEl);
+    }
+
+    catEl.appendChild(headerBtn);
+    catEl.appendChild(body);
+    container.insertBefore(catEl, noResults);
+  }
+}
+
+/* ── Search ────────────────────────────────────────────────────────────────── */
+
+let _searchTimer = null;
+
+function doSearch(query) {
+  const q         = query.trim().toLowerCase();
+  const noResults = document.getElementById('help-no-results');
+  const clearBtn  = document.getElementById('help-search-clear');
+  clearBtn.style.display = q ? '' : 'none';
+
+  const categories = document.querySelectorAll('.h-category');
+  let totalVisible = 0;
+
+  for (const cat of categories) {
+    if (!q) {
+      // Clear search: show all, restore collapse state
+      cat.classList.remove('h-hidden');
+      cat.querySelectorAll('.h-entry').forEach(e => e.classList.remove('h-hidden'));
+      continue;
+    }
+
+    // Active search: expand category, filter entries
+    cat.classList.remove('collapsed');
+    let catHasMatch = false;
+
+    cat.querySelectorAll('.h-entry').forEach(entry => {
+      const inTitle = (entry.dataset.srchTitle || '').includes(q);
+      const inBody  = (entry.dataset.srchBody  || '').includes(q);
+      if (inTitle || inBody) {
+        entry.classList.remove('h-hidden');
+        catHasMatch = true;
+        totalVisible++;
+      } else {
+        entry.classList.add('h-hidden');
+      }
+    });
+
+    if (catHasMatch) cat.classList.remove('h-hidden');
+    else             cat.classList.add('h-hidden');
+  }
+
+  noResults.style.display = (q && totalVisible === 0) ? '' : 'none';
+}
+
+/* ── Init ──────────────────────────────────────────────────────────────────── */
+
+buildHelp();
+
+const searchInput = document.getElementById('help-search');
+const clearBtn    = document.getElementById('help-search-clear');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => doSearch(searchInput.value), 120);
+});
+
+clearBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  doSearch('');
+  searchInput.focus();
+});
+
+searchInput.focus();
+</script>
+</body>
+</html>

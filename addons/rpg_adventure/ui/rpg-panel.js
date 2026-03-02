@@ -51,6 +51,11 @@ const RPGPanel = (() => {
     <button class="rpg-tab" data-tab="inventory">GEAR</button>
     <button class="rpg-tab" data-tab="achievements">ACH</button>
   </div>
+  <div class="rpg-popout-btns">
+    <button class="rpg-popout-btn" data-win="char" title="Pop out Character">↗</button>
+    <button class="rpg-popout-btn" data-win="gear" title="Pop out Gear">↗</button>
+    <button class="rpg-popout-btn" data-win="ach"  title="Pop out Achievements">↗</button>
+  </div>
   <button id="rpg-panel-close">✕</button>
 </div>
 
@@ -67,6 +72,7 @@ const RPGPanel = (() => {
   <div id="rpg-zone-suggestion-banner" class="rpg-zone-suggestion-banner" style="display:none"></div>
   <div class="rpg-zone-select-actions">
     <button class="rpg-btn" id="rpg-btn-suggest-zone">ASK COMPANION</button>
+    <button class="rpg-btn primary" id="rpg-btn-rest">REST (HEAL FULL)</button>
   </div>
   <div class="rpg-scroll" id="rpg-zone-list"><div class="rpg-empty-note">Loading zones...</div></div>
 </div>
@@ -314,6 +320,20 @@ const RPGPanel = (() => {
       console.error('[RPGPanel] getZones error:', err);
       el.innerHTML = '<div class="rpg-empty-note">Error loading zones.</div>';
     }
+  }
+
+  async function _doRest() {
+    if (_busy || _currentRun) return;
+    _setBusy(true);
+    try {
+      const result = await window.rpgAPI.rest();
+      if (result && result.ok) {
+        await _refresh();
+      }
+    } catch (err) {
+      console.error('[RPGPanel] rest error:', err);
+    }
+    _setBusy(false);
   }
 
   async function _doSuggestZone() {
@@ -944,8 +964,16 @@ const RPGPanel = (() => {
       });
     });
 
+    // Pop-out windows
+    document.querySelectorAll('#rpg-panel .rpg-popout-btn').forEach(btn => {
+      btn.addEventListener('click', () => window.rpgAPI.openWindow(btn.dataset.win));
+    });
+
     // Zone suggestion
     document.getElementById('rpg-btn-suggest-zone').addEventListener('click', _doSuggestZone);
+
+    // Rest / heal outside of run
+    document.getElementById('rpg-btn-rest').addEventListener('click', _doRest);
 
     // Combat action buttons
     document.getElementById('rpg-btn-fight').addEventListener('click',   () => _takeAction('fight'));

@@ -94,6 +94,8 @@ contextBridge.exposeInMainWorld('rpgAPI', {
   getRunHistory:     (limit)                => ipcRenderer.invoke('rpg:get-run-history', { limit }),
   getAchievements:   ()                     => ipcRenderer.invoke('rpg:get-achievements'),
   prestige:          ()                     => ipcRenderer.invoke('rpg:prestige'),
+  rest:              ()                     => ipcRenderer.invoke('rpg:rest'),
+  openWindow:        (type)                 => ipcRenderer.invoke('rpg:open-window', { type }),
   getResponses:      (scenarioKey)          => ipcRenderer.invoke('rpg:get-responses', { scenarioKey }),
   refreshResponses:  (scenarioKey)          => ipcRenderer.invoke('rpg:refresh-responses', { scenarioKey }),
   runEndBundle:      ()                     => ipcRenderer.invoke('rpg:run-end-bundle'),

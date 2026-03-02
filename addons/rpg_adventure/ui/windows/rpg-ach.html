@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>⚔ Achievements</title>
+  <style>
+    :root {
+      --cyan:     #00ffcc;
+      --orange:   #ff8800;
+      --red:      #ff2244;
+      --yellow:   #ffdd00;
+      --purple:   #aa44ff;
+      --green:    #00ff88;
+      --magenta:  #ff00aa;
+      --font-mono: 'Consolas', 'Courier New', monospace;
+      --title-h:  0px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #080812; overflow: hidden; }
+
+    #rpg-panel {
+      position: fixed !important;
+      top: 0 !important;
+      right: 0 !important;
+      width: 100% !important;
+      height: 100vh !important;
+      border-left: none !important;
+      box-shadow: none !important;
+      transition: none !important;
+    }
+  </style>
+  <link rel="stylesheet" href="../rpg.css">
+</head>
+<body>
+  <script>window.__RPG_TAB = 'achievements';</script>
+  <div id="rpg-panel" class="open"></div>
+  <script src="../rpg-inventory.js"></script>
+  <script src="../rpg-panel.js"></script>
+  <script>RPGPanel.init(); RPGPanel.open();</script>
+</body>
+</html>

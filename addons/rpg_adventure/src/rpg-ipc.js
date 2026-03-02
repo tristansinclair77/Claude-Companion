@@ -4,8 +4,10 @@
 // Registers all IPC handlers for the RPG addon.
 // Manages the in-memory run state machine. DB writes happen at run end.
 
-const path         = require('path');
-const RpgDB        = require('./rpg-db');
+const path               = require('path');
+const fs                 = require('fs');
+const { BrowserWindow }  = require('electron');
+const RpgDB              = require('./rpg-db');
 const engine       = require('./rpg-engine');
 const narrator     = require('./rpg-narrator');
 const achievements = require('./rpg-achievements');
@@ -124,6 +126,29 @@ function register({ ipcMain, characterDir }) {
 
   ipcMain.handle('rpg:get-achievements', () => {
     return achievements.getAll();
+  });
+
+  // ── Pop-out windows ────────────────────────────────────────────────────────
+
+  ipcMain.handle('rpg:open-window', (_e, { type }) => {
+    const FILES = {
+      char: path.join(__dirname, '../ui/windows/rpg-char.html'),
+      gear: path.join(__dirname, '../ui/windows/rpg-gear.html'),
+      ach:  path.join(__dirname, '../ui/windows/rpg-ach.html'),
+    };
+    if (!FILES[type]) return { ok: false, error: 'Unknown window type' };
+    _openRpgWindow(type, FILES[type]);
+    return { ok: true };
+  });
+
+  // ── Rest (heal to full outside of run) ────────────────────────────────────
+
+  ipcMain.handle('rpg:rest', () => {
+    if (activeRun) return { ok: false, error: 'Cannot rest during an active run' };
+    const char  = rpgDb.getCharacter();
+    const maxHp = engine.maxHP(char.vit);
+    rpgDb.updateCharacter({ hp_current: maxHp });
+    return { ok: true, newHp: maxHp };
   });
 
   // ── Prestige ───────────────────────────────────────────────────────────────
@@ -630,6 +655,63 @@ function _serializeRun(run) {
     lootBagCount:   run.lootBag.length,
     dailyBonus:     run.dailyBonus,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pop-out window helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _openWindows = {};
+
+function _openRpgWindow(type, htmlFile) {
+  if (_openWindows[type]) {
+    _openWindows[type].focus();
+    return;
+  }
+  const bounds = _loadWinBounds(type);
+  const win = new BrowserWindow({
+    ...bounds,
+    minWidth:  340,
+    minHeight: 480,
+    frame: false,
+    webPreferences: {
+      preload: path.join(__dirname, '../../../src/preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+    title: `RPG — ${type}`,
+  });
+  win.setMenu(null);
+  win.loadFile(htmlFile);
+  win.webContents.on('did-finish-load', () => {
+    try {
+      const cfg  = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config.json'), 'utf8'));
+      const zoom = cfg.zoom || 100;
+      win.webContents.setZoomFactor(zoom / 100);
+    } catch { /* ignore */ }
+  });
+  _openWindows[type] = win;
+  win.on('close', () => _saveWinBounds(type, win));
+  win.on('closed', () => { delete _openWindows[type]; });
+}
+
+function _loadWinBounds(type) {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config.json'), 'utf8'));
+    const saved = (cfg.rpgWinBounds || {})[type];
+    if (saved) return saved;
+  } catch {}
+  return { width: 400, height: 600 };
+}
+
+function _saveWinBounds(type, win) {
+  try {
+    const cfgPath = path.join(__dirname, '../../../config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    if (!cfg.rpgWinBounds) cfg.rpgWinBounds = {};
+    cfg.rpgWinBounds[type] = win.getBounds();
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+  } catch {}
 }
 
 module.exports = { register };

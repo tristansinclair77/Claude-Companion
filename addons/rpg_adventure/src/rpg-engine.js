@@ -811,18 +811,19 @@ function runCombatTurn(runState, action) {
   // 3. Determine turn order
   const playerFirst = effAGI >= enemy.agi;
 
-  // Check Ancient Ward (player can only act every other turn)
-  const ancientWardActive = enemy.abilityState.ancientWardTimer > 0 &&
+  // Check Ancient Ward (player can only act every other turn) — boss-only
+  const ancientWardActive = enemy.isBoss && enemy.abilityState.ancientWardTimer > 0 &&
                             runState.combatTurn % 2 === 0;
-  if (enemy.abilityState.ancientWardTimer > 0) {
+  if (enemy.isBoss && enemy.abilityState.ancientWardTimer > 0) {
     enemy.abilityState.ancientWardTimer--;
   }
 
-  // Check Petrify stun on player
-  const playerStunned = enemy.abilityState.petrifyTracker.active &&
+  // Check Petrify stun on player — boss-only
+  const playerStunned = enemy.isBoss &&
+                        enemy.abilityState.petrifyTracker.active &&
                         enemy.abilityState.petrifyTracker.turnsLeft > 0;
   if (playerStunned) enemy.abilityState.petrifyTracker.turnsLeft--;
-  if (enemy.abilityState.petrifyTracker.turnsLeft === 0) {
+  if (enemy.isBoss && enemy.abilityState.petrifyTracker.turnsLeft === 0) {
     enemy.abilityState.petrifyTracker.active = false;
   }
 
@@ -1407,6 +1408,7 @@ module.exports = {
   // Run
   startRun,
   resolveFloorRoom,
+  maxHP,
   // Combat
   runCombatTurn,
 };
