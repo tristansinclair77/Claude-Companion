@@ -837,22 +837,23 @@ const RPGPanel = (() => {
 
   function _doPrestige() {
     if (_busy) return;
-    if (!confirm('Prestige? Level resets to 1. All stat points refunded. Gear and gold kept.')) return;
-    _setBusy(true);
-    window.rpgAPI.prestige().then(result => {
-      if (result && result.ok) {
-        return window.rpgAPI.getState().then(data => {
-          _char     = data.character;
-          _equipped = data.equipped || [];
-          _renderCharacter();
-          _updateStatusBar();
-        });
-      } else {
-        alert((result && result.error) || 'Prestige failed.');
-      }
-    }).catch(err => {
-      console.error('[RPGPanel] prestige:', err);
-    }).finally(() => { _setBusy(false); });
+    _rpgConfirm('Prestige? Level resets to 1. All stat points refunded. Gear and gold kept.', () => {
+      _setBusy(true);
+      window.rpgAPI.prestige().then(result => {
+        if (result && result.ok) {
+          return window.rpgAPI.getState().then(data => {
+            _char     = data.character;
+            _equipped = data.equipped || [];
+            _renderCharacter();
+            _updateStatusBar();
+          });
+        } else {
+          _rpgConfirm((result && result.error) || 'Prestige failed.', null);
+        }
+      }).catch(err => {
+        console.error('[RPGPanel] prestige:', err);
+      }).finally(() => { _setBusy(false); });
+    });
   }
 
   // ── Inventory screen ──────────────────────────────────────────────────────
@@ -894,25 +895,27 @@ const RPGPanel = (() => {
 
   function _doSell(inventoryId, item) {
     const price = _sellPrice(item);
-    if (!confirm(`Sell "${item.name}" for ◆${price} gold?`)) return;
-    window.rpgAPI.sellItem(inventoryId, price).then(() => {
-      return window.rpgAPI.getState();
-    }).then(data => {
-      _char     = data.character;
-      _equipped = data.equipped || [];
-      _updateStatusBar();
-      _renderInventory();
-    }).catch(err => console.error('[RPGPanel] sell:', err));
+    _rpgConfirm(`Sell "${item.name}" for ◆${price} gold?`, () => {
+      window.rpgAPI.sellItem(inventoryId, price).then(() => {
+        return window.rpgAPI.getState();
+      }).then(data => {
+        _char     = data.character;
+        _equipped = data.equipped || [];
+        _updateStatusBar();
+        _renderInventory();
+      }).catch(err => console.error('[RPGPanel] sell:', err));
+    });
   }
 
   function _doDrop(inventoryId) {
-    if (!confirm('Permanently destroy this item?')) return;
-    window.rpgAPI.dropItem(inventoryId).then(() => {
-      return window.rpgAPI.getState();
-    }).then(data => {
-      _equipped = data.equipped || [];
-      _renderInventory();
-    }).catch(err => console.error('[RPGPanel] drop:', err));
+    _rpgConfirm('Permanently destroy this item?', () => {
+      window.rpgAPI.dropItem(inventoryId).then(() => {
+        return window.rpgAPI.getState();
+      }).then(data => {
+        _equipped = data.equipped || [];
+        _renderInventory();
+      }).catch(err => console.error('[RPGPanel] drop:', err));
+    });
   }
 
   function _sellPrice(item) {
@@ -984,6 +987,36 @@ const RPGPanel = (() => {
   }
 
   // ── Event bindings ────────────────────────────────────────────────────────
+
+  // ── Custom confirm dialog ─────────────────────────────────────────────────
+
+  function _rpgConfirm(message, onOk) {
+    const panel = document.getElementById('rpg-panel');
+    let overlay = document.getElementById('rpg-confirm-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'rpg-confirm-overlay';
+      overlay.innerHTML = `
+        <div id="rpg-confirm-box">
+          <div id="rpg-confirm-msg"></div>
+          <div id="rpg-confirm-actions">
+            <button class="rpg-btn" id="rpg-confirm-cancel">CANCEL</button>
+            <button class="rpg-btn primary" id="rpg-confirm-ok">CONFIRM</button>
+          </div>
+        </div>`;
+      panel.appendChild(overlay);
+    }
+    // Alert-only mode (no Cancel, OK label = "OK")
+    const isAlert = !onOk;
+    document.getElementById('rpg-confirm-msg').textContent = message;
+    document.getElementById('rpg-confirm-cancel').style.display = isAlert ? 'none' : '';
+    document.getElementById('rpg-confirm-ok').textContent = isAlert ? 'OK' : 'CONFIRM';
+    overlay.style.display = 'flex';
+
+    function _cleanup() { overlay.style.display = 'none'; }
+    document.getElementById('rpg-confirm-ok').onclick     = () => { _cleanup(); if (onOk) onOk(); };
+    document.getElementById('rpg-confirm-cancel').onclick = () => { _cleanup(); };
+  }
 
   function _bindStaticEvents() {
     document.getElementById('rpg-panel-close').addEventListener('click', close);
