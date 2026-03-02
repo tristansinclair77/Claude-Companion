@@ -307,26 +307,34 @@
   function populateVoicePicker(voices, activeId) {
     if (!voicePicker) return;
     voicePicker.innerHTML = '';
-    for (const v of voices) {
-      if (v.isHeader) {
-        const el = document.createElement('div');
-        el.className = 'voice-section-header';
-        el.textContent = v.label;
-        voicePicker.appendChild(el);
-      } else {
-        const el = document.createElement('div');
-        el.className = 'voice-option' + (v.id === activeId ? ' active' : '');
-        el.dataset.id = v.id;
-        el.textContent = v.label;
-        el.addEventListener('click', async () => {
-          await window.claudeAPI.ttsSetVoice(v.id);
-          currentVoiceId = v.id;
-          voicePicker.querySelectorAll('.voice-option').forEach(o => o.classList.remove('active'));
-          el.classList.add('active');
-          closePicker();
-        });
-        voicePicker.appendChild(el);
-      }
+
+    // HUD picker shows only RVC character voices + a "None" option.
+    const rvcVoices = voices.filter(v => !v.isHeader && v.id.startsWith('rvc:'));
+
+    const addOption = (id, label) => {
+      const el = document.createElement('div');
+      el.className = 'voice-option' + (id === activeId ? ' active' : '');
+      el.dataset.id = id;
+      el.textContent = label;
+      el.addEventListener('click', async () => {
+        await window.claudeAPI.ttsSetVoice(id);
+        currentVoiceId = id;
+        voicePicker.querySelectorAll('.voice-option').forEach(o => o.classList.remove('active'));
+        el.classList.add('active');
+        closePicker();
+      });
+      voicePicker.appendChild(el);
+    };
+
+    // "None" — bypasses RVC, source voice plays directly
+    addOption('', 'None (source voice only)');
+
+    if (rvcVoices.length > 0) {
+      const hdr = document.createElement('div');
+      hdr.className = 'voice-section-header';
+      hdr.textContent = '── RVC CHARACTERS ──────────';
+      voicePicker.appendChild(hdr);
+      for (const v of rvcVoices) addOption(v.id, v.label);
     }
   }
 

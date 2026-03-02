@@ -404,7 +404,7 @@ async function synthesize(text) {
 
   try {
     const tts   = await _getTTS();
-    const audio = await tts.generate(clean, { voice: _voice, speed: _speed });
+    const audio = await tts.generate(clean, { voice: _voice || 'af_heart', speed: _speed });
     return _toWav(audio.audio, audio.sampling_rate);
   } catch (err) {
     console.warn('[TTS] synthesis failed:', err.message);
