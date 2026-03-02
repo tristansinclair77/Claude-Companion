@@ -83,7 +83,7 @@ def _do_synthesize_styletts2(text: str):
     """Synthesize text with StyleTTS2. Returns (numpy_float32_array, sample_rate)."""
     stts = _get_styletts2()
     import numpy as np
-    wav = stts.inference(text, diffusion_steps=5)
+    wav = stts.inference(text, diffusion_steps=10)
     return np.array(wav, dtype=np.float32), 24000
 
 app = Flask(__name__)
