@@ -344,11 +344,11 @@ var CompanionDisplay = (() => {
     if (!el) return;
     const entries = Object.entries(trackers || {});
     if (entries.length === 0) {
-      el.innerHTML = '<div class="tracker-popup-header">// ARIA_TRACKERS</div><div class="tracker-popup-empty">No trackers yet.</div>';
+      el.innerHTML = '<div class="tracker-popup-header">// TRACKERS</div><div class="tracker-popup-empty">No trackers yet.</div>';
       return;
     }
     el.innerHTML =
-      '<div class="tracker-popup-header">// ARIA_TRACKERS</div>' +
+      '<div class="tracker-popup-header">// TRACKERS</div>' +
       entries.map(([k, v]) => {
         const label = k.replace(/_/g, ' ');
         return `<div class="tracker-row"><span class="tracker-name">${label}</span><span class="tracker-val">${v}</span></div>`;
@@ -380,7 +380,7 @@ var CompanionDisplay = (() => {
     // Set avatar
     const avatarEl = document.getElementById('avatar-img');
     if (avatarEl) {
-      avatarEl.src = '../../characters/default/avatar-small.png';
+      avatarEl.src = `${characterDir}/avatar-small.png`;
     }
 
     // Always show meter bars (neutral 50% if no state yet from main process)

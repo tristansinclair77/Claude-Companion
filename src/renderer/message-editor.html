@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Message History</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      background: #0a0a0f;
+      color: #00ffcc;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Title bar ── */
+    #titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #0d0d1a;
+      border-bottom: 1px solid #00ffcc33;
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+    }
+    #titlebar .title { color: #00ffcc; font-size: 11px; letter-spacing: 2px; opacity: 0.8; }
+    #titlebar .win-btns { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+    .win-btn {
+      background: transparent;
+      border: 1px solid #00ffcc44;
+      color: #00ffcc88;
+      width: 22px; height: 22px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .win-btn:hover { background: #00ffcc22; color: #00ffcc; border-color: #00ffcc; }
+    .win-btn.close:hover { background: #ff224433; color: #ff2244; border-color: #ff2244; }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      padding: 6px 10px;
+      border-bottom: 1px solid #00ffcc22;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      background: #0a0a0f;
+    }
+    #toolbar span { color: #00ffcc66; font-size: 11px; }
+    #msg-count { color: #00ffcc; font-weight: bold; }
+
+    /* ── Message list ── */
+    #msg-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    #msg-list::-webkit-scrollbar { width: 6px; }
+    #msg-list::-webkit-scrollbar-track { background: #0a0a0f; }
+    #msg-list::-webkit-scrollbar-thumb { background: #00ffcc33; border-radius: 3px; }
+
+    .exchange {
+      border: 1px solid #00ffcc22;
+      margin-bottom: 8px;
+      background: #0d0d1a;
+    }
+    .exchange:hover { border-color: #00ffcc44; }
+
+    .msg-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 8px;
+      border-bottom: 1px solid #00ffcc11;
+    }
+    .msg-row:last-child { border-bottom: none; }
+
+    .msg-role {
+      font-size: 10px;
+      letter-spacing: 1px;
+      min-width: 72px;
+      padding-top: 1px;
+      flex-shrink: 0;
+    }
+    .msg-role.user     { color: #aaffee; }
+    .msg-role.companion { color: #ff88cc; }
+
+    .msg-content {
+      flex: 1;
+      color: #ccddcc;
+      line-height: 1.5;
+      word-break: break-word;
+      user-select: text;
+      font-size: 11px;
+    }
+
+    .msg-emotion {
+      font-size: 10px;
+      color: #00ffcc44;
+      flex-shrink: 0;
+      align-self: flex-start;
+      padding-top: 1px;
+    }
+
+    .exchange-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding: 4px 6px;
+      background: #080810;
+      border-top: 1px solid #00ffcc11;
+    }
+
+    .btn-delete-exchange {
+      background: transparent;
+      border: 1px solid #ff224444;
+      color: #ff224488;
+      padding: 3px 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+    .btn-delete-exchange:hover {
+      background: #ff224422;
+      color: #ff2244;
+      border-color: #ff2244;
+    }
+
+    #empty-state {
+      display: none;
+      color: #00ffcc44;
+      text-align: center;
+      padding: 40px;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="titlebar">
+    <span class="title">// MESSAGE_HISTORY</span>
+    <div class="win-btns">
+      <button class="win-btn" id="btn-minimize">─</button>
+      <button class="win-btn close" id="btn-close">✕</button>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <span>MESSAGES IN SESSION WINDOW: <span id="msg-count">…</span></span>
+  </div>
+
+  <div id="msg-list">
+    <div id="empty-state">NO MESSAGES IN DATABASE</div>
+  </div>
+
+  <script>
+    const listEl    = document.getElementById('msg-list');
+    const countEl   = document.getElementById('msg-count');
+    const emptyEl   = document.getElementById('empty-state');
+
+    document.getElementById('btn-minimize').addEventListener('click', () => window.msgAPI.minimize());
+    document.getElementById('btn-close').addEventListener('click',    () => window.msgAPI.close());
+
+    async function load() {
+      const rows = await window.msgAPI.list();
+      countEl.textContent = rows.length;
+
+      // Remove all exchange blocks (keep empty state)
+      listEl.querySelectorAll('.exchange').forEach(el => el.remove());
+
+      if (rows.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      // Group rows into exchanges: walk from newest, pair companion+user
+      // rows are already DESC by id
+      const exchanges = [];
+      let i = 0;
+      while (i < rows.length) {
+        const pair = [];
+        // Companion message comes first in DESC order (highest id = most recent)
+        if (rows[i] && rows[i].role === 'companion') { pair.push(rows[i]); i++; }
+        if (rows[i] && rows[i].role === 'user')      { pair.push(rows[i]); i++; }
+        // Handle orphan (unlikely but safe)
+        if (pair.length === 0) { pair.push(rows[i]); i++; }
+        exchanges.push(pair);
+      }
+
+      exchanges.forEach(pair => {
+        const block = document.createElement('div');
+        block.className = 'exchange';
+
+        // Show user first (visually), then companion — reverse the DESC pair
+        const display = [...pair].reverse();
+        display.forEach(msg => {
+          const row = document.createElement('div');
+          row.className = 'msg-row';
+          row.innerHTML = `
+            <span class="msg-role ${msg.role}">${msg.role === 'user' ? '// USER' : '// COMPANION'}</span>
+            <span class="msg-content">${escHtml(msg.content)}</span>
+            ${msg.emotion ? `<span class="msg-emotion">(${escHtml(msg.emotion)})</span>` : ''}
+          `;
+          block.appendChild(row);
+        });
+
+        const actions = document.createElement('div');
+        actions.className = 'exchange-actions';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete-exchange';
+        delBtn.textContent = '✕ DELETE EXCHANGE';
+        delBtn.addEventListener('click', async () => {
+          delBtn.disabled = true;
+          delBtn.textContent = 'DELETING…';
+          for (const msg of pair) {
+            await window.msgAPI.deleteOne(msg.id);
+          }
+          block.remove();
+          const remaining = listEl.querySelectorAll('.exchange').length;
+          countEl.textContent = remaining * 2; // rough count
+          if (remaining === 0) emptyEl.style.display = 'block';
+        });
+        actions.appendChild(delBtn);
+        block.appendChild(actions);
+
+        listEl.appendChild(block);
+      });
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    load();
+  </script>
+</body>
+</html>

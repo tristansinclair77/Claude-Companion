@@ -117,6 +117,26 @@ class SessionManager {
   }
 
   /**
+   * Removes the last user + companion message pair from the window.
+   * Returns true if anything was removed.
+   */
+  popLastExchange() {
+    // Find the last companion message and the user message before it
+    let removed = 0;
+    if (this.messageWindow.length > 0 && this.messageWindow[this.messageWindow.length - 1].role === 'companion') {
+      this.messageWindow.pop();
+      this.currentSession.messageCount = Math.max(0, this.currentSession.messageCount - 1);
+      removed++;
+    }
+    if (this.messageWindow.length > 0 && this.messageWindow[this.messageWindow.length - 1].role === 'user') {
+      this.messageWindow.pop();
+      this.currentSession.messageCount = Math.max(0, this.currentSession.messageCount - 1);
+      removed++;
+    }
+    return removed > 0;
+  }
+
+  /**
    * Resets the window for a new session (keeps master summary and memories).
    */
   startNewSession() {

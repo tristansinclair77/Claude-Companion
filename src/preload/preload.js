@@ -23,8 +23,14 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Feedback signal to brain
   sendFeedback: (message) => ipcRenderer.send('brain:feedback', { message }),
 
-  // Save current conversation to Aria's long-term memory
+  // Save current conversation to long-term memory
   saveConversation: () => ipcRenderer.invoke('conversation:save'),
+
+  // Remove the last exchange (user message + companion reply) from session memory
+  popLastExchange: () => ipcRenderer.invoke('session:pop-last'),
+
+  // Open the message history editor
+  openMessageEditor: () => ipcRenderer.send('msgs:open'),
 
   // Open the emotional axis monitor pop-out
   openEmotionalState: () => ipcRenderer.send('emotional-state:open'),
@@ -104,5 +110,6 @@ contextBridge.exposeInMainWorld('rpgAPI', {
   generateResponsePool: (key, gameState)    => ipcRenderer.invoke('rpg:generate-response-pool', { key, gameState }),
   suggestZone:         ()                   => ipcRenderer.invoke('rpg:suggest-zone'),
   openDevTools:        ()                   => ipcRenderer.invoke('rpg:open-devtools'),
+  closeWindow:         ()                   => ipcRenderer.send('rpg:close-window'),
   onInventoryChanged:  (cb)                 => ipcRenderer.on('rpg:inventory-changed', cb),
 });

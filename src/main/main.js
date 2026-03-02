@@ -233,6 +233,7 @@ app.whenReady().then(() => {
     _trackers = db.getProfileValue('trackers') || {};
     win.webContents.send('app:init', {
       character,
+      characterId: ACTIVE_CHARACTER,
       masterSummary: sessionManager.masterSummary,
       permanentMemories: sessionManager.permanentMemories,
       emotionalState: db.getEmotionalState(),
@@ -475,6 +476,57 @@ ipcMain.handle('conversation:save', async () => {
   }
 });
 
+ipcMain.handle('session:pop-last', () => {
+  if (!sessionManager) return { success: false };
+  const removed = sessionManager.popLastExchange();
+  return { success: removed };
+});
+
+// ── Message History Editor ────────────────────────────────────────────────────
+let messageEditorWindow = null;
+
+ipcMain.on('msgs:open', () => {
+  if (messageEditorWindow && !messageEditorWindow.isDestroyed()) {
+    messageEditorWindow.focus();
+    return;
+  }
+  messageEditorWindow = new BrowserWindow({
+    width: 620,
+    height: 720,
+    minWidth: 480,
+    minHeight: 400,
+    frame: false,
+    backgroundColor: '#0a0a0f',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/message-editor-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+    show: false,
+    title: 'Message History',
+  });
+  messageEditorWindow.loadFile(path.join(__dirname, '../renderer/message-editor.html'));
+  messageEditorWindow.once('ready-to-show', () => messageEditorWindow.show());
+  messageEditorWindow.on('closed', () => { messageEditorWindow = null; });
+});
+
+ipcMain.on('msgs:minimize', () => messageEditorWindow?.minimize());
+ipcMain.on('msgs:close',    () => messageEditorWindow?.close());
+
+ipcMain.handle('msgs:list', () => {
+  if (!db) return [];
+  return db.db.prepare(
+    'SELECT id, role, content, emotion FROM conversation_messages ORDER BY id DESC'
+  ).all();
+});
+
+ipcMain.handle('msgs:delete-one', (_event, id) => {
+  if (!db) return false;
+  db.db.prepare('DELETE FROM conversation_messages WHERE id = ?').run(id);
+  return true;
+});
+
 ipcMain.on('debug-viewer:open-from-main', () => {
   ipcMain.emit('debug-viewer:open');
 });
@@ -504,7 +556,7 @@ ipcMain.on('emotional-state:open', () => {
     minHeight: 440,
     frame: false,
     backgroundColor: '#0a0a0f',
-    parent: mainWindow || undefined,
+
     webPreferences: {
       preload: path.join(__dirname, '../preload/emotional-state-preload.js'),
       contextIsolation: true,

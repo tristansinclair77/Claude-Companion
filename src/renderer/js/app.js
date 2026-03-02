@@ -34,6 +34,11 @@
     window.claudeAPI.openEmotionalState();
   });
 
+  // Message history editor
+  document.getElementById('btn-msg-editor').addEventListener('click', () => {
+    window.claudeAPI.openMessageEditor();
+  });
+
   // Tracker popup toggle
   const btnTrackers    = document.getElementById('btn-trackers');
   const trackerPopup   = document.getElementById('tracker-popup');
@@ -103,6 +108,9 @@
   window.claudeAPI.on('app:init', (data) => {
     if (data && data.character) {
       charNameEl.textContent = data.character.name.toUpperCase();
+      if (data.characterId) {
+        CompanionDisplay.setCharacterDir(`../../characters/${data.characterId}`);
+      }
       CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
     }
     if (data && data.fastMode !== undefined) {
