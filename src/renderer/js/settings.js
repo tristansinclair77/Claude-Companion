@@ -1,28 +1,190 @@
 'use strict';
-// BackgroundSettings — manages the cyberpunk background effects panel and state.
+// BackgroundSettings — manages visual packages and the background/display settings panel.
+
+// ── Built-in Visual Packages ──────────────────────────────────────────────────
+
+const BUILTIN_PACKAGES = [
+  {
+    id: 'cybernetic',
+    name: 'CYBERNETIC',
+    desc: 'neon green / teal',
+    effectModules: ['grid', 'filmGrain', 'overlayEffects', 'scanlines'],
+    colors: {
+      '--cyan':        '#00ffcc',
+      '--cyan-dim':    '#007755',
+      '--green':       '#00ff88',
+      '--magenta':     '#ff00aa',
+      '--purple':      '#aa44ff',
+      '--orange':      '#ff8800',
+      '--red':         '#ff2244',
+      '--yellow':      '#ffdd00',
+      '--bg-dark':     '#0a0a0f',
+      '--bg-panel':    '#0d0d16',
+      '--bg-mid':      '#111122',
+      '--bg-input':    '#0c0c18',
+      '--border':      '#001a0f',
+      '--border-glow': '#00ff8833',
+      // Axis bar gradient stops
+      '--axis-val-lo': '#ff4444', '--axis-val-hi': '#00ff88',
+      '--axis-aro-lo': '#4488ff', '--axis-aro-hi': '#ff8800',
+      '--axis-soc-lo': '#8844aa', '--axis-soc-hi': '#00ccff',
+      '--axis-phy-lo': '#888866', '--axis-phy-hi': '#88ff44',
+    },
+    effects: {
+      grid: 'square', gridColor: 'cyan', gridAnimate: true, gridOpacity: 100,
+      filmGrain: true, filmGrainOpacity: 5, filmGrainAnimate: true,
+      dataRain: false, circuitPattern: false, edgeGlow: true,
+      chromaticAberration: true, scanlinesIntensity: 'light',
+      parchmentOpacity: 0,
+    },
+  },
+  {
+    id: 'fantasy_rpg',
+    name: 'FANTASY RPG',
+    desc: 'warm amber / arcane',
+    effectModules: ['parchment'],
+    colors: {
+      '--cyan':        '#ffaa00',   // amber gold — primary (replaces neon cyan)
+      '--cyan-dim':    '#885500',   // tarnished bronze
+      '--green':       '#ddaa00',   // warm amber-gold (volume bar, FAST btn)
+      '--magenta':     '#cc3333',   // deep blood red
+      '--purple':      '#9944ff',   // arcane violet
+      '--orange':      '#ff6600',   // ember orange
+      '--red':         '#993311',   // dark crimson
+      '--yellow':      '#ffdd88',   // candlelight
+      '--bg-dark':     '#0a0806',   // near-black warm
+      '--bg-panel':    '#100d09',   // dark aged wood
+      '--bg-mid':      '#18130e',   // slightly lighter
+      '--bg-input':    '#0e0b07',   // deep shadow
+      '--border':      '#2a1a08',   // dark amber border
+      '--border-glow': '#ffaa0022', // amber haze with alpha
+      // Axis bar gradient stops — all warm family, no cool→warm lerp clashes
+      '--axis-val-lo': '#882200', '--axis-val-hi': '#ddaa00',
+      '--axis-aro-lo': '#332211', '--axis-aro-hi': '#ff6600',
+      '--axis-soc-lo': '#2a3322', '--axis-soc-hi': '#ffaa00',
+      '--axis-phy-lo': '#443322', '--axis-phy-hi': '#ffdd88',
+    },
+    effects: {
+      grid: 'off', gridColor: 'cyan', gridAnimate: false, gridOpacity: 0,
+      filmGrain: false, filmGrainOpacity: 5, filmGrainAnimate: false,
+      dataRain: false, circuitPattern: false, edgeGlow: false,
+      chromaticAberration: false, scanlinesIntensity: 'off',
+      parchmentOpacity: 15,
+    },
+  },
+];
+
+// ── BackgroundSettings ────────────────────────────────────────────────────────
 
 const BackgroundSettings = (() => {
 
   const DEFAULTS = {
-    grid:               'square',  // 'off' | 'square' | 'hex'
-    gridColor:          'cyan',    // 'cyan' | 'magenta' | 'green'
-    gridAnimate:        true,
-    gridOpacity:        100,       // 10–100 (integer %)
-    barWidth:           100,       // 20–100 (integer %): max-width of axis meter bars relative to portrait width
-    filmGrain:          true,
-    filmGrainOpacity:   5,         // 1–15 (integer %)
-    filmGrainAnimate:   true,      // live-shift grain
-    dataRain:           false,
-    circuitPattern:     false,
-    edgeGlow:           true,
+    grid:                'square',  // 'off' | 'square' | 'hex'
+    gridColor:           'cyan',    // 'cyan' | 'magenta' | 'green'
+    gridAnimate:         true,
+    gridOpacity:         100,       // 10–100 (integer %)
+    barWidth:            100,       // 20–100 (integer %): max-width of axis meter bars
+    filmGrain:           true,
+    filmGrainOpacity:    5,         // 1–15 (integer %)
+    filmGrainAnimate:    true,
+    dataRain:            false,
+    circuitPattern:      false,
+    edgeGlow:            true,
     chromaticAberration: true,
-    scanlinesIntensity: 'light',   // 'off' | 'light' | 'medium' | 'heavy'
+    scanlinesIntensity:  'light',   // 'off' | 'light' | 'medium' | 'heavy'
+    parchmentOpacity:    0,         // 0–30 (integer %)
   };
 
   let state = { ...DEFAULTS };
   let _rainCols = [];
 
-  // ── Zoom state (separate from bg settings, stored via its own IPC) ────────
+  // ── Package state ─────────────────────────────────────────────────────────
+
+  let _packages        = [];
+  let _activePackageId = null;
+
+  function _getActivePackage() {
+    return _packages.find(p => p.id === _activePackageId) || _packages[0] || null;
+  }
+
+  // Write current live effect state back into the active package object so it
+  // persists when switching away and is saved into config.json.
+  function _syncEffectStateToPackage() {
+    const pkg = _packages.find(p => p.id === _activePackageId);
+    if (!pkg) return;
+    pkg.effects = {
+      grid:                state.grid,
+      gridColor:           state.gridColor,
+      gridAnimate:         state.gridAnimate,
+      gridOpacity:         state.gridOpacity,
+      filmGrain:           state.filmGrain,
+      filmGrainOpacity:    state.filmGrainOpacity,
+      filmGrainAnimate:    state.filmGrainAnimate,
+      dataRain:            state.dataRain,
+      circuitPattern:      state.circuitPattern,
+      edgeGlow:            state.edgeGlow,
+      chromaticAberration: state.chromaticAberration,
+      scanlinesIntensity:  state.scanlinesIntensity,
+      parchmentOpacity:    state.parchmentOpacity,
+    };
+  }
+
+  // Apply a package's color variables to :root
+  function _applyColorScheme(colors) {
+    const root = document.documentElement;
+    Object.entries(colors).forEach(([k, v]) => root.style.setProperty(k, v));
+  }
+
+  // Show only the settings sections that belong to the active package's modules.
+  // Sections without data-effect-module are always shown (UI SCALE, AXIS METERS, RVC VOICE).
+  function _applyEffectModuleVisibility() {
+    const pkg     = _getActivePackage();
+    const modules = pkg?.effectModules || [];
+    document.querySelectorAll('[data-effect-module]').forEach(el => {
+      el.style.display = modules.includes(el.dataset.effectModule) ? '' : 'none';
+    });
+  }
+
+  // Render the package selector buttons into #pkg-selector
+  function _renderPackageSelector() {
+    const container = document.getElementById('pkg-selector');
+    if (!container) return;
+    container.innerHTML = '';
+    _packages.forEach(pkg => {
+      const btn = document.createElement('button');
+      btn.className = 'pkg-btn' + (pkg.id === _activePackageId ? ' active' : '');
+      btn.textContent = pkg.name;
+      btn.title = pkg.desc || '';
+      btn.addEventListener('click', () => _switchPackage(pkg.id));
+      container.appendChild(btn);
+    });
+  }
+
+  // Switch to a different visual package
+  function _switchPackage(id) {
+    if (id === _activePackageId) return;
+
+    _syncEffectStateToPackage();   // save current state into the departing package
+    _activePackageId = id;
+
+    const pkg = _getActivePackage();
+    if (!pkg) return;
+
+    // Apply color scheme first so the UI immediately reflects the new palette
+    _applyColorScheme(pkg.colors);
+
+    // Load this package's saved effects into live state
+    Object.assign(state, pkg.effects || {});
+
+    _applyAll();
+    _applyEffectModuleVisibility();
+    _renderPackageSelector();
+    _syncUI();
+    _save();
+  }
+
+  // ── Zoom state ────────────────────────────────────────────────────────────
+
   const _ZOOM_STEPS = [75, 90, 100, 110, 125, 150, 175, 200];
   let _zoom = 100;
 
@@ -39,7 +201,8 @@ const BackgroundSettings = (() => {
     }
   }
 
-  // RGB values for each grid color choice
+  // ── Grid color map ────────────────────────────────────────────────────────
+
   const GRID_COLORS = {
     cyan:    { r: 0,   g: 255, b: 204 },
     magenta: { r: 255, g: 0,   b: 170 },
@@ -68,10 +231,6 @@ const BackgroundSettings = (() => {
     el.style.opacity = (state.gridOpacity / 100).toFixed(2);
 
     if (state.grid === 'hex') {
-      // Correct regular hex geometry for 56px-wide tile:
-      // R = 56/√3 ≈ 32.33 → R/2≈16, 3R/2≈49, 2R≈65, tile height=3R≈97px
-      // Only the hexagon outline + one vertical connector segment are drawn.
-      // The extra diagonal arms that were here before caused the 4-sided diamond shapes.
       const hex = `${c.r.toString(16).padStart(2,'0')}${c.g.toString(16).padStart(2,'0')}${c.b.toString(16).padStart(2,'0')}`;
       const stroke = `%23${hex}`;
       el.style.backgroundImage =
@@ -89,11 +248,7 @@ const BackgroundSettings = (() => {
     if (!el) return;
     if (state.filmGrain) {
       el.style.opacity = (state.filmGrainOpacity / 100).toFixed(3);
-      if (state.filmGrainAnimate) {
-        el.classList.add('grain-animate');
-      } else {
-        el.classList.remove('grain-animate');
-      }
+      el.classList.toggle('grain-animate', state.filmGrainAnimate);
     } else {
       el.style.opacity = '0';
       el.classList.remove('grain-animate');
@@ -104,7 +259,6 @@ const BackgroundSettings = (() => {
     const el = document.getElementById('bg-data-rain');
     if (!el) return;
 
-    // Remove old columns
     _rainCols.forEach(c => c.remove());
     _rainCols = [];
 
@@ -117,14 +271,12 @@ const BackgroundSettings = (() => {
     for (let i = 0; i < colCount; i++) {
       const col = document.createElement('div');
       col.className = 'rain-col';
-      // Slight random offset within each column slot so columns aren't perfectly aligned
       const x = i * colWidth + Math.floor(Math.random() * colWidth * 0.6);
       col.style.left = `${x}px`;
       col.style.animationDuration  = `${7 + Math.random() * 9}s`;
       col.style.animationDelay     = `${-(Math.random() * 16)}s`;
       col.style.color              = `rgba(0,255,136,${(0.06 + Math.random() * 0.12).toFixed(3)})`;
 
-      // Random character string (30-40 chars)
       const len = 30 + Math.floor(Math.random() * 10);
       let chars = '';
       for (let j = 0; j < len; j++) {
@@ -138,14 +290,11 @@ const BackgroundSettings = (() => {
   }
 
   function _generateCircuitBg() {
-    // Procedurally generate a unique 500×500 SVG circuit board pattern each call.
-    // Uses Math.random() so every app launch / toggle produces a different layout.
     const W = 500, H = 500, G = 25;
     const col = '#00ffcc';
     const irnd = (n) => Math.floor(Math.random() * n);
     const parts = [];
 
-    // Random rectilinear traces (L-shapes and Z-shapes on a 25px grid)
     for (let i = 0; i < 38; i++) {
       let x = irnd(W / G) * G;
       let y = irnd(H / G) * G;
@@ -161,11 +310,9 @@ const BackgroundSettings = (() => {
         d += ` L${x} ${y}`;
       }
       parts.push(`<path d="${d}" stroke-width="0.8"/>`);
-      // Via (pad ring) at trace end
       parts.push(`<circle cx="${x}" cy="${y}" r="3"/>`);
     }
 
-    // IC component outlines with pin stubs (4–7 chips)
     const numICs = 4 + irnd(4);
     for (let i = 0; i < numICs; i++) {
       const x = (irnd((W - 150) / G) + 1) * G;
@@ -173,10 +320,8 @@ const BackgroundSettings = (() => {
       const w = (3 + irnd(4)) * G;
       const h = (2 + irnd(2)) * G;
       parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" stroke-width="0.8"/>`);
-      // Orientation notch on top edge
       const mx = x + w / 2;
       parts.push(`<path d="M${mx - 6} ${y} A6 6 0 0 1 ${mx + 6} ${y}" stroke-width="0.8"/>`);
-      // Top and bottom pin stubs
       const pins = 2 + irnd(4);
       const sp = w / (pins + 1);
       for (let p = 1; p <= pins; p++) {
@@ -186,7 +331,6 @@ const BackgroundSettings = (() => {
         parts.push(`<circle cx="${px}" cy="${y - 12}" r="2"/>`);
         parts.push(`<circle cx="${px}" cy="${y + h + 12}" r="2"/>`);
       }
-      // 50% chance of left/right side pins too
       if (Math.random() < 0.5) {
         [h / 3, (h * 2) / 3].forEach(dy => {
           const py = Math.round(y + dy);
@@ -198,7 +342,6 @@ const BackgroundSettings = (() => {
       }
     }
 
-    // Scattered standalone vias
     for (let i = 0; i < 12; i++) {
       parts.push(`<circle cx="${irnd(W / G) * G}" cy="${irnd(H / G) * G}" r="2.5"/>`);
     }
@@ -234,14 +377,10 @@ const BackgroundSettings = (() => {
   function _applyBarWidth() {
     const el = document.getElementById('emotion-meters');
     if (!el) return;
-    // Symmetric horizontal padding centers the bar area within the portrait width.
-    // e.g. barWidth=80 → 10% padding each side, so bars sit from 10%–90% of portrait width.
     const sidePct = (100 - state.barWidth) / 2;
     el.style.paddingLeft  = sidePct + '%';
     el.style.paddingRight = sidePct + '%';
-    // Store barWidth so CompanionDisplay can decide whether to show labels
     el.dataset.barWidth = state.barWidth;
-    // Re-render bars (no-arg = use cached state) so labels appear/disappear immediately
     if (typeof CompanionDisplay !== 'undefined') CompanionDisplay.updateMeters();
   }
 
@@ -254,6 +393,20 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _applyParchment() {
+    const el = document.getElementById('bg-parchment');
+    if (!el) return;
+    const pkg = _getActivePackage();
+    const hasParchment = (pkg?.effectModules || []).includes('parchment');
+    if (hasParchment && state.parchmentOpacity > 0) {
+      el.style.opacity = (state.parchmentOpacity / 100).toFixed(3);
+      el.classList.add('active');
+    } else {
+      el.style.opacity = '0';
+      el.classList.remove('active');
+    }
+  }
+
   function _applyAll() {
     _applyGrid();
     _applyFilmGrain();
@@ -263,6 +416,7 @@ const BackgroundSettings = (() => {
     _applyChroma();
     _applyScanlines();
     _applyBarWidth();
+    _applyParchment();
   }
 
   // ── UI helpers ───────────────────────────────────────────────────────────
@@ -312,13 +466,20 @@ const BackgroundSettings = (() => {
     document.querySelectorAll('input[name="bg-scanlines"]').forEach(r => {
       r.checked = (r.value === state.scanlinesIntensity);
     });
+    // Parchment opacity
+    _updateSlider('parchment-opacity', 'parchment-opacity-val', state.parchmentOpacity, 0, 30);
   }
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
   async function _save() {
+    _syncEffectStateToPackage();
     try {
-      await window.claudeAPI.setBgSettings({ ...state });
+      await window.claudeAPI.setBgSettings({
+        ...state,
+        activePackage: _activePackageId,
+        packages:      _packages,
+      });
     } catch (e) {
       console.warn('[BackgroundSettings] save error:', e);
     }
@@ -329,6 +490,12 @@ const BackgroundSettings = (() => {
       const saved = await window.claudeAPI.getBgSettings();
       if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
         state = { ...DEFAULTS, ...saved };
+        if (Array.isArray(saved.packages) && saved.packages.length > 0) {
+          _packages = saved.packages;
+        }
+        if (saved.activePackage) {
+          _activePackageId = saved.activePackage;
+        }
       }
     } catch (e) {
       console.warn('[BackgroundSettings] load error:', e);
@@ -362,16 +529,13 @@ const BackgroundSettings = (() => {
   // ── Wire controls ────────────────────────────────────────────────────────
 
   function _wire() {
-    // Settings gear button
     document.getElementById('btn-settings')?.addEventListener('click', (e) => {
       e.stopPropagation();
       _togglePanel();
     });
 
-    // Close button
     document.getElementById('btn-settings-close')?.addEventListener('click', _closePanel);
 
-    // Click outside → close
     document.addEventListener('click', (e) => {
       const panel = document.getElementById('settings-panel');
       const btn   = document.getElementById('btn-settings');
@@ -502,20 +666,54 @@ const BackgroundSettings = (() => {
         _save();
       });
     });
+
+    // ── Parchment opacity ──
+    const parchSlider = document.getElementById('parchment-opacity');
+    parchSlider?.addEventListener('input', () => {
+      state.parchmentOpacity = parseInt(parchSlider.value, 10);
+      _updateSlider('parchment-opacity', 'parchment-opacity-val', state.parchmentOpacity, 0, 30);
+      _applyParchment();
+    });
+    parchSlider?.addEventListener('change', _save);
   }
 
   // ── Public ───────────────────────────────────────────────────────────────
 
   async function init() {
     await _load();
+
+    // Always re-seed builtin package COLORS from code so any color updates take effect
+    // immediately without needing to clear saved config. Only saved effects are preserved.
+    const savedEffectsMap = new Map((_packages || []).map(p => [p.id, p.effects]));
+    _packages = JSON.parse(JSON.stringify(BUILTIN_PACKAGES)).map(builtin => {
+      const saved = savedEffectsMap.get(builtin.id);
+      return saved ? { ...builtin, effects: { ...builtin.effects, ...saved } } : builtin;
+    });
+
+    if (!_activePackageId) {
+      _activePackageId = _packages[0]?.id || 'cybernetic';
+    }
+
+    // Apply the active package's color scheme and effects
+    const pkg = _getActivePackage();
+    if (pkg) {
+      _applyColorScheme(pkg.colors);
+      Object.assign(state, pkg.effects || {});
+    }
+
     _applyAll();
-    // Load saved zoom and reflect in UI (zoom is already applied by main process on startup)
+    _applyEffectModuleVisibility();
+    _renderPackageSelector();
+
+    // Load saved zoom
     try {
       _zoom = await window.claudeAPI.getZoom();
     } catch { _zoom = 100; }
     _syncZoomUI();
+
+    _syncUI();
     _wire();
-    console.log('[BackgroundSettings] initialized, state:', state);
+    console.log('[BackgroundSettings] initialized, package:', _activePackageId);
   }
 
   return { init };
@@ -583,14 +781,12 @@ const RvcSettings = (() => {
     const srcEl = document.getElementById('rvc-source');
     if (!srcEl) return;
 
-    // Keep the default "Kokoro (default)" option, then append fetched voices
     srcEl.innerHTML = '<option value="">Kokoro (default)</option>';
 
     try {
       const voices = await window.claudeAPI.ttsGetVoices();
       if (!Array.isArray(voices)) return;
 
-      // Build optgroups for non-RVC voices
       let kokoroFrag = '';
       let vitsFrag   = '';
       let inVits     = false;
@@ -600,7 +796,7 @@ const RvcSettings = (() => {
           inVits = v.label.includes('VITS');
           continue;
         }
-        if (v.id.startsWith('rvc:')) continue; // skip RVC entries
+        if (v.id.startsWith('rvc:')) continue;
 
         const opt = `<option value="${v.id}">${v.label}</option>`;
         if (inVits) vitsFrag += opt;
@@ -617,7 +813,6 @@ const RvcSettings = (() => {
       console.warn('[RvcSettings] could not fetch voice list:', e);
     }
 
-    // Re-apply saved selection after repopulation
     srcEl.value = state.sourceVoice;
   }
 
@@ -641,7 +836,6 @@ const RvcSettings = (() => {
   }
 
   function _wire() {
-    // Re-sync when the settings panel opens so sliders reflect current state
     document.getElementById('btn-settings')?.addEventListener('click', _syncUI);
 
     const pitchEl = document.getElementById('rvc-pitch');

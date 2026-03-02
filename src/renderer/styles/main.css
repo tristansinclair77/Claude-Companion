@@ -358,7 +358,7 @@ html { background: var(--bg-dark); }
   flex: 0 0 auto;            /* never grows or shrinks; always takes natural height */
   width: 100%;               /* bars span the full inner width (same as portrait frame) */
   padding: 8px 0 10px;      /* no horizontal padding — bars go edge-to-edge */
-  border-top: 1px solid #00ff8811;
+  border-top: 1px solid var(--border-glow);
 }
 
 /* ── Input Area ─────────────────────────────────────────────────────────────── */

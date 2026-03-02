@@ -157,10 +157,25 @@
 
 #bg-chroma.active { opacity: 1; }
 
+/* ── Parchment Overlay (Fantasy RPG package) ───────────────────────────────── */
+
+#bg-parchment {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  background:
+    radial-gradient(ellipse at 25% 75%, rgba(255, 140, 20, 0.60) 0%, transparent 52%),
+    radial-gradient(ellipse at 78% 22%, rgba(200, 80, 10, 0.40) 0%, transparent 48%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 200, 80, 0.18) 0%, transparent 75%);
+}
+
 /* ── Scanline Intensity Overrides ──────────────────────────────────────────── */
 /* Default (.crt-overlay with no extra class) = "light" from crt-effects.css  */
 
-.crt-overlay.scanlines-off { opacity: 0 !important; }
+.crt-overlay.scanlines-off { animation: none; opacity: 0; }
 
 .crt-overlay.scanlines-medium {
   background: repeating-linear-gradient(

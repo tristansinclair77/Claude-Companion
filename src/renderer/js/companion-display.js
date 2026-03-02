@@ -105,11 +105,13 @@ var CompanionDisplay = (() => {
     // null/object = update the cache too
     if (state !== undefined) _cachedMeterState = state;
     const s = _cachedMeterState || _NEUTRAL_STATE;
+    // Read per-package axis color stops from CSS custom properties so bars adapt to any theme
+    const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
     const axes = [
-      { label: 'VAL', val: s.valence,  low: '#ff4444', high: '#00ff88' },
-      { label: 'ARO', val: s.arousal,  low: '#4488ff', high: '#ff8800' },
-      { label: 'SOC', val: s.social,   low: '#8844aa', high: '#00ccff' },
-      { label: 'PHY', val: s.physical, low: '#888866', high: '#88ff44' },
+      { label: 'VAL', val: s.valence,  low: cssVar('--axis-val-lo'), high: cssVar('--axis-val-hi') },
+      { label: 'ARO', val: s.arousal,  low: cssVar('--axis-aro-lo'), high: cssVar('--axis-aro-hi') },
+      { label: 'SOC', val: s.social,   low: cssVar('--axis-soc-lo'), high: cssVar('--axis-soc-hi') },
+      { label: 'PHY', val: s.physical, low: cssVar('--axis-phy-lo'), high: cssVar('--axis-phy-hi') },
     ];
 
     // Show 3-letter labels in the left padding area when barWidth ≤ 80
@@ -122,15 +124,15 @@ var CompanionDisplay = (() => {
       // Label sits in the left padding area via position:absolute right:calc(100% + 5px)
       const labelHtml = showLabels
         ? `<span style="position:absolute;right:calc(100% + 5px);top:0;font-size:7px;` +
-          `letter-spacing:1px;color:#00ff8866;line-height:8px;white-space:nowrap;">${label}</span>`
+          `letter-spacing:1px;color:var(--cyan-dim);line-height:8px;white-space:nowrap;">${label}</span>`
         : '';
       return `<div style="position:relative;height:8px;margin-bottom:7px;">` +
         labelHtml +
-        `<div style="height:8px;background:#080f0b;border:1px solid #00ff8814;overflow:hidden;">` +
+        `<div style="height:8px;background:var(--bg-dark);border:1px solid var(--border-glow);overflow:hidden;">` +
         `<div style="width:${pct}%;height:100%;background:${color};transition:width 0.6s ease;"></div>` +
         `</div>` +
-        `<div style="position:absolute;left:0;top:-3px;width:1px;height:14px;background:#00ff8855;"></div>` +
-        `<div style="position:absolute;right:0;top:-3px;width:1px;height:14px;background:#00ff8855;"></div>` +
+        `<div style="position:absolute;left:0;top:-3px;width:1px;height:14px;background:var(--border-glow);"></div>` +
+        `<div style="position:absolute;right:0;top:-3px;width:1px;height:14px;background:var(--border-glow);"></div>` +
         `</div>`;
     }).join('');
   }

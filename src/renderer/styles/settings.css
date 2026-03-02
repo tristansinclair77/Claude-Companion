@@ -76,6 +76,39 @@
 /* Body */
 .settings-body { padding: 4px 0 16px; }
 
+/* ── Package selector ────────────────────────────────────────────────────── */
+
+.pkg-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 14px 8px;
+}
+
+.pkg-btn {
+  background: none;
+  border: 1px solid #2a3a4a;
+  color: #3a4a5a;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.pkg-btn:hover {
+  border-color: var(--cyan-dim);
+  color: var(--cyan-dim);
+}
+
+.pkg-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  text-shadow: 0 0 5px var(--cyan);
+}
+
 /* Section */
 .settings-section {
   padding-bottom: 6px;

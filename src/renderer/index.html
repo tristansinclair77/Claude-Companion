@@ -13,13 +13,14 @@
 </head>
 <body>
 
-  <!-- Cyberpunk background effect layers (z-index: -1, behind all UI) -->
+  <!-- Background effect layers (z-index: -1, behind all UI) -->
   <div id="bg-grid"      aria-hidden="true"></div>
   <div id="bg-noise"     aria-hidden="true"></div>
   <div id="bg-data-rain" aria-hidden="true"></div>
   <div id="bg-circuit"   aria-hidden="true"></div>
   <div id="bg-edge-glow" aria-hidden="true"></div>
   <div id="bg-chroma"    aria-hidden="true"></div>
+  <div id="bg-parchment" aria-hidden="true"></div>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -150,6 +151,14 @@
     </div>
     <div class="settings-body">
 
+      <!-- Visual Package selector -->
+      <div class="settings-section">
+        <div class="settings-section-title">VISUAL PACKAGE</div>
+        <div class="pkg-selector" id="pkg-selector">
+          <!-- Rendered dynamically by settings.js -->
+        </div>
+      </div>
+
       <!-- UI Scale -->
       <div class="settings-section">
         <div class="settings-section-title">UI SCALE</div>
@@ -163,8 +172,18 @@
         </div>
       </div>
 
-      <!-- Background Grid -->
-      <div class="settings-section">
+      <!-- Parchment Overlay (Fantasy RPG package) -->
+      <div class="settings-section" data-effect-module="parchment">
+        <div class="settings-section-title">PARCHMENT OVERLAY</div>
+        <div class="settings-slider-row">
+          <span class="settings-label">OPACITY</span>
+          <input class="settings-slider" type="range" id="parchment-opacity" min="0" max="30" value="15" step="1" />
+          <span class="settings-slider-val" id="parchment-opacity-val">15%</span>
+        </div>
+      </div>
+
+      <!-- Background Grid (Cybernetic package) -->
+      <div class="settings-section" data-effect-module="grid">
         <div class="settings-section-title">BACKGROUND GRID</div>
 
         <div class="settings-row">
@@ -196,8 +215,8 @@
         </div>
       </div>
 
-      <!-- Film Grain -->
-      <div class="settings-section">
+      <!-- Film Grain (Cybernetic package) -->
+      <div class="settings-section" data-effect-module="filmGrain">
         <div class="settings-section-title">FILM GRAIN</div>
 
         <div class="settings-row">
@@ -215,8 +234,8 @@
         </div>
       </div>
 
-      <!-- Overlay Effects -->
-      <div class="settings-section">
+      <!-- Overlay Effects (Cybernetic package) -->
+      <div class="settings-section" data-effect-module="overlayEffects">
         <div class="settings-section-title">OVERLAY EFFECTS</div>
 
         <div class="settings-row">
@@ -248,8 +267,8 @@
         </div>
       </div>
 
-      <!-- Scanlines -->
-      <div class="settings-section">
+      <!-- Scanlines (Cybernetic package) -->
+      <div class="settings-section" data-effect-module="scanlines">
         <div class="settings-section-title">SCANLINES</div>
 
         <div class="settings-row">
