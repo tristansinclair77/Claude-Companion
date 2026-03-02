@@ -123,6 +123,40 @@
   color: rgba(0, 255, 204, 0.35);
   text-transform: uppercase;
   padding: 10px 14px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Module on/off toggle — injected by JS into each package section header */
+.module-toggle-btn {
+  background: none;
+  border: 1px solid #2a3a4a;
+  color: #3a4a5a;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 1.5px;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, text-shadow 0.15s;
+  -webkit-app-region: no-drag;
+}
+.module-toggle-btn.module-on {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  text-shadow: 0 0 4px var(--cyan);
+}
+.module-toggle-btn.module-off {
+  border-color: #2a3a4a;
+  color: #3a4a5a;
+}
+
+/* Disabled section — content fades out; header stays visible */
+.settings-section.module-disabled > *:not(.settings-section-title) {
+  opacity: 0.2;
+  pointer-events: none;
 }
 
 /* Row */

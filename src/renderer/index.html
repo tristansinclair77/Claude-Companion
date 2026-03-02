@@ -265,6 +265,20 @@
           <input class="settings-slider" type="range" id="bar-width" min="20" max="100" value="100" step="5" />
           <span class="settings-slider-val" id="bar-width-val">100%</span>
         </div>
+
+        <!-- VU Bounce controls — visible for packages that include 'vuBounce' in effectModules -->
+        <div data-effect-module="vuBounce">
+          <div class="settings-slider-row">
+            <span class="settings-label">BOUNCE AMP</span>
+            <input class="settings-slider" type="range" id="vu-amp" min="1" max="15" value="5" step="1" />
+            <span class="settings-slider-val" id="vu-amp-val">5%</span>
+          </div>
+          <div class="settings-slider-row">
+            <span class="settings-label">BOUNCE SPEED</span>
+            <input class="settings-slider" type="range" id="vu-speed" min="5" max="60" value="22" step="1" />
+            <span class="settings-slider-val" id="vu-speed-val">2.2s</span>
+          </div>
+        </div>
       </div>
 
       <!-- Scanlines (Cybernetic package) -->

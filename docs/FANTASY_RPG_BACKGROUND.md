@@ -157,6 +157,36 @@ effectModules: [
 
 ---
 
+---
+
+## Axis Bar Effect — "Divination Tremor"
+
+> Implemented in Cybernetic as VU Meter Bounce (see `animations.css: vu-bounce`).
+> Fantasy RPG gets its own thematic variant below.
+
+### Concept
+The axis bars occasionally "flicker" as if a mystical oracle is reading an unstable fate.
+During a tremor event the bars blink out, snap to a falsified value, then resolve back to truth.
+
+### Behaviour
+- **Idle**: bars are static at their correct values (no constant animation).
+- **Tremor trigger**: a random timer fires every 8–20s per bar (independent timers per axis).
+- **Tremor sequence** (total ≈ 600ms):
+  1. Bar fades to ~30% opacity (0–80ms, ease-in).
+  2. Bar width snaps to a "false" value: actual ± 15–30% (random, clamped 5–95%).
+  3. Bar flickers 2–3 times at ~60ms intervals (opacity 0.15 ↔ 0.8).
+  4. Bar snaps back to true value, fades to full opacity (80ms, ease-out).
+- **Color during tremor**: briefly tints toward `--magenta` (blood red) — augury gone wrong.
+
+### Implementation notes
+- JS-driven: a `setInterval`/`setTimeout` chain per bar, not a looping CSS keyframe.
+- Attach to `axis-bar-fill` elements after each `updateMeters()` re-render.
+- Respect `document.body.dataset.package === 'fantasy_rpg'` before running timers;
+  clear timers on package switch.
+- The false value calculation: `trueVal + (Math.random() * 0.30 - 0.15)`, clamped 0.05–0.95.
+
+---
+
 ## Open Questions / Future Ideas
 - **Candlelight Flicker**: subtle luminance oscillation on the whole window — low priority
   since it can cause eye strain; could be a toggle-off-by-default option.

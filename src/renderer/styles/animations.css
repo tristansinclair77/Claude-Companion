@@ -60,3 +60,33 @@
 .emotion-badge {
   animation: emotion-badge-glow 3s ease-in-out infinite;
 }
+
+/* ── Axis Bar Animations ─────────────────────────────────────────────────── */
+
+/* Base: all bars sized via --bar-val CSS custom property (0–1) set by JS */
+.axis-bar-fill {
+  width: calc(var(--bar-val, 0.5) * 100%);
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+/* VU Meter Bounce — attributed to: Cybernetic package */
+/* Bars oscillate around their actual value like a live audio meter.         */
+/* Each bar is phase-staggered via inline animation-delay set by JS.         */
+/* --vu-amp (0–0.15) and --vu-speed (Xs) are set on :root by settings.js.   */
+@keyframes vu-bounce {
+  0%   { width: calc(var(--bar-val) * 100%); }
+  10%  { width: calc((var(--bar-val) + var(--vu-amp)) * 100%); }
+  20%  { width: calc((var(--bar-val) + var(--vu-amp) * 0.2) * 100%); }
+  35%  { width: calc((var(--bar-val) + var(--vu-amp) * 0.8) * 100%); }
+  50%  { width: calc(var(--bar-val) * 100%); }
+  65%  { width: calc((var(--bar-val) - var(--vu-amp) * 0.6) * 100%); }
+  75%  { width: calc((var(--bar-val) + var(--vu-amp) * 0.4) * 100%); }
+  85%  { width: calc(var(--bar-val) * 100%); }
+  100% { width: calc(var(--bar-val) * 100%); }
+}
+
+[data-package="cybernetic"] .axis-bar-fill {
+  animation: vu-bounce var(--vu-speed, 2.2s) linear infinite;
+  transition: none;
+}

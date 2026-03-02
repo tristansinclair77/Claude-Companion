@@ -167,6 +167,10 @@
   - [ ] v2: Integrate Whisper via `@xenova/transformers`
 - [ ] **VERIFY**: Press F2 from any app → window activates, mic indicator pulses
 
+## Ongoing: Aria UI Awareness
+- [ ] Keep core-rules.js Rule 11 ("app awareness") up-to-date whenever new HUD elements or visual features are added to the project — Aria should always know what's in her interface so the user can discuss it with her naturally.
+- [ ] Future: inject a live "UI state" snapshot into the system prompt (e.g. current zoom level, active addons, fast mode on/off, TTS enabled) so Aria can report her own settings accurately.
+
 ## Phase 10: Polish & Enhancements
 - [ ] Streaming responses via `--output-format stream-json`
 - [ ] `--json-schema` for reliable structured output

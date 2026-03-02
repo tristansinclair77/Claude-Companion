@@ -118,7 +118,7 @@ var CompanionDisplay = (() => {
     const barWidth = parseInt(metersEl.dataset.barWidth || '100', 10);
     const showLabels = barWidth <= 80;
 
-    metersEl.innerHTML = axes.map(({ label, val, low, high }) => {
+    metersEl.innerHTML = axes.map(({ label, val, low, high }, idx) => {
       const pct   = Math.max(10, Math.min(100, val ?? 50));
       const color = lerpHex(low, high, pct / 100);
       // Label sits in the left padding area via position:absolute right:calc(100% + 5px)
@@ -126,10 +126,13 @@ var CompanionDisplay = (() => {
         ? `<span style="position:absolute;right:calc(100% + 5px);top:0;font-size:7px;` +
           `letter-spacing:1px;color:var(--cyan-dim);line-height:8px;white-space:nowrap;">${label}</span>`
         : '';
+      // --bar-val (0–1) drives width via CSS; animation-delay staggers per-bar phase
+      const barVal = (pct / 100).toFixed(4);
+      const phaseDelay = -(idx * 0.55).toFixed(2);
       return `<div style="position:relative;height:8px;margin-bottom:7px;">` +
         labelHtml +
         `<div style="height:8px;background:var(--bg-dark);border:1px solid var(--border-glow);overflow:hidden;">` +
-        `<div style="width:${pct}%;height:100%;background:${color};transition:width 0.6s ease;"></div>` +
+        `<div class="axis-bar-fill" style="--bar-val:${barVal};animation-delay:${phaseDelay}s;background:${color};"></div>` +
         `</div>` +
         `<div style="position:absolute;left:0;top:-3px;width:1px;height:14px;background:var(--border-glow);"></div>` +
         `<div style="position:absolute;right:0;top:-3px;width:1px;height:14px;background:var(--border-glow);"></div>` +

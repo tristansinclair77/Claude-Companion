@@ -125,11 +125,11 @@ html { background: var(--bg-dark); }
   transition: opacity 0.3s, text-shadow 0.3s;
 }
 .source-badge.active { opacity: 1; }
-.badge-filler { color: #00cc44; border-color: #00cc4433; }
-.badge-filler.active { text-shadow: 0 0 6px #00cc44; }
-.badge-local  { color: var(--orange); border-color: #ff880033; }
+.badge-filler { color: var(--badge-filler); border-color: color-mix(in srgb, var(--badge-filler) 20%, transparent); }
+.badge-filler.active { text-shadow: 0 0 6px var(--badge-filler); }
+.badge-local  { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 20%, transparent); }
 .badge-local.active  { text-shadow: 0 0 6px var(--orange); }
-.badge-claude { color: var(--cyan); border-color: #00ffcc33; }
+.badge-claude { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 20%, transparent); }
 .badge-claude.active { text-shadow: 0 0 6px var(--cyan); }
 
 /* Window controls */
@@ -188,13 +188,13 @@ html { background: var(--bg-dark); }
   font-size: clamp(14px, 1.15vw, 20px);
   line-height: 1.65;
   min-height: 40px;
-  text-shadow: 0 0 4px #00ffcc44;
+  text-shadow: 0 0 4px color-mix(in srgb, var(--cyan) 27%, transparent);
 }
 
 #internal-state { border-top: 1px solid var(--border-glow); padding-top: 10px; }
 
 .thoughts-text {
-  color: #558866;
+  color: var(--thoughts-color);
   font-style: italic;
   font-size: clamp(12px, 0.95vw, 16px);
   line-height: 1.55;
@@ -581,7 +581,7 @@ html { background: var(--bg-dark); }
   height: 3px;
   appearance: none;
   -webkit-appearance: none;
-  background: linear-gradient(to right, var(--cyan) calc(var(--pct, 0) * 1%), #00ffcc22 calc(var(--pct, 0) * 1%));
+  background: linear-gradient(to right, var(--cyan) calc(var(--pct, 0) * 1%), color-mix(in srgb, var(--cyan) 13%, transparent) calc(var(--pct, 0) * 1%));
   outline: none;
   cursor: pointer;
   border-radius: 0;
@@ -609,7 +609,7 @@ html { background: var(--bg-dark); }
 }
 
 .tts-sep {
-  color: #00ffcc22;
+  color: color-mix(in srgb, var(--cyan) 13%, transparent);
   font-size: 12px;
   flex-shrink: 0;
 }

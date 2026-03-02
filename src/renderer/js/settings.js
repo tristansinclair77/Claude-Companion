@@ -8,7 +8,7 @@ const BUILTIN_PACKAGES = [
     id: 'cybernetic',
     name: 'CYBERNETIC',
     desc: 'neon green / teal',
-    effectModules: ['grid', 'filmGrain', 'overlayEffects', 'scanlines'],
+    effectModules: ['grid', 'filmGrain', 'overlayEffects', 'scanlines', 'vuBounce'],
     colors: {
       '--cyan':        '#00ffcc',
       '--cyan-dim':    '#007755',
@@ -29,6 +29,8 @@ const BUILTIN_PACKAGES = [
       '--axis-aro-lo': '#4488ff', '--axis-aro-hi': '#ff8800',
       '--axis-soc-lo': '#8844aa', '--axis-soc-hi': '#00ccff',
       '--axis-phy-lo': '#888866', '--axis-phy-hi': '#88ff44',
+      // Package-specific UI tints
+      '--badge-filler': '#00cc44', '--thoughts-color': '#558866',
     },
     effects: {
       grid: 'square', gridColor: 'cyan', gridAnimate: true, gridOpacity: 100,
@@ -36,6 +38,8 @@ const BUILTIN_PACKAGES = [
       dataRain: false, circuitPattern: false, edgeGlow: true,
       chromaticAberration: true, scanlinesIntensity: 'light',
       parchmentOpacity: 0,
+      vuAmp: 5, vuSpeed: 22,
+      moduleEnabled: { grid: true, filmGrain: true, overlayEffects: true, scanlines: true },
     },
   },
   {
@@ -63,6 +67,8 @@ const BUILTIN_PACKAGES = [
       '--axis-aro-lo': '#332211', '--axis-aro-hi': '#ff6600',
       '--axis-soc-lo': '#2a3322', '--axis-soc-hi': '#ffaa00',
       '--axis-phy-lo': '#443322', '--axis-phy-hi': '#ffdd88',
+      // Package-specific UI tints
+      '--badge-filler': '#66aa44', '--thoughts-color': '#997755',
     },
     effects: {
       grid: 'off', gridColor: 'cyan', gridAnimate: false, gridOpacity: 0,
@@ -70,6 +76,8 @@ const BUILTIN_PACKAGES = [
       dataRain: false, circuitPattern: false, edgeGlow: false,
       chromaticAberration: false, scanlinesIntensity: 'off',
       parchmentOpacity: 15,
+      vuAmp: 5, vuSpeed: 22,
+      moduleEnabled: { parchment: true },
     },
   },
 ];
@@ -93,6 +101,9 @@ const BackgroundSettings = (() => {
     chromaticAberration: true,
     scanlinesIntensity:  'light',   // 'off' | 'light' | 'medium' | 'heavy'
     parchmentOpacity:    0,         // 0–30 (integer %)
+    vuAmp:               5,         // 1–15: VU meter bounce amplitude (÷100 = decimal offset)
+    vuSpeed:             22,        // 5–60: VU meter speed (÷10 = seconds per cycle)
+    moduleEnabled:       {},        // per-module on/off; missing key = enabled by default
   };
 
   let state = { ...DEFAULTS };
@@ -126,6 +137,9 @@ const BackgroundSettings = (() => {
       chromaticAberration: state.chromaticAberration,
       scanlinesIntensity:  state.scanlinesIntensity,
       parchmentOpacity:    state.parchmentOpacity,
+      vuAmp:               state.vuAmp,
+      vuSpeed:             state.vuSpeed,
+      moduleEnabled:       { ...(state.moduleEnabled || {}) },
     };
   }
 
@@ -140,6 +154,8 @@ const BackgroundSettings = (() => {
   function _applyEffectModuleVisibility() {
     const pkg     = _getActivePackage();
     const modules = pkg?.effectModules || [];
+    // Expose active package on <body> so package-specific CSS rules can target it
+    document.body.dataset.package = _activePackageId || '';
     document.querySelectorAll('[data-effect-module]').forEach(el => {
       el.style.display = modules.includes(el.dataset.effectModule) ? '' : 'none';
     });
@@ -407,6 +423,52 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _isModuleEnabled(mod) {
+    return state.moduleEnabled?.[mod] !== false;
+  }
+
+  function _applyVuBounce() {
+    const root = document.documentElement;
+    root.style.setProperty('--vu-amp',   (state.vuAmp   / 100).toFixed(3));
+    root.style.setProperty('--vu-speed', (state.vuSpeed / 10).toFixed(1) + 's');
+  }
+
+  // Override disabled modules — runs last in _applyAll so their effects are suppressed
+  function _applyModuleEnabled() {
+    if (!_isModuleEnabled('grid')) {
+      document.getElementById('bg-grid')?.classList.remove('active', 'grid-animate', 'square', 'hex');
+    }
+    if (!_isModuleEnabled('filmGrain')) {
+      const el = document.getElementById('bg-noise');
+      if (el) { el.style.opacity = '0'; el.classList.remove('grain-animate'); }
+    }
+    if (!_isModuleEnabled('overlayEffects')) {
+      ['bg-edge-glow', 'bg-chroma', 'bg-data-rain', 'bg-circuit'].forEach(id =>
+        document.getElementById(id)?.classList.remove('active'));
+    }
+    if (!_isModuleEnabled('scanlines')) {
+      document.querySelector('.crt-overlay')?.classList.add('scanlines-off');
+    }
+    if (!_isModuleEnabled('parchment')) {
+      const el = document.getElementById('bg-parchment');
+      if (el) el.style.opacity = '0';
+    }
+  }
+
+  // Sync module toggle button visuals and section disabled state
+  function _syncModuleToggleUI() {
+    document.querySelectorAll('.module-toggle-btn').forEach(btn => {
+      const on = _isModuleEnabled(btn.dataset.module);
+      btn.classList.toggle('module-on',  on);
+      btn.classList.toggle('module-off', !on);
+      btn.textContent = on ? 'ON' : 'OFF';
+    });
+    document.querySelectorAll('[data-effect-module]').forEach(section => {
+      if (!section.querySelector(':scope > .settings-section-title')) return;
+      section.classList.toggle('module-disabled', !_isModuleEnabled(section.dataset.effectModule));
+    });
+  }
+
   function _applyAll() {
     _applyGrid();
     _applyFilmGrain();
@@ -417,6 +479,8 @@ const BackgroundSettings = (() => {
     _applyScanlines();
     _applyBarWidth();
     _applyParchment();
+    _applyVuBounce();
+    _applyModuleEnabled(); // must run last — overrides state from disabled modules
   }
 
   // ── UI helpers ───────────────────────────────────────────────────────────
@@ -468,6 +532,13 @@ const BackgroundSettings = (() => {
     });
     // Parchment opacity
     _updateSlider('parchment-opacity', 'parchment-opacity-val', state.parchmentOpacity, 0, 30);
+    // VU bounce controls
+    _updateSlider('vu-amp', 'vu-amp-val', state.vuAmp, 1, 15);
+    _updateSlider('vu-speed', 'vu-speed-val', state.vuSpeed, 5, 60);
+    const vuSpeedValEl = document.getElementById('vu-speed-val');
+    if (vuSpeedValEl) vuSpeedValEl.textContent = (state.vuSpeed / 10).toFixed(1) + 's';
+    // Module toggle buttons
+    _syncModuleToggleUI();
   }
 
   // ── Persistence ──────────────────────────────────────────────────────────
@@ -675,6 +746,52 @@ const BackgroundSettings = (() => {
       _applyParchment();
     });
     parchSlider?.addEventListener('change', _save);
+
+    // ── VU Bounce ──
+    const vuAmpSlider   = document.getElementById('vu-amp');
+    const vuSpeedSlider = document.getElementById('vu-speed');
+    vuAmpSlider?.addEventListener('input', () => {
+      state.vuAmp = parseInt(vuAmpSlider.value, 10);
+      _updateSlider('vu-amp', 'vu-amp-val', state.vuAmp, 1, 15);
+      _applyVuBounce();
+    });
+    vuAmpSlider?.addEventListener('change', _save);
+    vuSpeedSlider?.addEventListener('input', () => {
+      state.vuSpeed = parseInt(vuSpeedSlider.value, 10);
+      _updateSlider('vu-speed', 'vu-speed-val', state.vuSpeed, 5, 60);
+      const el = document.getElementById('vu-speed-val');
+      if (el) el.textContent = (state.vuSpeed / 10).toFixed(1) + 's';
+      _applyVuBounce();
+    });
+    vuSpeedSlider?.addEventListener('change', _save);
+
+    // ── Module on/off toggles (injected dynamically into package section headers) ──
+    document.querySelectorAll('[data-effect-module]').forEach(section => {
+      const titleEl = section.querySelector(':scope > .settings-section-title');
+      if (!titleEl) return; // skip sub-sections without a title (e.g. vuBounce sliders)
+      const mod = section.dataset.effectModule;
+      const btn = document.createElement('button');
+      btn.className = 'module-toggle-btn';
+      btn.dataset.module = mod;
+      titleEl.appendChild(btn);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!state.moduleEnabled) state.moduleEnabled = {};
+        state.moduleEnabled[mod] = !_isModuleEnabled(mod);
+        _syncModuleToggleUI();
+        _applyModuleEnabled();
+        _save();
+      });
+      btn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (!state.moduleEnabled) state.moduleEnabled = {};
+        state.moduleEnabled[mod] = false;
+        _syncModuleToggleUI();
+        _applyModuleEnabled();
+        _save();
+      });
+    });
+    _syncModuleToggleUI();
   }
 
   // ── Public ───────────────────────────────────────────────────────────────
