@@ -90,6 +90,7 @@ async function sendToClaude({
   fastMode = false,
   addonContexts = [],
   trackers = {},
+  activeThreads = [],
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -101,14 +102,22 @@ async function sendToClaude({
     fastMode,
     addonContexts,
     trackers,
+    activeThreads,
   });
 
   // Build the full user prompt: conversation window + current message
   const windowText = formatConversationWindow(conversationWindow);
   let fullPrompt = '';
 
+  // Always inject current date/time so the companion knows when "now" is
+  const _now = new Date();
+  const _nowStr = _now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    + ' | ' + _now.toTimeString().slice(0, 5);
+
   if (windowText) {
-    fullPrompt += `=== CURRENT CONVERSATION ===\n${windowText}\n=== END CURRENT CONVERSATION ===\n\n`;
+    fullPrompt += `=== CURRENT CONVERSATION ===\n[Now: ${_nowStr}]\n\n${windowText}\n=== END CURRENT CONVERSATION ===\n\n`;
+  } else {
+    fullPrompt += `[Now: ${_nowStr}]\n\n`;
   }
 
   if (detectedEmotion) {
@@ -552,4 +561,33 @@ async function extractMemories({ messages, characterName }) {
   return { memories, selfFacts, raw: rawText };
 }
 
-module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories };
+/**
+ * Generates a spontaneous curiosity interjection about a dead topic thread.
+ * Called by the lull timer when the user has been quiet and there are unasked threads.
+ *
+ * @param {object} opts
+ * @param {string} opts.thread              - The dead topic to ask about
+ * @param {object} opts.character
+ * @param {object} opts.characterRules
+ * @param {string} [opts.masterSummary]
+ * @param {Array}  [opts.permanentMemories]
+ * @param {Array}  [opts.conversationWindow]
+ * @returns {Promise<{dialogue, thoughts, emotion}>}
+ */
+async function generateCuriosityInterject({ thread, character, characterRules, masterSummary, permanentMemories, conversationWindow }) {
+  const userMessage =
+    `[CURIOSITY_INTERJECT] During a quiet moment, something the user mentioned earlier came back to you: "${thread}". ` +
+    `Bring it up naturally — as if it just occurred to you. Keep it brief and genuine (1-2 sentences). ` +
+    `Don't mention that you stored this or waited. Just ask or comment spontaneously, the way a friend would.`;
+
+  return sendToClaude({
+    userMessage,
+    character,
+    characterRules,
+    masterSummary: masterSummary || '',
+    permanentMemories: permanentMemories || [],
+    conversationWindow: conversationWindow || [],
+  });
+}
+
+module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories, generateCuriosityInterject };

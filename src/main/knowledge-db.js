@@ -108,6 +108,13 @@ class KnowledgeDB {
         FOREIGN KEY (session_id) REFERENCES conversation_sessions(id)
       );
 
+      CREATE TABLE IF NOT EXISTS conversation_threads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content TEXT NOT NULL,
+        timestamp TEXT DEFAULT (datetime('now')),
+        used INTEGER DEFAULT 0
+      );
+
       CREATE TABLE IF NOT EXISTS training_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         model_name TEXT,
@@ -361,7 +368,9 @@ class KnowledgeDB {
 
   getRecentMessages(n = 30) {
     return this.db.prepare(
-      'SELECT role, content, emotion FROM conversation_messages ORDER BY id DESC LIMIT ?'
+      `SELECT role, content, emotion,
+              CAST(strftime('%s', timestamp) AS INTEGER) * 1000 AS timestamp
+       FROM conversation_messages ORDER BY id DESC LIMIT ?`
     ).all(n).reverse();
   }
 
@@ -445,6 +454,46 @@ class KnowledgeDB {
 
   getConversationSessionById(id) {
     return this.db.prepare('SELECT * FROM conversation_sessions WHERE id = ?').get(id);
+  }
+
+  // ── Conversation Threads (dead topics / curiosity pool) ───────────────────
+
+  /**
+   * Stores a dead topic thread. Silently skips exact duplicates within 24 hours.
+   */
+  insertThread(content) {
+    if (!content) return null;
+    const existing = this.db.prepare(
+      "SELECT id FROM conversation_threads WHERE content = ? AND timestamp > datetime('now', '-1 day')"
+    ).get(content);
+    if (existing) return existing.id;
+    const info = this.db.prepare(
+      'INSERT INTO conversation_threads (content) VALUES (?)'
+    ).run(content);
+    return info.lastInsertRowid;
+  }
+
+  /**
+   * Returns unused threads from the last 24 hours, newest first.
+   */
+  getActiveThreads(limit = 6) {
+    return this.db.prepare(
+      "SELECT id, content FROM conversation_threads WHERE used = 0 AND timestamp > datetime('now', '-1 day') ORDER BY timestamp DESC LIMIT ?"
+    ).all(limit);
+  }
+
+  /**
+   * Marks a thread as used (prevents it being surfaced again by the lull timer).
+   */
+  markThreadUsed(id) {
+    this.db.prepare('UPDATE conversation_threads SET used = 1 WHERE id = ?').run(id);
+  }
+
+  /**
+   * Deletes threads older than 24 hours.
+   */
+  pruneOldThreads() {
+    this.db.prepare("DELETE FROM conversation_threads WHERE timestamp <= datetime('now', '-1 day')").run();
   }
 }
 

@@ -19,11 +19,12 @@ function parseResponse(raw) {
 
   const text = raw.trim();
 
-  // Extract [DIALOGUE] — stop at any structural tag so none leak into dialogue
+  // Extract [DIALOGUE] — stop at structural tags. [THREAD] deliberately excluded: Aria may
+  // mention "[THREAD]" literally in explanatory prose. The emotion tag already stops dialogue.
   const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
   const dialogue = dialogueMatch ? dialogueMatch[1].trim() : '';
 
-  // Extract [THOUGHTS] — stop at any structural tag so SENSATION/TRACK don't bleed in
+  // Extract [THOUGHTS] — same: [THREAD] omitted from lookahead for the same reason.
   const thoughtsMatch = text.match(/\[THOUGHTS\]([\s\S]*?)(?=\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
@@ -97,6 +98,15 @@ function parseResponse(raw) {
     }
   }
 
+  // Extract [THREAD] tags (dead topics / curiosity queue).
+  // Only match at the START of a line so Aria mentioning "[THREAD]" in prose doesn't get captured.
+  const threads = [];
+  const threadRegex = /^[ \t]*\[THREAD\]\s*(.+)/gim;
+  let threadMatch;
+  while ((threadMatch = threadRegex.exec(text)) !== null) {
+    threads.push(threadMatch[1].trim());
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -110,6 +120,7 @@ function parseResponse(raw) {
     sensation,
     sensationLingers,
     trackUpdates,
+    threads,
   };
 }
 
@@ -117,14 +128,15 @@ function parseResponse(raw) {
  * If response has no [DIALOGUE] marker, try to extract useful text.
  */
 function extractFallbackDialogue(text) {
-  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF] parts
+  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD] parts
   let cleaned = text
-    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|$)/gi, '')
+    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|$)/gi, '')
     .replace(/\([a-z_]+\)/g, '')
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
     .replace(/\[SENSATION\][^\n]*/gi, '')
     .replace(/\[TRACK\][^\n]*/gi, '')
+    .replace(/\[THREAD\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -138,6 +150,7 @@ function stripMemoryTags(text) {
     .replace(/\[SELF\][^\n]*/gi, '')
     .replace(/\[SENSATION\][^\n]*/gi, '')
     .replace(/\[TRACK\][^\n]*/gi, '')
+    .replace(/\[THREAD\][^\n]*/gi, '')
     .trim();
 }
 

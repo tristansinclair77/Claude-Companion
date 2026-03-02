@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'claude:stream-chunk',
       'companion:sensation',
       'companion:trackers',
+      'companion:interject',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));

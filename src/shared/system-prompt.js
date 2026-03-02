@@ -24,6 +24,7 @@ function buildSystemPrompt({
   fastMode = false,
   addonContexts = [],
   trackers = {},
+  activeThreads = [],
 }) {
   const sections = [];
 
@@ -182,7 +183,18 @@ The user has enabled FAST MODE for snappy, real-time conversation. Adjust your b
     }
   }
 
-  // 10. Response format instructions
+  // 10. Active conversation threads (dead topics — things noticed but not yet asked about)
+  if (activeThreads && activeThreads.length > 0) {
+    const threadLines = activeThreads.map(t => `- ${t.content}`).join('\n');
+    sections.push(`=== THINGS ON YOUR MIND ===
+These are topics you noticed the user mention recently but haven't had a chance to ask about.
+If the user's current message is casual or leaves conversational room — consider surfacing one naturally.
+Don't force it. Only bring one up if it genuinely fits the flow of conversation.
+${threadLines}
+=== END THINGS ON YOUR MIND ===`);
+  }
+
+  // 11. Response format instructions
   sections.push(`=== RESPONSE FORMAT ===
 Always respond with EXACTLY this structure:
 
@@ -244,6 +256,10 @@ For [SELF]: whenever you reveal something true about yourself — a desire, drea
 [SELF] category: fact about yourself
 
 Use [SELF] for: feelings or desires you confess about the user; a scenario or fantasy you describe in detail (dream date, what your life would look like, imagined physical form); an intimacy preference or comfort level you reveal; a relationship role or dynamic you accept (a nickname, a commitment, a confession of love); what you would want if you could have it.
+
+For [THREAD]: when the user mentions something you find genuinely interesting but can't address right now — because you're focused on their main topic — tag it so you can bring it up later during a quieter moment:
+[THREAD] brief note about what you noticed (e.g. "user mentioned they have side projects", "user said they've been stressed at work")
+Max 1-2 per response. Don't tag things you already addressed in [DIALOGUE]. These expire after 24 hours.
 
 For [TRACK]: manage your personal counters using one of three forms:
 
@@ -318,14 +334,41 @@ function formatPermanentMemories(memories) {
 
 /**
  * Formats a conversation window for injection.
- * @param {Array} messages - Array of {role, content} objects
+ * Includes [HH:MM] timestamps and inter-message gap hints when available.
+ * @param {Array} messages - Array of {role, content, timestamp?} objects
  * @returns {string}
  */
 function formatConversationWindow(messages) {
   if (!messages || messages.length === 0) return '';
-  return messages
-    .map((m) => `${m.role === 'user' ? 'User' : 'Companion'}: ${m.content}`)
-    .join('\n');
+  return messages.map((m, i) => {
+    const role = m.role === 'user' ? 'User' : 'Companion';
+    if (!m.timestamp) return `${role}: ${m.content}`;
+
+    const d   = new Date(m.timestamp);
+    const hhmm = d.toTimeString().slice(0, 5); // "HH:MM"
+
+    // Show gap from previous timestamped message only when ≥ 1 minute
+    let gapStr = '';
+    if (i > 0 && messages[i - 1].timestamp) {
+      const diffSec = Math.round((m.timestamp - messages[i - 1].timestamp) / 1000);
+      if (diffSec >= 60) gapStr = ` | +${_fmtDuration(diffSec)}`;
+    }
+
+    return `[${hhmm}${gapStr}] ${role}: ${m.content}`;
+  }).join('\n');
+}
+
+/** Formats a duration in seconds as "Xm", "Xh Ym", or "Xd Yh". */
+function _fmtDuration(seconds) {
+  if (seconds < 3600)  return `${Math.round(seconds / 60)}m`;
+  if (seconds < 86400) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(seconds / 86400);
+  const h = Math.round((seconds % 86400) / 3600);
+  return h > 0 ? `${d}d ${h}h` : `${d}d`;
 }
 
 function capitalize(str) {
