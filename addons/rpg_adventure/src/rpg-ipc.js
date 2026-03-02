@@ -512,6 +512,7 @@ function _doBuyItem({ itemIndex }) {
     ok:       true,
     inventoryId: invId,
     goldSpent:   price,
+    newGold:     char4.gold,
     run:         _serializeRun(activeRun),
     events:      purchaseEvents,
     achievementsUnlocked: achPurchase,
@@ -568,10 +569,10 @@ function _commitRun(result) {
     rpgDb.updateCharacter({ xp: xpPool, level: lv });
   }
 
-  // Update kill counts and current HP
+  // Update kill counts and restore HP to full (auto-rest after every run)
   rpgDb.updateCharacter({
     total_kills: char.total_kills + activeRun.kills,
-    hp_current:  Math.max(1, activeRun.playerHp),
+    hp_current:  engine.maxHP(char.vit),
   });
 
   // Save run to history
@@ -589,6 +590,14 @@ function _commitRun(result) {
     prestige_count:  char.prestige_count,
     duration_ms:     Date.now() - (activeRun.startedAt || Date.now()),
   });
+
+  // Notify gear pop-out to refresh if it's open and items were committed
+  if (!isDeath && committedItems.length > 0) {
+    const gearWin = _openWindows.gear;
+    if (gearWin && !gearWin.isDestroyed()) {
+      gearWin.webContents.send('rpg:inventory-changed');
+    }
+  }
 
   // Achievement end-of-run checks (after DB commit so run_history queries work)
   const freshChar = rpgDb.getCharacter();
@@ -706,6 +715,7 @@ function _openRpgWindow(type, htmlFile) {
     } catch { /* ignore */ }
   });
   _openWindows[type] = win;
+  win.on('closed', () => { delete _openWindows[type]; });
   win.on('close', () => _saveWinBounds(type, win));
   win.on('closed', () => { delete _openWindows[type]; });
 }

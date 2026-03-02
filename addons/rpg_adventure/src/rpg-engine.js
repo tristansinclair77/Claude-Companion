@@ -66,10 +66,13 @@ function maxHP(vit) {
   return 40 + Math.min(vit, 300) * 8 + Math.max(0, vit - 300) * 2;
 }
 
-function playerEffectiveATK(stats, gear) {
-  const baseATK = stats.str + (gear.totalATKBonus || 0);
-  const gearSTR = gear.totalSTRBonus || 0;
-  return baseATK + Math.floor(gearSTR * 0.5);
+function playerEffectiveATK(stats, gear, charLevel = 1) {
+  // +2 flat ATK per character level so a fresh character can deal meaningful damage
+  // without gear. Level 1 = +2, Level 10 = +20, Level 50 = +100.
+  const levelBonus = Math.floor((charLevel || 1) * 2);
+  const baseATK    = stats.str + (gear.totalATKBonus || 0);
+  const gearSTR    = gear.totalSTRBonus || 0;
+  return levelBonus + baseATK + Math.floor(gearSTR * 0.5);
 }
 
 function playerEffectiveDEF(stats, gear) {
@@ -79,8 +82,10 @@ function playerEffectiveDEF(stats, gear) {
 }
 
 function hitChance(attackerAGI, defenderAGI) {
+  // AGI difference shifts hit chance: base 70%, ±1% per AGI point difference.
+  // Floor of 15% ensures the player always has a chance even vs high-AGI enemies.
   const diff = attackerAGI - defenderAGI;
-  return Math.max(0.05, Math.min(0.95, 0.5 + diff * 0.02));
+  return Math.max(0.15, Math.min(0.95, 0.70 + diff * 0.01));
 }
 
 function critChance(lck, weaponCritBonus = 0) {
@@ -116,13 +121,13 @@ function rarityWeights(zoneLevel, lck) {
   const zoneShift = Math.floor(zoneLevel / 10);
   const shift     = zoneShift + lckShift;
 
-  let w = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 1 };
+  let w = { common: 89.8, uncommon: 8, rare: 2, epic: 0.15, legendary: 0.05 };
   w.common    -= shift * 1.0;
-  w.rare      += shift * 0.9;
-  w.epic      += shift * 0.09;
-  w.legendary += shift * 0.01;
+  w.rare      += shift * 0.7;
+  w.epic      += shift * 0.04;
+  w.legendary += shift * 0.005;
   w.common    = Math.max(10, w.common);
-  w.legendary = Math.min(15, w.legendary);
+  w.legendary = Math.min(2, w.legendary);
   return w;
 }
 
@@ -193,16 +198,20 @@ function generateItemName(rarity, slot) {
   const typePool   = NAME_BANKS.itemTypes[slot] || ['Item'];
   const itemType   = _pickFrom(typePool);
 
+  // Suffix entries in the pool include their own "of " prefix — strip it since
+  // the template adds "of" itself, preventing "Sword of of the Wolf" doubling.
+  const suffix = _pickFrom(suffixPool).replace(/^of\s+/i, '');
+
   const roll = Math.random();
   if (roll < 0.60) {
     // Full: [Prefix] [Type] of [Suffix]
-    return `${_pickFrom(prefixPool)} ${itemType} of ${_pickFrom(suffixPool)}`;
+    return `${_pickFrom(prefixPool)} ${itemType} of ${suffix}`;
   } else if (roll < 0.85) {
     // Prefix only
     return `${_pickFrom(prefixPool)} ${itemType}`;
   } else {
     // Suffix only
-    return `${itemType} of ${_pickFrom(suffixPool)}`;
+    return `${itemType} of ${suffix}`;
   }
 }
 
@@ -246,7 +255,12 @@ function generateGearItem(zoneLevel, rarity, slot) {
 
   // Pick `count` stats without replacement from pool
   const shuffled = [...statPool].sort(() => Math.random() - 0.5);
-  const picked   = shuffled.slice(0, Math.min(count, statPool.length));
+  let   picked   = shuffled.slice(0, Math.min(count, statPool.length));
+
+  // Weapons always include ATK as a primary stat — base weapon damage matters
+  if (slot === 'weapon' && statPool.includes('atk') && !picked.includes('atk')) {
+    picked[picked.length - 1] = 'atk';
+  }
 
   const stats = {};
   for (const stat of picked) {
@@ -430,10 +444,9 @@ function generateEnemy(zone, zoneLevel, bracketId, isShiny = false, isMini = fal
  */
 function generateBoss(zone, zoneLevel, bossCount = 0) {
   const tier    = zone.tier || 1;
-  // Boss bracket: use the top bracket for the zone's tier
-  const bId     = tier >= 9 ? 'god_tier' : tier >= 7 ? 'apex' : tier >= 5 ? 'legend' :
-                  tier >= 4 ? 'champion' : 'soldier';
-  const bracket = BRACKETS[bId] || BRACKETS.soldier;
+  // Boss uses the same bracket as regular enemies in this zone, scaled by bossBudget (3×)
+  const bId     = _bracketForTier(tier);
+  const bracket = BRACKETS[bId] || BRACKETS.minion;
 
   const budget    = bossBudget(zoneLevel, bracket.baseBudget);
   const archetype = _pickFrom(Object.keys(ARCHETYPE_DISTRIBUTIONS));
@@ -820,7 +833,7 @@ function runCombatTurn(runState, action) {
   const char     = runState.charSnapshot;
   const gear     = runState.gearTotals;
 
-  const effATK = playerEffectiveATK(char, gear);
+  const effATK = playerEffectiveATK(char, gear, char.level);
   const effDEF = Math.floor(playerEffectiveDEF(char, gear));
   const effAGI = char.agi + (gear.totalAGIBonus || 0);
   const effLCK = char.lck + (gear.totalLCKBonus || 0);

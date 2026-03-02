@@ -97,7 +97,8 @@ const RPGInventory = (() => {
             <button class="rpg-btn"
               onclick="event.stopPropagation();RPGInventory._equip(${item.id},'${item.slot}')">EQUIP</button>
             <button class="rpg-btn danger"
-              onclick="event.stopPropagation();RPGInventory._sell(${item.id})">SELL</button>
+              title="Shift+click to sell instantly"
+              onclick="event.stopPropagation();RPGInventory._sell(${item.id},event.shiftKey)">SELL</button>
             <button class="rpg-btn danger"
               onclick="event.stopPropagation();RPGInventory._drop(${item.id})">DROP</button>
           </div>
@@ -108,11 +109,49 @@ const RPGInventory = (() => {
     container.innerHTML = html;
   }
 
-  // ── Slot click — unequip ─────────────────────────────────────────────────
+  // ── Slot click — show info panel with UNEQUIP button ────────────────────
 
   function _clickSlot(slot) {
     const row = _equipped.find(e => e.slot === slot);
-    if (!row || !row.id) return; // slot already empty
+
+    // Remove any existing slot info panel
+    document.querySelectorAll('.rpg-slot-info').forEach(el => el.remove());
+    // Deselect all gear slots
+    document.querySelectorAll('.rpg-gear-slot').forEach(s => s.classList.remove('selected'));
+
+    if (!row || !row.id) return; // empty slot — nothing to show
+
+    // Highlight the clicked slot
+    const slotEl = document.querySelector(`.rpg-gear-slot[data-slot="${slot}"]`);
+    if (slotEl) slotEl.classList.add('selected');
+
+    // Build stats string
+    const stats    = _parseStats(row.stats);
+    const statStr  = Object.entries(stats)
+      .filter(([, v]) => typeof v === 'number' && v !== 0)
+      .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
+      .join('  ');
+    const rc = RARITY_CLASS[(row.rarity || '').toLowerCase()] || 'rarity-common';
+
+    const info = document.createElement('div');
+    info.className = 'rpg-slot-info';
+    info.style.cssText = 'margin:4px 0 6px;padding:7px 8px;background:#09091a;border:1px solid #00ffcc22;border-radius:2px;font-size:9px;';
+    info.innerHTML = `
+      <div class="rpg-item-name ${rc}" style="font-size:10px;margin-bottom:3px">${_esc(row.name)}</div>
+      <div class="rpg-item-meta">${_esc(row.slot)} · ${_esc(row.rarity)} · iLvl ${row.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="rpg-btn danger" style="font-size:9px;padding:3px 8px"
+          onclick="RPGInventory._unequipSlot('${slot}')">UNEQUIP</button>
+      </div>`;
+
+    // Insert after the gear grid
+    const grid = document.querySelector('.rpg-gear-grid');
+    if (grid) grid.after(info);
+  }
+
+  function _unequipSlot(slot) {
+    document.querySelectorAll('.rpg-slot-info').forEach(el => el.remove());
+    document.querySelectorAll('.rpg-gear-slot').forEach(s => s.classList.remove('selected'));
     if (_cbs.onUnequip) _cbs.onUnequip(slot);
   }
 
@@ -186,9 +225,9 @@ const RPGInventory = (() => {
     if (_cbs.onEquip) _cbs.onEquip(slot, id);
   }
 
-  function _sell(id) {
+  function _sell(id, shift = false) {
     const item = _allItems.find(i => i.id === id);
-    if (item && _cbs.onSell) _cbs.onSell(id, item);
+    if (item && _cbs.onSell) _cbs.onSell(id, item, shift);
   }
 
   function _drop(id) {
@@ -241,6 +280,7 @@ const RPGInventory = (() => {
     _equip,
     _sell,
     _drop,
+    _unequipSlot,
   };
 
 })();

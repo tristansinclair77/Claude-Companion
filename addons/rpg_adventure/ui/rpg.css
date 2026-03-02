@@ -338,7 +338,7 @@ body.rpg-popout .rpg-header button {
 .log-entry.assist { color: var(--magenta); }
 .log-entry.crit   { color: var(--yellow); }
 .log-entry.loot   { color: var(--green); }
-.log-entry.system { color: #00ffcc44; }
+.log-entry.system { color: #00ffcc88; }
 .log-entry.level  { color: var(--purple); text-shadow: 0 0 6px var(--purple); }
 
 /* ── Action buttons ────────────────────────────────────────────────────────── */
@@ -351,6 +351,11 @@ body.rpg-popout .rpg-header button {
   flex-shrink: 0;
   background: #080810;
 }
+.rpg-combat-actions {
+  border-top: none;
+  border-bottom: 1px solid #00ffcc0a;
+}
+.rpg-hotkey { opacity: 0.45; font-size: 8px; }
 
 .rpg-btn {
   background: #0b0b18;
@@ -391,7 +396,7 @@ body.rpg-popout .rpg-header button {
 }
 
 /* ── Rarity colors ─────────────────────────────────────────────────────────── */
-.rarity-common    { color: #999999; }
+.rarity-common    { color: #ffffff; }
 .rarity-uncommon  { color: var(--green); text-shadow: 0 0 4px #00ff8866; }
 .rarity-rare      { color: #5599ff; text-shadow: 0 0 4px #5599ff66; }
 .rarity-epic      { color: var(--purple); text-shadow: 0 0 6px var(--purple); }
@@ -596,6 +601,7 @@ body.rpg-popout .rpg-header button {
 }
 
 .rpg-gear-slot:hover              { border-color: #00ffcc44; background: #00ffcc08; }
+.rpg-gear-slot.selected           { border-color: #00ffcc99; background: #00ffcc0d; box-shadow: 0 0 8px #00ffcc33; }
 .rpg-gear-slot-label              { font-size: 8px; color: #00ffcc33; letter-spacing: 1px; text-transform: uppercase; }
 .rpg-gear-slot-item               { font-size: 9px; margin-top: 2px; line-height: 1.3; }
 .rpg-gear-slot.empty .rpg-gear-slot-item { color: #00ffcc18; }

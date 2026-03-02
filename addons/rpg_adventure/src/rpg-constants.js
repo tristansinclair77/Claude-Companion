@@ -8,7 +8,7 @@
 // ── Difficulty Brackets ───────────────────────────────────────────────────────
 // baseBudget = stat budget at zone level 1; scales by Math.pow(zoneLevel, 1.3)
 const BRACKETS = {
-  minion:   { id: 'minion',   baseBudget:   25, xpMult:  1.0, goldMult:  1.0, tier: [1]       },
+  minion:   { id: 'minion',   baseBudget:    8, xpMult:  1.0, goldMult:  1.0, tier: [1]       },
   scout:    { id: 'scout',    baseBudget:   50, xpMult:  1.5, goldMult:  1.2, tier: [2]       },
   soldier:  { id: 'soldier',  baseBudget:   90, xpMult:  2.0, goldMult:  1.5, tier: [3]       },
   elite:    { id: 'elite',    baseBudget:  150, xpMult:  3.0, goldMult:  2.0, tier: [4, 5]    },
@@ -139,43 +139,43 @@ const ZONES = [
   // ── Tier 1 — The Frontier (Zone Level 1–40, Char Level 1–5) ──────────────
   {
     id: 'greenwood_hollow', name: 'Greenwood Hollow', tier: 1,
-    zoneLevelMin: 1, zoneLevelMax: 8, charLevelReq: 1,
+    zoneLevelMin: 1, zoneLevelMax: 4, charLevelReq: 1,
     enemyTheme: ['Goblins', 'Giant Rats', 'Timber Wolves'],
     mechanic: null,
   },
   {
     id: 'saltwind_cove', name: 'Saltwind Cove', tier: 1,
-    zoneLevelMin: 1, zoneLevelMax: 6, charLevelReq: 1,
+    zoneLevelMin: 1, zoneLevelMax: 3, charLevelReq: 1,
     enemyTheme: ['Giant Crabs', 'Beach Bandits', 'Merfolk Scouts'],
     mechanic: null,
   },
   {
     id: 'the_muddy_fen', name: 'The Muddy Fen', tier: 1,
-    zoneLevelMin: 3, zoneLevelMax: 10, charLevelReq: 1,
+    zoneLevelMin: 2, zoneLevelMax: 5, charLevelReq: 1,
     enemyTheme: ['Giant Frogs', 'Slimes', 'Bog Imps'],
     mechanic: 'slick_ground',
   },
   {
     id: 'goblin_warren', name: 'Goblin Warren', tier: 1,
-    zoneLevelMin: 2, zoneLevelMax: 8, charLevelReq: 1,
+    zoneLevelMin: 2, zoneLevelMax: 4, charLevelReq: 1,
     enemyTheme: ['Goblins', 'Goblin Shamans', 'Goblin Chieftains'],
     mechanic: 'ambush',
   },
   {
     id: 'crumbling_watchtower', name: 'Crumbling Watchtower', tier: 1,
-    zoneLevelMin: 4, zoneLevelMax: 10, charLevelReq: 2,
+    zoneLevelMin: 2, zoneLevelMax: 5, charLevelReq: 2,
     enemyTheme: ['Skeleton Soldiers', 'Giant Spiders', 'Carrion Crows'],
     mechanic: null,
   },
   {
     id: 'shepherds_heath', name: "Shepherd's Heath", tier: 1,
-    zoneLevelMin: 1, zoneLevelMax: 5, charLevelReq: 1,
+    zoneLevelMin: 1, zoneLevelMax: 3, charLevelReq: 1,
     enemyTheme: ['Bandits', 'Wild Boars', 'Dire Wolves'],
     mechanic: 'open_terrain',
   },
   {
     id: 'the_dusty_mine', name: 'The Dusty Mine', tier: 1,
-    zoneLevelMin: 5, zoneLevelMax: 10, charLevelReq: 2,
+    zoneLevelMin: 3, zoneLevelMax: 6, charLevelReq: 2,
     enemyTheme: ['Cave Bats', 'Giant Beetles', 'Kobolds'],
     mechanic: null,
   },

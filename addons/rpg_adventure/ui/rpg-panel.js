@@ -84,6 +84,7 @@ const RPGPanel = (() => {
     <span id="rpg-zone-name-lbl">—</span>
     <span id="rpg-floor-lbl">Floor —/—</span>
   </div>
+  <div id="rpg-room-banner"></div>
   <div id="rpg-enemy-card" class="rpg-enemy-card" style="display:none">
     <div class="rpg-enemy-name" id="rpg-enemy-name">—</div>
     <div class="rpg-enemy-hp-row">
@@ -94,14 +95,14 @@ const RPGPanel = (() => {
       <span id="rpg-enemy-hp-text" style="font-size:9px;color:#ff224466;white-space:nowrap">—/—</span>
     </div>
   </div>
-  <div id="rpg-combat-log"></div>
-  <div class="rpg-actions">
-    <button class="rpg-btn"         id="rpg-btn-fight"   style="display:none">FIGHT</button>
-    <button class="rpg-btn danger"  id="rpg-btn-flee"    style="display:none">FLEE</button>
-    <button class="rpg-btn"         id="rpg-btn-item"    style="display:none">ITEM</button>
+  <div class="rpg-actions rpg-combat-actions">
+    <button class="rpg-btn"         id="rpg-btn-fight"   style="display:none">FIGHT <span class="rpg-hotkey">[1]</span></button>
+    <button class="rpg-btn danger"  id="rpg-btn-flee"    style="display:none">FLEE <span class="rpg-hotkey">[2]</span></button>
+    <button class="rpg-btn"         id="rpg-btn-item"    style="display:none">ITEM <span class="rpg-hotkey">[3]</span></button>
     <button class="rpg-btn primary" id="rpg-btn-next"    style="display:none">NEXT FLOOR</button>
     <button class="rpg-btn"         id="rpg-btn-extract" style="display:none">EXTRACT</button>
   </div>
+  <div id="rpg-combat-log"></div>
 </div>
 
 <div class="rpg-screen" id="rpg-screen-merchant">
@@ -154,6 +155,12 @@ const RPGPanel = (() => {
     }
     container.innerHTML = _HTML;
     _bindStaticEvents();
+    // Refresh inventory tab when loot is committed from an adventure run
+    if (window.rpgAPI.onInventoryChanged) {
+      window.rpgAPI.onInventoryChanged(() => {
+        if (_screen === 'inventory') _renderInventory();
+      });
+    }
     console.log('[RPGPanel] initialized');
   }
 
@@ -172,6 +179,10 @@ const RPGPanel = (() => {
   }
 
   function close() {
+    if (document.body.classList.contains('rpg-popout')) {
+      window.close();
+      return;
+    }
     _isOpen = false;
     const panel = document.getElementById('rpg-panel');
     if (panel) panel.classList.remove('open');
@@ -326,7 +337,7 @@ const RPGPanel = (() => {
   }
 
   function _copyLog() {
-    const logEl   = document.getElementById('rpg-log');
+    const logEl   = document.getElementById('rpg-combat-log');
     const logText = logEl ? logEl.textContent.trim() : '(no log)';
     const state   = {
       phase:       _currentRun?.phase,
@@ -449,6 +460,40 @@ const RPGPanel = (() => {
     const hasEnemy  = phase === 'combat' && floor && floor.enemy;
     if (enemyCard) enemyCard.style.display = hasEnemy ? '' : 'none';
 
+    // ── Room-type banner (shown for non-combat floors) ────────────────────
+    const roomBanner = document.getElementById('rpg-room-banner');
+    if (roomBanner) {
+      const rt = floor && floor.roomType;
+      if (!hasEnemy && rt) {
+        const BANNER_CFG = {
+          trap:     { icon: '⚠', color: 'var(--red)',    label: 'TRAP' },
+          treasure: { icon: '★', color: 'var(--yellow)', label: 'TREASURE CHAMBER' },
+          rest:     { icon: '♥', color: 'var(--green)',  label: 'REST AREA' },
+          empty:    { icon: '◈', color: '#00ffcc77',     label: 'EMPTY CHAMBER' },
+          secret:   { icon: '✦', color: 'var(--purple)', label: 'SECRET ROOM' },
+          merchant: { icon: '◆', color: 'var(--yellow)', label: 'TRAVELING MERCHANT' },
+        };
+        const cfg = BANNER_CFG[rt] || {
+          icon: '▶', color: 'var(--cyan)',
+          label: (ROOM_LABELS[rt] || rt).toUpperCase(),
+        };
+        roomBanner.innerHTML =
+          `<span class="rpg-room-banner-icon">${cfg.icon}</span>` +
+          `<span class="rpg-room-banner-label">${cfg.label}</span>`;
+        roomBanner.style.cssText =
+          `display:flex;flex-direction:column;align-items:center;justify-content:center;` +
+          `padding:16px 8px 12px;flex-shrink:0;` +
+          `color:${cfg.color};border-bottom:1px solid #ffffff11`;
+        roomBanner.querySelector('.rpg-room-banner-icon').style.cssText =
+          `font-size:28px;margin-bottom:6px;text-shadow:0 0 24px ${cfg.color}`;
+        roomBanner.querySelector('.rpg-room-banner-label').style.cssText =
+          `font-size:11px;letter-spacing:4px;text-shadow:0 0 12px ${cfg.color}`;
+      } else {
+        roomBanner.style.display = 'none';
+        roomBanner.innerHTML = '';
+      }
+    }
+
     if (hasEnemy && enemyCard) {
       const e      = floor.enemy;
       const nameEl = document.getElementById('rpg-enemy-name');
@@ -541,6 +586,7 @@ const RPGPanel = (() => {
         _updateStatusBar();
       } else if (result.run) {
         _currentRun = result.run;
+        if (result.newGold !== undefined && _char) _char.gold = result.newGold;
         _updateStatusBar();
         const phase = result.run.phase;
         if (phase === 'merchant') {
@@ -636,11 +682,7 @@ const RPGPanel = (() => {
   };
 
   function _rarityLogClass(rarity) {
-    const r = (rarity || '').toLowerCase();
-    if (r === 'legendary') return 'crit';
-    if (r === 'epic')      return 'level';
-    if (r === 'rare')      return 'loot';
-    return 'loot';
+    return 'rarity-' + (rarity || 'common').toLowerCase();
   }
 
   function _appendLog(text, cls) {
@@ -677,14 +719,48 @@ const RPGPanel = (() => {
       return;
     }
 
+    // Build slot → equipped item lookup for comparison
+    const equippedBySlot = {};
+    for (const row of _equipped) {
+      if (row && row.slot && row.id) equippedBySlot[row.slot] = row;
+    }
+
     el.innerHTML = items.map((item, idx) => {
       const rc        = RARITY_CLASS[(item.rarity || '').toLowerCase()] || 'rarity-common';
       const price     = item.buyPrice || 0;
       const canAfford = _char && (_char.gold || 0) >= price;
+
+      // Parse and render stats
+      let stats = {};
+      try { stats = typeof item.stats === 'string' ? JSON.parse(item.stats) : (item.stats || {}); } catch {}
+      const statStr = Object.entries(stats)
+        .filter(([, v]) => typeof v === 'number' && v !== 0)
+        .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
+        .join('  ');
+
+      // Comparison vs equipped item in same slot
+      let cmpHtml = '';
+      const eqItem = equippedBySlot[item.slot];
+      if (eqItem) {
+        let eqStats = {};
+        try { eqStats = typeof eqItem.stats === 'string' ? JSON.parse(eqItem.stats) : (eqItem.stats || {}); } catch {}
+        const newTotal = Object.values(stats).filter(v => typeof v === 'number').reduce((s, v) => s + v, 0);
+        const eqTotal  = Object.values(eqStats).filter(v => typeof v === 'number').reduce((s, v) => s + v, 0);
+        const delta    = newTotal - eqTotal;
+        const cmpColor = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--yellow)';
+        const cmpLabel = delta > 0 ? `▲ +${delta} vs equipped` : delta < 0 ? `▼ ${delta} vs equipped` : '= Same as equipped';
+        const eqRc     = RARITY_CLASS[(eqItem.rarity || '').toLowerCase()] || 'rarity-common';
+        cmpHtml = `<div style="margin-top:4px;font-size:9px;color:${cmpColor};letter-spacing:0.5px">${_esc(cmpLabel)}</div>
+          <div style="font-size:9px;color:#00ffcc44;margin-top:1px">Equipped: <span class="${eqRc}">${_esc(eqItem.name)}</span></div>`;
+      } else {
+        cmpHtml = `<div style="margin-top:4px;font-size:9px;color:var(--green);letter-spacing:0.5px">▲ Nothing equipped in this slot</div>`;
+      }
+
       return `<div class="rpg-item-card">
         <div class="rpg-item-name ${rc}">${_esc(item.name)}</div>
-        <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)} · ◆ ${price}</div>
-        <div class="rpg-item-actions" style="display:flex">
+        <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)} · iLvl ${item.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>
+        ${cmpHtml}
+        <div class="rpg-item-actions" style="display:flex;margin-top:6px">
           <button class="rpg-btn" onclick="RPGPanel._merchantBuy(${idx})" ${canAfford ? '' : 'disabled'}>
             BUY ◆${price}
           </button>
@@ -810,7 +886,8 @@ const RPGPanel = (() => {
         <div style="font-size:9px;color:#00ffcc44;margin-bottom:6px">
           Resets level to 1 &amp; refunds all stat points. Gear and gold are kept.
         </div>
-        <button class="rpg-btn primary" onclick="RPGPanel._doPrestige()" ${canPrestige ? '' : 'disabled'}>
+        <button class="rpg-btn primary" onclick="RPGPanel._doPrestige()" ${canPrestige ? '' : 'disabled'}
+          style="${canPrestige ? '' : 'opacity:0.25;cursor:not-allowed'}">
           ${canPrestige ? 'PRESTIGE NOW' : `PRESTIGE (Need Lv 200)`}
         </button>
       </div>`;
@@ -866,7 +943,7 @@ const RPGPanel = (() => {
       RPGInventory.render(el, _char, _equipped, items || [], {
         onEquip:   (slot, id)  => _doEquip(slot, id),
         onUnequip: (slot)      => _doUnequip(slot),
-        onSell:    (id, item)  => _doSell(id, item),
+        onSell:    (id, item, shift) => _doSell(id, item, shift),
         onDrop:    (id)        => _doDrop(id),
       });
     }).catch(err => {
@@ -893,9 +970,9 @@ const RPGPanel = (() => {
     }).catch(err => console.error('[RPGPanel] unequip:', err));
   }
 
-  function _doSell(inventoryId, item) {
-    const price = _sellPrice(item);
-    _rpgConfirm(`Sell "${item.name}" for ◆${price} gold?`, () => {
+  function _doSell(inventoryId, item, shift = false) {
+    const price   = _sellPrice(item);
+    const execute = () => {
       window.rpgAPI.sellItem(inventoryId, price).then(() => {
         return window.rpgAPI.getState();
       }).then(data => {
@@ -904,7 +981,12 @@ const RPGPanel = (() => {
         _updateStatusBar();
         _renderInventory();
       }).catch(err => console.error('[RPGPanel] sell:', err));
-    });
+    };
+    if (shift) {
+      execute();
+    } else {
+      _rpgConfirm(`Sell "${item.name}" for ◆${price} gold?`, execute);
+    }
   }
 
   function _doDrop(inventoryId) {
@@ -920,9 +1002,9 @@ const RPGPanel = (() => {
 
   function _sellPrice(item) {
     const zl   = item.zone_level || 1;
-    const mult = { common: 1, uncommon: 1.5, rare: 2.2, epic: 3.5, legendary: 6 };
-    const m    = mult[(item.rarity || 'common').toLowerCase()] || 1;
-    return Math.max(1, Math.floor(zl * m * 5 * 0.25));
+    const BASE = { common: 5, uncommon: 15, rare: 45, epic: 135, legendary: 400 };
+    const base = BASE[(item.rarity || 'common').toLowerCase()] || 5;
+    return Math.max(1, Math.floor(zl * base * 0.4));
   }
 
   // ── Achievements ──────────────────────────────────────────────────────────
@@ -1053,6 +1135,16 @@ const RPGPanel = (() => {
     document.getElementById('rpg-btn-item').addEventListener('click',    _noItems);
     document.getElementById('rpg-btn-next').addEventListener('click',    () => _takeAction('continue'));
     document.getElementById('rpg-btn-extract').addEventListener('click', () => _takeAction('extract'));
+
+    // Hotkeys: 1=FIGHT, 2=FLEE, 3=ITEM
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const map = { '1': 'rpg-btn-fight', '2': 'rpg-btn-flee', '3': 'rpg-btn-item' };
+      const id  = map[e.key];
+      if (!id) return;
+      const btn = document.getElementById(id);
+      if (btn && btn.style.display !== 'none') { e.preventDefault(); btn.click(); }
+    });
 
     // Merchant / run-end
     document.getElementById('rpg-btn-merchant-leave').addEventListener('click', () => _takeAction('continue'));
