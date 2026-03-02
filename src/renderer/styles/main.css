@@ -485,14 +485,18 @@ html { background: var(--bg-dark); }
 #voice-picker {
   position: absolute;
   bottom: calc(var(--input-h) + 4px);
-  right: 10px;
+  right: 0;
   background: var(--bg-panel);
   border: 1px solid var(--cyan-dim);
   box-shadow: 0 4px 20px #000a, 0 0 12px #00ffcc22;
   z-index: 200;
   min-width: 220px;
-  max-height: calc(100vh - 120px);
+  max-width: 320px;
+  /* Stop before the title bar drag region so clicks always reach the picker */
+  max-height: calc(100vh - var(--title-h) - var(--input-h) - 12px);
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 .voice-option {
   padding: 8px 14px;
@@ -502,6 +506,9 @@ html { background: var(--bg-dark); }
   cursor: pointer;
   color: var(--cyan);
   transition: background 0.12s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-bottom: 1px solid #00ffcc11;
   font-family: var(--font-mono);
 }
