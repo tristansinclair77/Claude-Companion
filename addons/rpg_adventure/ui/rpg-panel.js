@@ -644,7 +644,7 @@ const RPGPanel = (() => {
           const state  = await window.rpgAPI.getState();
           _char        = state.character;
           _equipped    = state.equipped || [];
-          _showRunEndScreen(result.run, endResult);
+          _showRunEndScreen(result.run, endResult, result.events);
         } else {
           // Already committed (extract path)
           _currentRun = null;
@@ -855,7 +855,7 @@ const RPGPanel = (() => {
 
   // ── Run end ───────────────────────────────────────────────────────────────
 
-  function _showRunEndScreen(runState, commitResult) {
+  function _showRunEndScreen(runState, commitResult, battleEvents) {
     const el = document.getElementById('rpg-run-end-content');
     if (!el) return;
 
@@ -872,8 +872,31 @@ const RPGPanel = (() => {
     const label = isDeath ? '☠ FALLEN ☠' : isSuccess ? '★ VICTORY ★' : '✦ EXTRACTED ✦';
     const cls   = isDeath ? 'death' : 'victory';
 
+    // Build battle recap — only shown on death, summarises the fatal combat turn
+    let recapHtml = '';
+    if (isDeath && Array.isArray(battleEvents) && battleEvents.length) {
+      const RECAP_TYPES = new Set([
+        'player_attack', 'enemy_attack', 'companion_assist', 'player_died', 'flee_failed',
+      ]);
+      const lines = battleEvents
+        .filter(ev => ev && RECAP_TYPES.has(ev.type))
+        .map(ev => {
+          const msgFn = LOG_MSG[ev.type];
+          const lCls  = LOG_CLS[ev.type] || 'system';
+          const text  = msgFn ? msgFn(ev) : (ev.message || '');
+          return text ? `<div class="log-entry ${lCls}">${_esc(text)}</div>` : '';
+        })
+        .filter(Boolean)
+        .join('');
+      if (lines) {
+        recapHtml = `<div class="rpg-recap-header">// LAST STAND</div>
+        <div class="rpg-recap-log">${lines}</div>`;
+      }
+    }
+
     el.innerHTML = `
       <div class="rpg-run-result ${cls}">${label}</div>
+      ${recapHtml}
       <div style="padding:0 0 8px">
         <div class="rpg-run-row"><span class="rpg-run-label">ZONE</span><span class="rpg-run-val">${_esc(zoneName)}</span></div>
         <div class="rpg-run-row"><span class="rpg-run-label">FLOORS</span><span class="rpg-run-val">${floors}</span></div>

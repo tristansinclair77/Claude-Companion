@@ -9,8 +9,8 @@
     "sourceVoice": "af_heart"
   },
   "tts": {
-    "voice": "rvc:Ashley Graham",
-    "enabled": true
+    "voice": "rvc:ChakiNanami",
+    "enabled": false
   },
   "fastMode": true,
   "background": {
@@ -28,5 +28,25 @@
     "chromaticAberration": true,
     "scanlinesIntensity": "heavy"
   },
-  "zoom": 150
+  "zoom": 150,
+  "rpgWinBounds": {
+    "adventure": {
+      "x": 713,
+      "y": 314,
+      "width": 1084,
+      "height": 900
+    },
+    "ach": {
+      "x": 1080,
+      "y": 396,
+      "width": 400,
+      "height": 600
+    },
+    "gear": {
+      "x": 1080,
+      "y": 396,
+      "width": 680,
+      "height": 600
+    }
+  }
 }
