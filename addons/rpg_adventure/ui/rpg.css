@@ -33,6 +33,11 @@
   position: relative;
 }
 
+/* Pop-out windows: no text selection anywhere */
+body.rpg-popout {
+  user-select: none;
+}
+
 /* Pop-out windows: header is the drag handle */
 body.rpg-popout .rpg-header {
   -webkit-app-region: drag;
