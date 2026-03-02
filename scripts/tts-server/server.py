@@ -68,13 +68,25 @@ except Exception as _e:
     logger.info(f'StyleTTS2 not available ({_e}); skipping.')
 
 
+_styletts2_ref_s = None  # pre-computed style vector (avoids re-download every call)
+
+
 def _get_styletts2():
-    """Lazy-load the StyleTTS2 instance on first use."""
-    global _styletts2_instance
+    """Lazy-load the StyleTTS2 instance and pre-compute the default style vector."""
+    global _styletts2_instance, _styletts2_ref_s
     if _styletts2_instance is None:
         logger.info('Loading StyleTTS2 model (first use, may download ~300 MB)...')
         from styletts2 import tts as _stts_mod
+        from cached_path import cached_path
         _styletts2_instance = _stts_mod.StyleTTS2()
+        # Pre-compute style from the default LJSpeech reference so every call
+        # gets consistent prosody rather than a random style sample.
+        try:
+            ref_path = cached_path(_stts_mod.DEFAULT_TARGET_VOICE_URL)
+            _styletts2_ref_s = _styletts2_instance.compute_style(ref_path)
+            logger.info('StyleTTS2 style vector ready.')
+        except Exception as exc:
+            logger.warning(f'StyleTTS2 style pre-compute failed ({exc}); will use random style.')
         logger.info('StyleTTS2 model ready.')
     return _styletts2_instance
 
@@ -83,7 +95,12 @@ def _do_synthesize_styletts2(text: str):
     """Synthesize text with StyleTTS2. Returns (numpy_float32_array, sample_rate)."""
     stts = _get_styletts2()
     import numpy as np
-    wav = stts.inference(text, diffusion_steps=10)
+    wav = stts.inference(
+        text,
+        diffusion_steps=10,
+        embedding_scale=2,      # text drives prosody more strongly → less random emphasis
+        ref_s=_styletts2_ref_s, # consistent style across every call
+    )
     return np.array(wav, dtype=np.float32), 24000
 
 app = Flask(__name__)
