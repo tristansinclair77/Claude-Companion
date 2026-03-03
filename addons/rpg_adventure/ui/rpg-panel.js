@@ -574,6 +574,18 @@ const RPGPanel = (() => {
           <span class="rpg-victory-val" style="color:var(--yellow)">◆ ${gold.toLocaleString()}</span>
         </div>`;
 
+    // Killing blow
+    if (dieEv.killingBlow) {
+      const kb      = dieEv.killingBlow;
+      const kbColor = kb.source === 'companion' ? 'var(--purple)' : kb.isCrit ? 'var(--yellow)' : 'var(--red)';
+      const kbLabel = kb.source === 'companion' ? 'ASSIST' : kb.isCrit ? 'CRIT!' : 'KILL HIT';
+      html += `
+        <div class="rpg-victory-row">
+          <span class="rpg-victory-label">${kbLabel}</span>
+          <span class="rpg-victory-val" style="color:${kbColor}">${kb.damage} dmg</span>
+        </div>`;
+    }
+
     if (lootEv) {
       const item   = lootEv.loot.item;
       const rc     = 'rarity-' + (item.rarity || 'common').toLowerCase();
@@ -805,13 +817,33 @@ const RPGPanel = (() => {
       const price     = item.buyPrice || 0;
       const canAfford = _char && (_char.gold || 0) >= price;
 
-      // Parse and render stats
+      // Parse and render stats using the same metadata as the inventory panel
       let stats = {};
       try { stats = typeof item.stats === 'string' ? JSON.parse(item.stats) : (item.stats || {}); } catch {}
-      const statStr = Object.entries(stats)
-        .filter(([, v]) => typeof v === 'number' && v !== 0)
-        .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
-        .join('  ');
+      const MERCHANT_STAT_META = {
+        weapon_damage: { label: 'DMG',      tier: 1 }, strength: { label: 'STR', tier: 1 },
+        agility:       { label: 'AGI',      tier: 1 }, intelligence: { label: 'INT', tier: 1 },
+        vitality:      { label: 'VIT',      tier: 1 }, charisma: { label: 'CHA', tier: 1 },
+        pierce:        { label: 'Pierce',   tier: 2 }, impact: { label: 'Impact', tier: 2 },
+        dodge:         { label: 'Dodge',    tier: 2 }, accuracy: { label: 'Accuracy', tier: 2 },
+        speed:         { label: 'Speed',    tier: 2 }, luck: { label: 'Luck', tier: 2 },
+        def_pct:       { label: 'Defense',  tier: 3, pct: true },
+        arm_flat:      { label: 'Armor',    tier: 3 },
+      };
+      const mStatLines = (() => {
+        const t = { 1: [], 2: [], 3: [] };
+        for (const [k, v] of Object.entries(stats)) {
+          if (!v || typeof v !== 'number') continue;
+          const m = MERCHANT_STAT_META[k]; if (!m) continue;
+          const val = m.pct ? `+${v < 1 ? Math.max(1, Math.round(v * 100)) : Math.round(v)}% ${m.label}` : `+${v} ${m.label}`;
+          t[m.tier].push(val);
+        }
+        return [
+          t[1].length ? `<div class="rpg-item-stats primary">${t[1].join('  ')}</div>` : '',
+          t[2].length ? `<div class="rpg-item-stats secondary">${t[2].join('  ')}</div>` : '',
+          t[3].length ? `<div class="rpg-item-stats tertiary">${t[3].join('  ')}</div>` : '',
+        ].join('');
+      })();
 
       // Comparison vs equipped item in same slot
       let cmpHtml = '';
@@ -833,7 +865,8 @@ const RPGPanel = (() => {
 
       return `<div class="rpg-item-card">
         <div class="rpg-item-name ${rc}">${_esc(item.name)}</div>
-        <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)} · iLvl ${item.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>
+        <div class="rpg-item-meta">${_esc(item.slot)}  ·  ${_esc(item.rarity)}  ·  iLvl ${item.zone_level || 1}</div>
+        ${mStatLines}
         ${cmpHtml}
         <div class="rpg-item-actions" style="display:flex;margin-top:6px">
           <button class="rpg-btn" onclick="RPGPanel._merchantBuy(${idx})" ${canAfford ? '' : 'disabled'}>

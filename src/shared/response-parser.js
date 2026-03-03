@@ -19,13 +19,17 @@ function parseResponse(raw) {
 
   const text = raw.trim();
 
-  // Extract [DIALOGUE] — stop at structural tags. [THREAD] deliberately excluded: Aria may
-  // mention "[THREAD]" literally in explanatory prose. The emotion tag already stops dialogue.
-  const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
-  const dialogue = dialogueMatch ? dialogueMatch[1].trim() : '';
+  // Extract [DIALOGUE] — structural tags only count as section separators when they START a new line.
+  // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text, not a split point.
+  // [THREAD] omitted from lookahead deliberately (Aria may mention it in prose).
+  const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
+  // Strip any residual inline structural markers so they don't appear verbatim in the UI.
+  const dialogue = dialogueMatch
+    ? dialogueMatch[1].trim().replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD)\]/gi, '').trim()
+    : '';
 
-  // Extract [THOUGHTS] — same: [THREAD] omitted from lookahead for the same reason.
-  const thoughtsMatch = text.match(/\[THOUGHTS\]([\s\S]*?)(?=\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\([a-z_]+\)|$)/i);
+  // Extract [THOUGHTS] — only match when the tag starts a line; mid-sentence mentions are ignored.
+  const thoughtsMatch = text.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
   // Extract emotion (emotion_id) — must match one of our 19 emotions

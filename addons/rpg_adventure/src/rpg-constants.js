@@ -36,9 +36,21 @@ const ARCHETYPE_DISTRIBUTIONS = {
   caster:       { hp: 0.20, atk: 0.35, def: 0.10, agi: 0.10, special: 0.25 },
 };
 
+// ── Tier Power Multipliers ─────────────────────────────────────────────────────
+// Index by (tier - 1). Custom handcrafted curve, not a formula.
+const TIER_MULTIPLIERS = [1.0, 1.5, 3.0, 6.0, 10.0, 15.0, 25.0, 38.0, 54.0, 80.0];
+
+// ── Base Hit/Dodge Values ──────────────────────────────────────────────────────
+// All characters start with these before secondary stat gear is applied.
+const BASE_ACCURACY = 0.70;   // 70% base hit chance
+const BASE_DODGE    = 0.02;   // 2% base dodge chance
+
+// ── Armor Slots (always roll DEF + ARM tertiary stats) ─────────────────────────
+const ARMOR_SLOTS = ['chest', 'head', 'legs', 'hands', 'feet'];
+
 // ── Gear Slots ────────────────────────────────────────────────────────────────
 const GEAR_SLOTS = [
-  'weapon', 'head', 'chest', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket',
+  'weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket',
 ];
 
 // ── Rarity Weights (base at zone level 1, LCK 0) ─────────────────────────────
@@ -57,13 +69,16 @@ const RARITY_MULT = {
   legendary: 6.0,
 };
 
-// ── Stat count (per roll) by rarity ──────────────────────────────────────────
+// ── Primary stat count per gear item by rarity ────────────────────────────────
+// Controls how many PRIMARY stats (STR/AGI/INT/VIT) roll on a non-weapon piece.
+// Secondary stat count (Pierce/Impact/etc.) is always _randBetween(1, 3) regardless of rarity.
+// Values above the slot's pool size are automatically clamped by _pickBiasedStats.
 const RARITY_STAT_COUNT = {
   common:    { min: 1, max: 2 },
   uncommon:  { min: 2, max: 3 },
   rare:      { min: 3, max: 4 },
-  epic:      { min: 4, max: 5 },
-  legendary: { min: 5, max: 6 },
+  epic:      { min: 3, max: 4 },
+  legendary: { min: 4, max: 4 },
 };
 
 // ── Merchant base item values (multiplied by zone level for final price) ──────
@@ -75,45 +90,99 @@ const RARITY_BASE_VALUE = {
   legendary: 400,
 };
 
-// ── Stat Definitions ──────────────────────────────────────────────────────────
+// ── Primary Stat Definitions ───────────────────────────────────────────────────
+// Players allocate +3 points/level across STR, AGI, INT, VIT (200 levels = 600 pts).
+// Soft caps: 0–300 = 1:1, 300–450 = 50% marginal, 450+ = 15% marginal.
 const STAT_DEFINITIONS = {
   str: {
     id: 'str', label: 'STR', color: '#e74c3c',
-    primaryEffect: 'Melee weapon damage scaling',
-    secondaryEffect: 'Unlocks Strength-gated gear',
-  },
-  int: {
-    id: 'int', label: 'INT', color: '#3498db',
-    primaryEffect: 'Magic/ranged damage scaling',
-    secondaryEffect: 'Spell slot count (+1 per 5 INT)',
+    primaryEffect: 'Physical (melee-dominant) weapon damage scaling',
+    secondaryEffect: 'Minor contribution to ranged weapons',
   },
   agi: {
     id: 'agi', label: 'AGI', color: '#2ecc71',
-    primaryEffect: 'Dodge chance (AGI × 0.8%)',
-    secondaryEffect: 'Determines attack order (higher AGI goes first)',
+    primaryEffect: 'Physical (ranged-dominant) weapon damage scaling',
+    secondaryEffect: 'Minor contribution to melee weapons',
+  },
+  int: {
+    id: 'int', label: 'INT', color: '#3498db',
+    primaryEffect: 'Magic weapon damage scaling',
+    secondaryEffect: 'Contributes to hybrid physical+magic weapons',
   },
   vit: {
     id: 'vit', label: 'VIT', color: '#27ae60',
-    primaryEffect: 'Max HP (+8 per point, soft cap at VIT 300 → +2/point above)',
-    secondaryEffect: 'Damage reduction (VIT × 0.2%)',
+    primaryEffect: 'Max HP (BaseHP + effVIT × 8, scaled by level)',
+    secondaryEffect: 'No damage reduction — DEF/ARM on armor handles that',
   },
-  lck: {
-    id: 'lck', label: 'LCK', color: '#f39c12',
-    primaryEffect: 'Crit chance (LCK × 0.5%)',
-    secondaryEffect: 'Loot rarity bias (see rarityWeights)',
+};
+
+// ── Secondary Stat Definitions ─────────────────────────────────────────────────
+// Players CANNOT allocate points here. All secondary stats come from gear only.
+// Secondary stat budget per item = PrimaryBudget × RandomUniform(0.50, 0.67).
+const SECONDARY_STAT_DEFINITIONS = {
+  pierce: {
+    id: 'pierce', label: 'Pierce', color: '#e67e22',
+    effect: 'Critical hit chance. PierceChance = Pierce / (Pierce + 400). 400 Pierce = 50%.',
   },
-  cha: {
-    id: 'cha', label: 'CHA', color: '#e91e8c',
-    primaryEffect: 'Companion assist chance (see CHA breakpoints)',
-    secondaryEffect: 'Max base CHA = 50; gear can exceed this',
-    breakpoints: [
-      { range: [0, 9],   effect: 'No companion assists' },
-      { range: [10, 24], effect: 'CHA × 2% chance of assist per player turn' },
-      { range: [25, 49], effect: 'Guaranteed 1 assist at the start of each fight' },
-      { range: [50, 50], effect: 'Guaranteed 1 assist per player turn (at 50% ATK)' },
-      { range: [75, Infinity], effect: 'Assist fires twice per player turn (gear-boosted only)' },
-    ],
+  impact: {
+    id: 'impact', label: 'Impact', color: '#c0392b',
+    effect: 'Critical hit multiplier. ImpactMult = 1.5 + (Impact / 500). Base = 150%.',
   },
+  dodge: {
+    id: 'dodge', label: 'Dodge', color: '#1abc9c',
+    effect: 'Evasion chance above base 2%. FinalDodge = 0.02 + 0.48 × (Dodge / (Dodge + 200)). Caps near 50%.',
+  },
+  accuracy: {
+    id: 'accuracy', label: 'Accuracy', color: '#3498db',
+    effect: 'Hit rate above base 70%. FinalAccuracy = clamp(0.70 + Accuracy × 0.001, 0.70, 1.00).',
+  },
+  speed: {
+    id: 'speed', label: 'Speed', color: '#9b59b6',
+    effect: 'Turn priority. TurnScore = Speed + Random(0–20). Higher goes first.',
+  },
+  luck: {
+    id: 'luck', label: 'Luck', color: '#f39c12',
+    effect: 'Rarity/gold/XP bonuses. RarityBonus = 1 + Luck × 0.003. GoldBonus = 1 + Luck × 0.002. XPBonus = 1 + Luck × 0.001.',
+  },
+};
+
+// ── CHA — Companion Stat (gear-only) ──────────────────────────────────────────
+// CHA is gear-derived (not level-allocated). Uses primary stat soft cap formula.
+// AssistChance = effCHA / (effCHA + 150)
+// AssistDamage = WeaponDamage × 0.5 × (1 + effCHA / 200)
+const CHA_DEFINITION = {
+  id: 'cha', label: 'CHA', color: '#e91e8c',
+  primaryEffect: 'Companion assist chance and damage (gear-only)',
+  secondaryEffect: 'AssistChance = CHA / (CHA + 150)',
+};
+
+// ── Weapon Archetypes — Stat Weight Profiles ───────────────────────────────────
+// STR/AGI/INT weights sum to 1.0. Omitted stats contribute nothing.
+// Used by calcPlayerDamage: StatBonus = (STRw×effSTR) + (AGIw×effAGI) + (INTw×effINT)
+const WEAPON_ARCHETYPES = {
+  warhammer:   { str: 0.90, agi: 0.10, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  battleaxe:   { str: 0.85, agi: 0.15, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  longsword:   { str: 0.80, agi: 0.20, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  mace:        { str: 0.85, agi: 0.15, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  scythe:      { str: 0.75, agi: 0.25, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  rapier:      { str: 0.50, agi: 0.50, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  dagger:      { str: 0.40, agi: 0.60, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  claws:       { str: 0.35, agi: 0.65, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  longbow:     { str: 0.40, agi: 0.60, int: 0.00, type: 'ranged', dmgType: 'physical' },
+  crossbow:    { str: 0.50, agi: 0.50, int: 0.00, type: 'ranged', dmgType: 'physical' },
+  staff:       { str: 0.00, agi: 0.00, int: 1.00, type: 'melee',  dmgType: 'magic'    },
+  wand:        { str: 0.00, agi: 0.00, int: 1.00, type: 'ranged', dmgType: 'magic'    },
+  tome:        { str: 0.00, agi: 0.00, int: 1.00, type: 'melee',  dmgType: 'magic'    },
+  grimoire:    { str: 0.00, agi: 0.00, int: 1.00, type: 'melee',  dmgType: 'magic'    },
+  spellblade:  { str: 0.40, agi: 0.00, int: 0.60, type: 'melee',  dmgType: 'mixed'    },
+  ice_lance:   { str: 0.20, agi: 0.00, int: 0.80, type: 'ranged', dmgType: 'mixed'    },
+  halberd:     { str: 0.75, agi: 0.25, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  glaive:      { str: 0.70, agi: 0.30, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  morningstar: { str: 0.80, agi: 0.20, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  spear:       { str: 0.65, agi: 0.35, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  falchion:    { str: 0.70, agi: 0.30, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  greatsword:  { str: 0.85, agi: 0.15, int: 0.00, type: 'melee',  dmgType: 'physical' },
+  dirk:        { str: 0.35, agi: 0.65, int: 0.00, type: 'melee',  dmgType: 'physical' },
 };
 
 // ── Zone Tier Access Table ────────────────────────────────────────────────────
@@ -773,8 +842,7 @@ const SCENARIO_KEYS = {
   stat_point_int:      { tier: 'low', description: 'INT stat point allocated' },
   stat_point_agi:      { tier: 'low', description: 'AGI stat point allocated' },
   stat_point_vit:      { tier: 'low', description: 'VIT stat point allocated' },
-  stat_point_lck:      { tier: 'low', description: 'LCK stat point allocated' },
-  stat_point_cha:      { tier: 'low', description: 'CHA stat point allocated' },
+  // LCK and CHA are gear-only secondary/companion stats — no allocation scenario needed.
   prestige_1:          { tier: 'low', description: 'First prestige achieved' },
   prestige_2:          { tier: 'low', description: 'Second prestige achieved' },
   prestige_3_plus:     { tier: 'low', description: 'Third or higher prestige' },
@@ -833,18 +901,59 @@ const FORCE_CLAUDE_KEYS = new Set([
   'challenge_zone_clear',
 ]);
 
-// ── Slot Stat Pools (which stats can roll on each slot) ───────────────────────
-// Used by the loot generator to pick stats for a generated item.
+// ── Slot Stat Pools ────────────────────────────────────────────────────────────
+// primary: which primary stats (STR/AGI/INT/VIT) can roll on this slot.
+//   null = slot has no primary stat rolls.
+// secondary: which secondary stats can roll on this slot.
+//   null = slot has no secondary stat rolls (trinket is special-cased).
+// Notes:
+//   - Armor slots (chest/head/legs/hands/feet) ALWAYS get DEF+ARM from tertiary budget.
+//   - Weapons ALWAYS get weaponDamage as a core stat (not from the primary pool).
+//   - Trinket gets exactly one random primary OR secondary boost.
 const SLOT_STAT_POOLS = {
-  weapon:  ['atk', 'str', 'int', 'lck', 'agi'],
-  head:    ['int', 'agi', 'lck', 'str'],
-  chest:   ['vit', 'def', 'str', 'int'],
-  hands:   ['str', 'atk', 'lck', 'agi'],
-  feet:    ['agi', 'vit', 'lck'],
-  belt:    ['vit', 'str', 'lck', 'agi'],
-  ring:    ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
-  amulet:  ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
-  trinket: ['str', 'int', 'agi', 'vit', 'lck', 'cha'],
+  weapon:  { primary: null,                         secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+  chest:   { primary: ['str','agi','int','vit'],    secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+  head:    { primary: ['str','agi','int','vit'],    secondary: ['dodge','luck','impact'] },
+  legs:    { primary: ['str','agi','int','vit'],    secondary: ['dodge','luck','impact'] },
+  hands:   { primary: ['str','agi','int','vit'],    secondary: ['pierce','accuracy','speed'] },
+  feet:    { primary: ['str','agi','int','vit'],    secondary: ['pierce','accuracy','speed'] },
+  belt:    { primary: null,                         secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+  ring:    { primary: null,                         secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+  amulet:  { primary: null,                         secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+  trinket: { primary: ['str','agi','int','vit'],    secondary: ['pierce','impact','dodge','accuracy','speed','luck'] },
+};
+
+// ── Slot Secondary Bias ────────────────────────────────────────────────────────
+// Weight multiplier applied to secondary stat budget distribution.
+// Biased stats: 2.0 weight (higher probability of appearing AND larger share when rolled).
+// Unbiased stats: 1.0 weight.
+// Also used to weight which secondary stats are more likely to appear on the roll.
+const SLOT_BIAS_WEIGHTS = {
+  weapon:  { pierce: 1.0, impact: 1.0, dodge: 1.0, accuracy: 1.0, speed: 1.0, luck: 1.0 },
+  chest:   { pierce: 1.0, impact: 1.0, dodge: 1.0, accuracy: 1.0, speed: 1.0, luck: 1.0 },
+  head:    { dodge: 2.0, luck: 2.0, impact: 2.0 },
+  legs:    { dodge: 2.0, luck: 2.0, impact: 2.0 },
+  hands:   { pierce: 2.0, accuracy: 2.0, speed: 2.0 },
+  feet:    { pierce: 2.0, accuracy: 2.0, speed: 2.0 },
+  belt:    { dodge: 2.0, accuracy: 2.0, pierce: 1.0, impact: 1.0, speed: 1.0, luck: 1.0 },
+  ring:    { speed: 2.0, luck: 2.0, pierce: 1.0, impact: 1.0, dodge: 1.0, accuracy: 1.0 },
+  amulet:  { pierce: 2.0, impact: 2.0, dodge: 1.0, accuracy: 1.0, speed: 1.0, luck: 1.0 },
+  trinket: { pierce: 1.0, impact: 1.0, dodge: 1.0, accuracy: 1.0, speed: 1.0, luck: 1.0 },
+};
+
+// ── Slot Budget Modifiers ──────────────────────────────────────────────────────
+// Applied to BaseBudget × TierMultiplier to get this slot's primary stat budget.
+const SLOT_BUDGET_MODIFIERS = {
+  weapon:  2.5,
+  chest:   1.5,
+  head:    1.2,
+  legs:    1.2,
+  hands:   1.0,
+  feet:    1.0,
+  belt:    1.0,
+  ring:    0.8,
+  amulet:  0.8,
+  trinket: 0.6,
 };
 
 // ── Item Name Generation Banks ────────────────────────────────────────────────
@@ -888,8 +997,10 @@ const NAME_BANKS = {
     head:    ['Helm', 'Helmet', 'Crown', 'Circlet', 'Hood', 'Coif', 'Visor', 'Cap', 'Great Helm'],
     chest:   ['Plate Armor', 'Chainmail', 'Breastplate', 'Cuirass', 'Scale Mail', 'Brigandine',
               'Leather Jerkin', 'Robe', 'Vestment', 'Hauberk', 'Coat'],
+    legs:    ['Legplates', 'Greaves', 'Chain Leggings', 'Plate Leggings', 'Leather Leggings',
+              'Scale Leggings', 'War Greaves', 'Mail Leggings', 'Breeches'],
     hands:   ['Gauntlets', 'Bracers', 'Gloves', 'Grips', 'Wraps', 'Vambraces'],
-    feet:    ['Boots', 'Greaves', 'Sabatons', 'Treads', 'War Boots', 'Iron Boots'],
+    feet:    ['Boots', 'Sabatons', 'Treads', 'War Boots', 'Iron Boots', 'Foot Guards'],
     belt:    ['Belt', 'Girdle', 'Sash', 'War Belt', 'Studded Belt'],
     ring:    ['Ring', 'Band', 'Signet Ring', 'Seal Ring', 'Carved Ring'],
     amulet:  ['Amulet', 'Pendant', 'Necklace', 'Torc', 'Talisman', 'Medallion'],
@@ -939,11 +1050,18 @@ module.exports = {
   BRACKETS,
   ARCHETYPE_DISTRIBUTIONS,
   GEAR_SLOTS,
+  ARMOR_SLOTS,
   RARITY_BASE_WEIGHTS,
   RARITY_MULT,
   RARITY_STAT_COUNT,
   RARITY_BASE_VALUE,
   STAT_DEFINITIONS,
+  SECONDARY_STAT_DEFINITIONS,
+  CHA_DEFINITION,
+  WEAPON_ARCHETYPES,
+  TIER_MULTIPLIERS,
+  BASE_ACCURACY,
+  BASE_DODGE,
   TIER_TABLE,
   ZONES,
   CHALLENGE_ZONES,
@@ -954,6 +1072,8 @@ module.exports = {
   TIER_COUNTS,
   FORCE_CLAUDE_KEYS,
   SLOT_STAT_POOLS,
+  SLOT_BIAS_WEIGHTS,
+  SLOT_BUDGET_MODIFIERS,
   NAME_BANKS,
   BOSS_NAME_PARTS,
   ENEMY_NAME_DATA,

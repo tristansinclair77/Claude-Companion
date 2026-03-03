@@ -19,6 +19,7 @@ const RPGInventory = (() => {
     weapon:  'Weapon',
     head:    'Head',
     chest:   'Chest',
+    legs:    'Legs',
     hands:   'Hands',
     feet:    'Feet',
     belt:    'Belt',
@@ -26,6 +27,53 @@ const RPGInventory = (() => {
     amulet:  'Amulet',
     trinket: 'Trinket',
   };
+
+  // Stat metadata: display label, tier (1=primary, 2=secondary, 3=tertiary), pct flag
+  const STAT_META = {
+    weapon_damage:    { label: 'DMG',      tier: 1 },
+    strength:         { label: 'STR',      tier: 1 },
+    agility:          { label: 'AGI',      tier: 1 },
+    intelligence:     { label: 'INT',      tier: 1 },
+    vitality:         { label: 'VIT',      tier: 1 },
+    charisma:         { label: 'CHA',      tier: 1 },
+    pierce:           { label: 'Pierce',   tier: 2 },
+    impact:           { label: 'Impact',   tier: 2 },
+    dodge:            { label: 'Dodge',    tier: 2 },
+    accuracy:         { label: 'Accuracy', tier: 2 },
+    speed:            { label: 'Speed',    tier: 2 },
+    luck:             { label: 'Luck',     tier: 2 },
+    def_pct:          { label: 'Defense',  tier: 3, pct: true },
+    arm_flat:         { label: 'Armor',    tier: 3 },
+    weapon_archetype: null, // hidden
+  };
+
+  // Convert old fraction def_pct (<1) or new integer to whole integer percent
+  function _defToInt(v) { return v < 1 ? Math.max(1, Math.round(v * 100)) : Math.round(v); }
+
+  // Build an array of HTML stat-line strings grouped by tier
+  function _statLines(stats) {
+    const tiers = { 1: [], 2: [], 3: [] };
+    for (const [k, v] of Object.entries(stats)) {
+      if (!v || typeof v !== 'number') continue;
+      const meta = STAT_META[k];
+      if (!meta) continue;
+      const str = meta.pct
+        ? `+${_defToInt(v)}% ${meta.label}`
+        : `+${v} ${meta.label}`;
+      tiers[meta.tier].push(str);
+    }
+    return [
+      tiers[1].length ? { cls: 'primary',   text: tiers[1].join('  ') } : null,
+      tiers[2].length ? { cls: 'secondary', text: tiers[2].join('  ') } : null,
+      tiers[3].length ? { cls: 'tertiary',  text: tiers[3].join('  ') } : null,
+    ].filter(Boolean);
+  }
+
+  function _statLinesHtml(stats) {
+    return _statLines(stats)
+      .map(l => `<div class="rpg-item-stats ${l.cls}">${l.text}</div>`)
+      .join('');
+  }
 
   const SLOTS = ['weapon', 'head', 'chest', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket'];
 
@@ -77,22 +125,21 @@ const RPGInventory = (() => {
       html += '<div class="rpg-empty-note">Bag is empty.</div>';
     } else {
       html += bag.map(item => {
-        const rc        = RARITY_CLASS[(item.rarity || '').toLowerCase()] || 'rarity-common';
-        const stats     = _parseStats(item.stats);
-        const statStr   = Object.entries(stats)
-          .filter(([, v]) => typeof v === 'number' && v !== 0)
-          .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
-          .join(' ');
+        const rc         = RARITY_CLASS[(item.rarity || '').toLowerCase()] || 'rarity-common';
+        const stats      = _parseStats(item.stats);
+        const statsHtml  = _statLinesHtml(stats);
         const passives   = _parsePassives(item.passives);
         const passiveStr = passives.length ? passives.slice(0, 2).join(', ') : '';
-        const setTag     = item.set_id       ? ` [Set]` : '';
-        const legTag     = item.legendary_id ? ' ★' : '';
+        const setTag     = item.set_id       ? ' <span style="color:#aa44ff88">[Set]</span>' : '';
+        const legTag     = item.legendary_id ? ' <span style="color:var(--orange)">★</span>' : '';
+        const slotLabel  = SLOT_LABELS[item.slot] || item.slot;
 
         return `<div class="rpg-item-card" id="rpg-inv-${item.id}"
                      onclick="RPGInventory._clickItem(${item.id})">
-          <div class="rpg-item-name ${rc}">${_esc(item.name)}${legTag ? `<span style="color:var(--orange)">${legTag}</span>` : ''}</div>
-          <div class="rpg-item-meta">${_esc(item.slot)} · ${_esc(item.rarity)} · iLvl ${item.zone_level || 1}${statStr ? ' · ' + statStr : ''}${_esc(setTag)}</div>
-          ${passiveStr ? `<div class="rpg-item-meta" style="color:#aa44ff88;font-style:italic">${_esc(passiveStr)}</div>` : ''}
+          <div class="rpg-item-name ${rc}">${_esc(item.name)}${legTag}${setTag}</div>
+          <div class="rpg-item-meta">${_esc(slotLabel)}  ·  ${_esc(item.rarity)}  ·  iLvl ${item.zone_level || 1}</div>
+          ${statsHtml}
+          ${passiveStr ? `<div class="rpg-item-stats secondary" style="font-style:italic">${_esc(passiveStr)}</div>` : ''}
           <div class="rpg-item-actions" id="rpg-inv-act-${item.id}">
             <button class="rpg-btn"
               onclick="event.stopPropagation();RPGInventory._equip(${item.id},'${item.slot}')">EQUIP</button>
@@ -125,20 +172,19 @@ const RPGInventory = (() => {
     const slotEl = document.querySelector(`.rpg-gear-slot[data-slot="${slot}"]`);
     if (slotEl) slotEl.classList.add('selected');
 
-    // Build stats string
-    const stats    = _parseStats(row.stats);
-    const statStr  = Object.entries(stats)
-      .filter(([, v]) => typeof v === 'number' && v !== 0)
-      .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
-      .join('  ');
-    const rc = RARITY_CLASS[(row.rarity || '').toLowerCase()] || 'rarity-common';
+    // Build stats display
+    const stats      = _parseStats(row.stats);
+    const statsHtml  = _statLinesHtml(stats);
+    const rc         = RARITY_CLASS[(row.rarity || '').toLowerCase()] || 'rarity-common';
+    const slotLabel  = SLOT_LABELS[row.slot] || row.slot;
 
     const info = document.createElement('div');
     info.className = 'rpg-slot-info';
     info.style.cssText = 'margin:4px 0 6px;padding:7px 8px;background:#09091a;border:1px solid #00ffcc22;border-radius:2px;font-size:9px;';
     info.innerHTML = `
       <div class="rpg-item-name ${rc}" style="font-size:10px;margin-bottom:3px">${_esc(row.name)}</div>
-      <div class="rpg-item-meta">${_esc(row.slot)} · ${_esc(row.rarity)} · iLvl ${row.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>
+      <div class="rpg-item-meta">${_esc(slotLabel)}  ·  ${_esc(row.rarity)}  ·  iLvl ${row.zone_level || 1}</div>
+      ${statsHtml}
       <div style="display:flex;gap:6px;margin-top:6px">
         <button class="rpg-btn danger" style="font-size:9px;padding:3px 8px"
           onclick="RPGInventory._unequipSlot('${slot}')">UNEQUIP</button>
@@ -204,16 +250,14 @@ const RPGInventory = (() => {
       cmp.innerHTML = `
         <div class="rpg-inv-compare-label" style="color:${glowColor}">${_esc(deltaLabel)}</div>`;
     } else {
-      const rc      = RARITY_CLASS[(equippedItem.rarity || '').toLowerCase()] || 'rarity-common';
-      const stats   = _parseStats(equippedItem.stats);
-      const statStr = Object.entries(stats)
-        .filter(([, v]) => typeof v === 'number' && v !== 0)
-        .map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`)
-        .join(' ');
+      const rc         = RARITY_CLASS[(equippedItem.rarity || '').toLowerCase()] || 'rarity-common';
+      const eqStats    = _parseStats(equippedItem.stats);
+      const eqSlotLbl  = SLOT_LABELS[equippedItem.slot] || equippedItem.slot;
       cmp.innerHTML = `
         <div class="rpg-inv-compare-label" style="color:${glowColor}">${_esc(deltaLabel)}</div>
         <div class="rpg-item-name ${rc}" style="font-size:10px;margin-top:4px">${_esc(equippedItem.name)}</div>
-        <div class="rpg-item-meta">${_esc(equippedItem.slot)} · ${_esc(equippedItem.rarity)} · iLvl ${equippedItem.zone_level || 1}${statStr ? ' · ' + statStr : ''}</div>`;
+        <div class="rpg-item-meta">${_esc(eqSlotLbl)}  ·  ${_esc(equippedItem.rarity)}  ·  iLvl ${equippedItem.zone_level || 1}</div>
+        ${_statLinesHtml(eqStats)}`;
     }
 
     card.after(cmp);
@@ -257,9 +301,13 @@ const RPGInventory = (() => {
 
   function _statTotal(item) {
     const stats = _parseStats(item.stats);
-    return Object.values(stats)
-      .filter(v => typeof v === 'number')
-      .reduce((sum, v) => sum + v, 0);
+    return Object.entries(stats)
+      .filter(([, v]) => typeof v === 'number')
+      .reduce((sum, [k, v]) => {
+        // Normalize def_pct: old fraction (<1) → integer %
+        const norm = k === 'def_pct' && v < 1 ? Math.max(1, Math.round(v * 100)) : v;
+        return sum + norm;
+      }, 0);
   }
 
   function _esc(str) {

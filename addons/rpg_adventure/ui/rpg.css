@@ -474,8 +474,14 @@ body.rpg-popout .rpg-header button {
 
 .rpg-item-name    { font-size: 10px; letter-spacing: 0.5px; }
 .rpg-item-meta    { font-size: 9px; color: #00ffcc44; margin-top: 2px; }
+.rpg-item-stats   { font-size: 9px; margin-top: 2px; letter-spacing: 0.3px; }
+.rpg-item-stats.primary   { color: var(--cyan); }
+.rpg-item-stats.secondary { color: #aaddff99; }
+.rpg-item-stats.tertiary  { color: #ffaa4499; }
 .rpg-item-actions { display: none; gap: 4px; margin-top: 5px; }
 .rpg-item-card.selected .rpg-item-actions { display: flex; }
+
+#rpg-victory-continue { flex: none; width: 200px; margin-top: 4px; padding: 7px 0; }
 
 /* ── Character screen ──────────────────────────────────────────────────────── */
 .rpg-stat-grid {

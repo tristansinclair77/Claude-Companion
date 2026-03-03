@@ -7,12 +7,19 @@
 const {
   BRACKETS,
   ARCHETYPE_DISTRIBUTIONS,
+  ARMOR_SLOTS,
   ROOM_WEIGHTS,
   BOSS_ABILITIES,
   RARITY_MULT,
   RARITY_STAT_COUNT,
   RARITY_BASE_VALUE,
   SLOT_STAT_POOLS,
+  SLOT_BIAS_WEIGHTS,
+  SLOT_BUDGET_MODIFIERS,
+  WEAPON_ARCHETYPES,
+  TIER_MULTIPLIERS,
+  BASE_ACCURACY,
+  BASE_DODGE,
   NAME_BANKS,
   BOSS_NAME_PARTS,
   ENEMY_NAME_DATA,
@@ -20,11 +27,20 @@ const {
 } = require('./rpg-constants');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION 1 — Scaling Formulas (from SCALING.md)
+// SECTION 1 — Scaling Formulas
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Stat Soft Cap ─────────────────────────────────────────────────────────────
+// Piecewise diminishing returns on primary stats.
+// 0–300 = full return, 300–450 = 50% marginal, 450+ = 15% marginal.
+function softCapStat(stat) {
+  if (stat <= 300) return stat;
+  if (stat <= 450) return 300 + (stat - 300) * 0.5;
+  return 375 + (stat - 450) * 0.15;
+}
+
 function xpRequired(level) {
-  return Math.floor(100 * Math.pow(level, 1.5));
+  return Math.floor(50 * Math.pow(level, 1.5));
 }
 
 function xpReward(zoneLevel, bracketMult, isShiny = false, isBoss = false) {
@@ -62,44 +78,108 @@ function applyShinyModifiers(stats) {
   };
 }
 
-function maxHP(vit) {
-  return 40 + Math.min(vit, 300) * 8 + Math.max(0, vit - 300) * 2;
+// ── HP Formula ────────────────────────────────────────────────────────────────
+// VIT uses soft cap. Level provides a small growth multiplier.
+function maxHP(vit, level = 1) {
+  const effVIT = softCapStat(vit);
+  return Math.floor(40 + effVIT * 8 * (1 + (level || 1) * 0.01));
 }
 
-function playerEffectiveATK(stats, gear, charLevel = 1) {
-  // +2 flat ATK per character level so a fresh character can deal meaningful damage
-  // without gear. Level 1 = +2, Level 10 = +20, Level 50 = +100.
-  const levelBonus = Math.floor((charLevel || 1) * 2);
-  const baseATK    = stats.str + (gear.totalATKBonus || 0);
-  const gearSTR    = gear.totalSTRBonus || 0;
-  return levelBonus + baseATK + Math.floor(gearSTR * 0.5);
+// ── Weapon Damage Formula ─────────────────────────────────────────────────────
+// Looks up the weapon archetype weights and applies soft-capped stats.
+// Returns raw weapon damage before DEF/ARM reduction.
+function calcPlayerDamage(char, gear) {
+  const archetypeId = gear.weaponArchetype || 'longsword';
+  const archetype   = WEAPON_ARCHETYPES[archetypeId] || WEAPON_ARCHETYPES.longsword;
+  const weaponDmg   = gear.weaponDamage || 0;
+
+  // Apply weapon archetype stat weights to soft-capped primary stats
+  const effSTR = softCapStat((char.str || 0) + (gear.totalSTRBonus || 0));
+  const effAGI = softCapStat((char.agi || 0) + (gear.totalAGIBonus || 0));
+  const effINT = softCapStat((char.int || 0) + (gear.totalINTBonus || 0));
+
+  const statBonus = (archetype.str * effSTR) + (archetype.agi * effAGI) + (archetype.int * effINT);
+
+  // Level provides a flat weapon damage floor so fresh characters can deal damage
+  const levelFloor = Math.floor((char.level || 1) * 1.5);
+
+  return Math.floor(levelFloor + weaponDmg * (1 + statBonus / 100));
 }
 
+// ── DEF + ARM Resolution ──────────────────────────────────────────────────────
+// DEF = integer percent reduction (1 = 1% damage reduction, stored as whole number).
+// ARM = flat damage reduction (whole number).
+function applyDefenses(rawDamage, defPct, armFlat) {
+  const afterDEF = rawDamage * (1 - (defPct || 0) / 100);
+  return Math.max(1, Math.floor(afterDEF) - Math.floor(armFlat || 0));
+}
+
+// Legacy: used for enemies that still use the simplified flat-DEF model.
 function playerEffectiveDEF(stats, gear) {
-  return Math.floor(stats.vit / 2)
-    + (gear.totalDEFBonus || 0)
-    + (gear.totalVITBonus || 0) * 0.2;
+  return (gear.totalDEFPct || 0);   // DEF% only — VIT no longer contributes
 }
 
-function hitChance(attackerAGI, defenderAGI) {
-  // AGI difference shifts hit chance: base 70%, ±1% per AGI point difference.
-  // Floor of 15% ensures the player always has a chance even vs high-AGI enemies.
-  const diff = attackerAGI - defenderAGI;
-  return Math.max(0.15, Math.min(0.95, 0.70 + diff * 0.01));
+// ── Hit Resolution ────────────────────────────────────────────────────────────
+// Returns hit chance [0, 1] using Accuracy and Dodge secondary stats.
+function hitChance(attackerAccuracyStat, defenderDodgeStat) {
+  const finalAcc  = Math.min(1.00, BASE_ACCURACY + (attackerAccuracyStat || 0) * 0.001);
+  const finalDodge = BASE_DODGE + 0.48 * ((defenderDodgeStat || 0) / ((defenderDodgeStat || 0) + 200));
+  return Math.max(0.05, finalAcc * (1 - finalDodge));
 }
 
-function critChance(lck, weaponCritBonus = 0) {
-  return Math.min(0.95, lck * 0.005 + weaponCritBonus);
+// ── Crit Chance (Pierce) ──────────────────────────────────────────────────────
+function critChance(pierceStat) {
+  return (pierceStat || 0) / ((pierceStat || 0) + 400);
 }
 
-function calcDamage(effectiveATK, effectiveDEF, isCrit) {
-  const raw    = Math.max(1, effectiveATK - effectiveDEF);
-  const varied = raw + Math.floor(Math.random() * (raw * 0.2)) - Math.floor(raw * 0.1);
-  return isCrit ? Math.floor(Math.max(1, varied) * 2) : Math.max(1, varied);
+// ── Crit Damage Multiplier (Impact) ──────────────────────────────────────────
+function critMultiplier(impactStat) {
+  return 1.5 + ((impactStat || 0) / 500);
 }
 
-function companionAssistDamage(effectiveATK, baseMult = 0.5, scalingMult = 1.0) {
-  return Math.floor(effectiveATK * baseMult * scalingMult);
+// ── Damage Roll (with variance) ───────────────────────────────────────────────
+// rawDamage: output of calcPlayerDamage or enemy atk
+// defPct: 0.0–1.0 percentage reduction from DEF
+// armFlat: flat reduction from ARM
+// isCrit: boolean
+// impactStat: used for crit multiplier
+function calcDamage(rawDamage, defPct, armFlat, isCrit = false, impactStat = 0) {
+  const variance = 1 + (Math.random() * 0.20 - 0.10);  // ±10%
+  const varied   = Math.floor(rawDamage * variance);
+  const reduced  = applyDefenses(varied, defPct, armFlat);
+  return isCrit ? Math.floor(reduced * critMultiplier(impactStat)) : reduced;
+}
+
+// ── Luck-Based Rarity Weights ─────────────────────────────────────────────────
+// Luck is now a secondary stat from gear. Higher Luck shifts rarity table upward.
+function rarityWeights(zoneLevel, luck) {
+  const luckMult  = 1 + (luck || 0) * 0.003;
+  const zoneShift = Math.floor(zoneLevel / 10);
+
+  let w = { common: 89.8, uncommon: 8, rare: 2, epic: 0.15, legendary: 0.05 };
+  // Zone-based shift
+  w.common    -= zoneShift * 1.0;
+  w.rare      += zoneShift * 0.7;
+  w.epic      += zoneShift * 0.04;
+  w.legendary += zoneShift * 0.005;
+  w.common    = Math.max(10, w.common);
+  w.legendary = Math.min(2, w.legendary);
+  // Luck multiplier boosts non-common tiers
+  w.uncommon  *= luckMult;
+  w.rare      *= luckMult;
+  w.epic      *= luckMult;
+  w.legendary  = Math.min(4, w.legendary * luckMult);
+  return w;
+}
+
+// ── Companion Assist ──────────────────────────────────────────────────────────
+// effCHA comes from gear (uses primary stat soft cap since it's gear-sourced).
+function companionAssistChance(effCHA) {
+  return effCHA / (effCHA + 150);
+}
+
+function companionAssistDamage(weaponDamage, effCHA) {
+  return Math.floor(weaponDamage * 0.5 * (1 + effCHA / 200));
 }
 
 function goldDrop(zoneLevel, bracketMult, isShiny = false, isBoss = false) {
@@ -110,35 +190,20 @@ function goldDrop(zoneLevel, bracketMult, isShiny = false, isBoss = false) {
   return Math.max(1, bracket * shiny * boss);
 }
 
-function shinyChance(lck) {
-  const base     = 1 / 512;
-  const lckBonus = lck * 0.0001;
-  return Math.min(1 / 100, base + lckBonus);
+function shinyChance(luck) {
+  const base      = 1 / 512;
+  const luckBonus = (luck || 0) * 0.0001;
+  return Math.min(1 / 100, base + luckBonus);
 }
 
-function rarityWeights(zoneLevel, lck) {
-  const lckShift  = Math.floor(lck / 10);
-  const zoneShift = Math.floor(zoneLevel / 10);
-  const shift     = zoneShift + lckShift;
-
-  let w = { common: 89.8, uncommon: 8, rare: 2, epic: 0.15, legendary: 0.05 };
-  w.common    -= shift * 1.0;
-  w.rare      += shift * 0.7;
-  w.epic      += shift * 0.04;
-  w.legendary += shift * 0.005;
-  w.common    = Math.max(10, w.common);
-  w.legendary = Math.min(2, w.legendary);
-  return w;
-}
-
-function trapDamage(zoneLevel, playerDEF) {
+function trapDamage(zoneLevel, armFlat) {
   const base = Math.floor(zoneLevel * 3);
-  return Math.max(1, base - Math.floor(playerDEF * 0.5));
+  return Math.max(1, base - Math.floor(armFlat || 0));
 }
 
-function merchantBuyPrice(zoneLevel, rarity, lck = 0) {
+function merchantBuyPrice(zoneLevel, rarity, luck = 0) {
   const base   = Math.floor(zoneLevel * (RARITY_BASE_VALUE[rarity] || 5));
-  const haggle = Math.min(0.25, Math.floor(lck / 20) * 0.05);
+  const haggle = Math.min(0.25, Math.floor((luck || 0) / 20) * 0.05);
   return Math.floor(base * (1.5 - haggle));
 }
 
@@ -146,8 +211,9 @@ function merchantSellPrice(zoneLevel, rarity) {
   return Math.floor(zoneLevel * (RARITY_BASE_VALUE[rarity] || 5) * 0.4);
 }
 
-function fleeChance(playerAGI, enemyAGI) {
-  return Math.max(0.10, Math.min(0.90, 0.50 + (playerAGI - enemyAGI) * 0.03));
+// Flee chance based on Speed secondary stat differential
+function fleeChance(playerSpeed, enemySpeed) {
+  return Math.max(0.10, Math.min(0.90, 0.50 + ((playerSpeed || 0) - (enemySpeed || 0)) * 0.02));
 }
 
 function dailyBonus(streakDays) {
@@ -155,6 +221,32 @@ function dailyBonus(streakDays) {
     xpBonus:   0.5 + Math.min(1.5, streakDays * 0.1),
     goldBonus: 1.0 + Math.min(2.0, streakDays * 0.1),
   };
+}
+
+// ── Zone Power Score ──────────────────────────────────────────────────────────
+// Used to determine reward multiplier and show Easy/Balanced/Dangerous indicators.
+function calcPlayerPower(char, gear) {
+  const rawDmg     = calcPlayerDamage(char, gear);
+  const effVIT     = softCapStat((char.vit || 0) + (gear.totalVITBonus || 0));
+  const playerHP   = maxHP((char.vit || 0), char.level || 1);
+  const offScore   = rawDmg;
+  const defScore   = playerHP * (1 + effVIT / 200);
+  return Math.sqrt(offScore * defScore);
+}
+
+function calcZonePower(tier, zoneDifficulty = 1.0) {
+  const mult = TIER_MULTIPLIERS[Math.max(0, Math.min(9, (tier || 1) - 1))];
+  return mult * zoneDifficulty;
+}
+
+// ── Reward Floor + Harder-Kill Bonus ─────────────────────────────────────────
+// RewardRatio < 0.5 of player power = zero rewards.
+// Up to 1.5× bonus for zones above player power.
+function rewardMultiplier(playerPower, zonePower) {
+  if (playerPower <= 0) return 1.0;
+  const ratio = zonePower / playerPower;
+  if (ratio < 0.5) return 0;
+  return Math.min(1.5, Math.max(0.5, ratio));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +259,51 @@ function gearStatRange(zoneLevel, rarity) {
   const min  = Math.max(1, Math.floor(base * mult * 0.5));
   const max  = Math.max(min + 1, Math.floor(base * mult * 1.2));
   return { min, max };
+}
+
+// Roll a value uniformly between lo and hi (inclusive)
+function _randBetween(lo, hi) {
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+// Pick stats from a pool weighted by bias, without replacement.
+// Returns array of stat keys.
+function _pickBiasedStats(pool, biasMap, count) {
+  if (!pool || pool.length === 0) return [];
+  const available = [...pool];
+  const picked    = [];
+  const n         = Math.min(count, available.length);
+
+  for (let i = 0; i < n; i++) {
+    const weights = available.map(s => biasMap[s] || 1.0);
+    const total   = weights.reduce((a, b) => a + b, 0);
+    let   roll    = Math.random() * total;
+    let   chosen  = available[available.length - 1];
+    for (let j = 0; j < available.length; j++) {
+      roll -= weights[j];
+      if (roll <= 0) { chosen = available[j]; break; }
+    }
+    picked.push(chosen);
+    available.splice(available.indexOf(chosen), 1);
+  }
+  return picked;
+}
+
+// Distribute a budget across picked stats, applying bias weight to share size.
+function _distributeByBias(pickedStats, biasMap, budget) {
+  const stats  = {};
+  const weights = pickedStats.map(s => biasMap[s] || 1.0);
+  const total   = weights.reduce((a, b) => a + b, 0);
+  let   remaining = budget;
+
+  for (let i = 0; i < pickedStats.length; i++) {
+    const share = (i < pickedStats.length - 1)
+      ? Math.floor(budget * weights[i] / total)
+      : remaining;
+    stats[pickedStats[i]] = Math.max(1, share);
+    remaining -= share;
+  }
+  return stats;
 }
 
 function pickRarity(zoneLevel, lck) {
@@ -240,31 +377,92 @@ function _buildSuffixPool(rarity) {
 }
 
 /**
- * Generate a full gear item object.
+ * Generate a full gear item object using the new slot identity system.
  * @param {number} zoneLevel
  * @param {string} rarity   — 'common'|'uncommon'|'rare'|'epic'|'legendary'
  * @param {string} slot     — gear slot string
+ * @param {number} tier     — zone tier (1–10) for budget scaling
  * @returns {object} item ready for rpg-db addItem()
  */
-function generateGearItem(zoneLevel, rarity, slot) {
-  const name        = generateItemName(rarity, slot);
-  const statPool    = SLOT_STAT_POOLS[slot] || ['str'];
-  const statCounts  = RARITY_STAT_COUNT[rarity] || { min: 1, max: 2 };
-  const count       = statCounts.min + Math.floor(Math.random() * (statCounts.max - statCounts.min + 1));
-  const { min, max } = gearStatRange(zoneLevel, rarity);
+function generateGearItem(zoneLevel, rarity, slot, tier = 1) {
+  const name = generateItemName(rarity, slot);
 
-  // Pick `count` stats without replacement from pool
-  const shuffled = [...statPool].sort(() => Math.random() - 0.5);
-  let   picked   = shuffled.slice(0, Math.min(count, statPool.length));
+  const slotPool     = SLOT_STAT_POOLS[slot]       || { primary: null, secondary: null };
+  const slotBias     = SLOT_BIAS_WEIGHTS[slot]      || {};
+  const slotMod      = SLOT_BUDGET_MODIFIERS[slot]  || 1.0;
+  const rarityMult   = RARITY_MULT[rarity]          || 1.0;
+  const statCounts   = RARITY_STAT_COUNT[rarity]    || { min: 1, max: 2 };
+  const tierMult     = TIER_MULTIPLIERS[Math.max(0, Math.min(9, tier - 1))];
 
-  // Weapons always include ATK as a primary stat — base weapon damage matters
-  if (slot === 'weapon' && statPool.includes('atk') && !picked.includes('atk')) {
-    picked[picked.length - 1] = 'atk';
+  // Base budget: scales with tier and slot
+  const BASE_BUDGET      = 10;
+  const primaryBudget    = Math.floor(BASE_BUDGET * tierMult * slotMod * rarityMult);
+  const rawSecondaryBudg = Math.floor(primaryBudget * (0.50 + Math.random() * 0.17));
+
+  // ── Sacrifice Variant (common armor only, 15% chance) ──
+  let isSacrifice        = false;
+  let sacrificeRatio     = 0;
+  let effectivePrimBudg  = primaryBudget;
+  let effectiveSecBudg   = rawSecondaryBudg;
+
+  if (rarity === 'common' && ARMOR_SLOTS.includes(slot) && Math.random() < 0.15) {
+    isSacrifice    = true;
+    sacrificeRatio = 0.20 + Math.random() * 0.20;   // 20–40%
+    effectivePrimBudg = Math.floor(primaryBudget    * (1 - sacrificeRatio));
+    effectiveSecBudg  = Math.floor(rawSecondaryBudg * (1 - sacrificeRatio));
   }
 
   const stats = {};
-  for (const stat of picked) {
-    stats[stat] = min + Math.floor(Math.random() * (max - min + 1));
+
+  // ── Weapon Core ────────────────────────────────────────
+  if (slot === 'weapon') {
+    // Pick weapon archetype
+    const archetypeKeys  = Object.keys(WEAPON_ARCHETYPES);
+    const archetype      = _pickFrom(archetypeKeys);
+    stats.weapon_damage    = Math.max(1, effectivePrimBudg);
+    stats.weapon_archetype = archetype;
+  }
+
+  // ── Primary Stats (STR/AGI/INT/VIT) ────────────────────
+  if (slotPool.primary && slotPool.primary.length > 0 && slot !== 'weapon') {
+    const count      = _randBetween(statCounts.min, statCounts.max);
+    const pickedPrim = _pickBiasedStats(slotPool.primary, {}, count);
+    // Distribute primary budget equally (primary has no bias on distribution)
+    const perStat    = Math.max(1, Math.floor(effectivePrimBudg / pickedPrim.length));
+    for (const s of pickedPrim) stats[s] = perStat;
+  }
+
+  // ── Trinket: one random boost from primary or secondary ─
+  if (slot === 'trinket') {
+    const allPossible = [...(slotPool.primary || []), ...(slotPool.secondary || [])];
+    const chosen      = _pickFrom(allPossible);
+    stats[chosen]     = Math.max(1, Math.floor(effectivePrimBudg * 0.6));
+  }
+
+  // ── Secondary Stats ─────────────────────────────────────
+  if (slotPool.secondary && slotPool.secondary.length > 0 && slot !== 'trinket') {
+    const secCount   = _randBetween(1, Math.min(3, slotPool.secondary.length));
+    const pickedSec  = _pickBiasedStats(slotPool.secondary, slotBias, secCount);
+    const secStats   = _distributeByBias(pickedSec, slotBias, effectiveSecBudg);
+    for (const [k, v] of Object.entries(secStats)) stats[k] = Math.max(1, v);
+  }
+
+  // ── Tertiary: Defense% + Armor (armor slots, always present) ──
+  // def_pct stored as whole integer percent (1 = 1% damage reduction).
+  // e.g. Tier 1 = ~1%, Tier 5 = ~8%, Tier 10 = ~64% per piece
+  if (ARMOR_SLOTS.includes(slot)) {
+    const baseDEF = Math.max(1, Math.round(tierMult * 0.8));
+    const baseARM = Math.floor(tierMult * 2.5);
+
+    if (isSacrifice) {
+      const mult      = 1.15 + Math.random() * 0.25;
+      stats.def_pct   = Math.max(1, Math.round(baseDEF * mult));
+      stats.arm_flat  = Math.floor(baseARM * mult);
+    } else {
+      const mult      = 0.80 + Math.random() * 0.20;
+      stats.def_pct   = Math.max(1, Math.round(baseDEF * mult));
+      stats.arm_flat  = Math.floor(baseARM * mult);
+    }
   }
 
   return {
@@ -273,6 +471,7 @@ function generateGearItem(zoneLevel, rarity, slot) {
     slot,
     rarity,
     zone_level:   zoneLevel,
+    is_sacrifice: isSacrifice,
     stats:        JSON.stringify(stats),
     passives:     JSON.stringify([]),
     set_id:       null,
@@ -283,8 +482,10 @@ function generateGearItem(zoneLevel, rarity, slot) {
 /**
  * Roll a loot drop event.
  * Returns { type: 'item', item } | { type: 'gold', amount } | { type: 'none' }
+ * @param {number} luck  — total Luck secondary stat from gear (not LCK primary)
+ * @param {number} tier  — zone tier for gear budget scaling
  */
-function rollLootDrop(zoneLevel, lck, bracketId, charLevel, isBoss = false, isShiny = false) {
+function rollLootDrop(zoneLevel, luck, bracketId, charLevel, isBoss = false, isShiny = false, tier = 1) {
   const bracket = BRACKETS[bracketId] || BRACKETS.minion;
 
   // Drop chance: bosses always drop, shiny guaranteed Rare+, normal has ~85% chance
@@ -299,37 +500,68 @@ function rollLootDrop(zoneLevel, lck, bracketId, charLevel, isBoss = false, isSh
   }
 
   // Roll rarity — shiny is at least Rare
-  let rarity = pickRarity(zoneLevel, lck);
+  let rarity = pickRarity(zoneLevel, luck);
   if (isShiny && ['common', 'uncommon'].includes(rarity)) rarity = 'rare';
 
-  // Pick random slot
-  const slots = ['weapon', 'head', 'chest', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket'];
+  // Pick random slot from full 10-slot list (now includes legs)
+  const slots = ['weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket'];
   const slot  = _pickFrom(slots);
 
-  const item = generateGearItem(zoneLevel, rarity, slot);
+  const item = generateGearItem(zoneLevel, rarity, slot, tier);
   return { type: 'item', item, rarity };
 }
 
 /** Sum all stat bonuses from equipped item rows (from rpg-db getEquipped). */
 function computeGearTotals(equippedRows) {
   const totals = {
-    totalATKBonus: 0, totalSTRBonus: 0, totalDEFBonus: 0,
-    totalVITBonus: 0, totalAGIBonus: 0, totalLCKBonus: 0,
-    totalCHABonus: 0, weaponCritBonus: 0,
+    // Primary stats from gear
+    totalSTRBonus: 0, totalAGIBonus: 0, totalINTBonus: 0, totalVITBonus: 0,
+    // Companion stat
+    totalCHABonus: 0,
+    // Secondary stats (all gear-derived)
+    totalPierce: 0, totalImpact: 0, totalDodge: 0,
+    totalAccuracy: 0, totalSpeed: 0, totalLuck: 0,
+    // Tertiary stats (armor pieces only)
+    totalDEFPct: 0,    // 0.0–1.0 percentage damage reduction
+    totalARMFlat: 0,   // flat damage reduction
+    // Weapon core
+    weaponDamage: 0,
+    weaponArchetype: 'longsword',  // default if no weapon equipped
+    // Passives
     passives: [],
   };
+
   for (const row of equippedRows) {
     if (!row || !row.stats) continue;
+
     try {
       const s = typeof row.stats === 'string' ? JSON.parse(row.stats) : row.stats;
-      totals.totalATKBonus += s.atk || 0;
+      // Primary
       totals.totalSTRBonus += s.str || 0;
-      totals.totalDEFBonus += s.def || 0;
-      totals.totalVITBonus += s.vit || 0;
       totals.totalAGIBonus += s.agi || 0;
-      totals.totalLCKBonus += s.lck || 0;
+      totals.totalINTBonus += s.int || 0;
+      totals.totalVITBonus += s.vit || 0;
       totals.totalCHABonus += s.cha || 0;
+      // Secondary
+      totals.totalPierce   += s.pierce   || 0;
+      totals.totalImpact   += s.impact   || 0;
+      totals.totalDodge    += s.dodge    || 0;
+      totals.totalAccuracy += s.accuracy || 0;
+      totals.totalSpeed    += s.speed    || 0;
+      totals.totalLuck     += s.luck     || 0;
+      // Tertiary — def_pct stored as integer % (new) or legacy fraction (<1)
+      const rawDef = s.def_pct || 0;
+      totals.totalDEFPct  += rawDef < 1 ? Math.max(1, Math.round(rawDef * 100)) : rawDef;
+      totals.totalARMFlat += s.arm_flat || 0;
+      // Weapon
+      if (row.slot === 'weapon') {
+        totals.weaponDamage    = s.weapon_damage || 0;
+        totals.weaponArchetype = s.weapon_archetype || 'longsword';
+      }
+      // Legacy ATK field (old items still in DB)
+      if (s.atk && row.slot === 'weapon') totals.weaponDamage += s.atk;
     } catch {}
+
     if (row.passives) {
       try {
         const p = typeof row.passives === 'string' ? JSON.parse(row.passives) : row.passives;
@@ -337,6 +569,9 @@ function computeGearTotals(equippedRows) {
       } catch {}
     }
   }
+
+  // Cap DEF% at 85 (integer %) to prevent effective immunity
+  totals.totalDEFPct = Math.min(85, totals.totalDEFPct);
   return totals;
 }
 
@@ -406,6 +641,13 @@ function generateEnemy(zone, zoneLevel, bracketId, isShiny = false, isMini = fal
 
   const name = isShiny ? `✦ ${_generateEnemyName(zone, archetype)}` : _generateEnemyName(zone, archetype);
 
+  // Derive secondary combat stats from agi budget.
+  // accuracy → enemy hit rate (0.001 per point above 70% base), dodge → evasion, speed → turn order.
+  const eAgi      = stats.agi || 0;
+  const eAccuracy = eAgi;
+  const eDodge    = Math.floor(eAgi * 0.50);
+  const eSpeed    = Math.floor(eAgi * 0.50);
+
   return {
     id:          `${zone.id}_${bId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     name,
@@ -418,7 +660,10 @@ function generateEnemy(zone, zoneLevel, bracketId, isShiny = false, isMini = fal
     maxHp:       stats.hp,
     atk:         stats.atk,
     def:         stats.def,
-    agi:         stats.agi,
+    agi:         eAgi,
+    accuracy:    eAccuracy,
+    dodge:       eDodge,
+    speed:       eSpeed,
     xpMult:      bracket.xpMult * (isShiny ? 5 : 1),
     goldMult:    bracket.goldMult * (isShiny ? 3 : 1),
     specialSlots,
@@ -472,6 +717,12 @@ function generateBoss(zone, zoneLevel, bossCount = 0) {
     name = `${pfx} ${word}`;
   }
 
+  // Derive secondary combat stats from agi budget (same model as regular enemies).
+  const bAgi      = stats.agi || 0;
+  const bAccuracy = bAgi;
+  const bDodge    = Math.floor(bAgi * 0.50);
+  const bSpeed    = Math.floor(bAgi * 0.50);
+
   return {
     id:           `boss_${zone.id}_${Date.now()}`,
     name,
@@ -484,7 +735,10 @@ function generateBoss(zone, zoneLevel, bossCount = 0) {
     maxHp:        stats.hp,
     atk:          stats.atk,
     def:          stats.def,
-    agi:          stats.agi,
+    agi:          bAgi,
+    accuracy:     bAccuracy,
+    dodge:        bDodge,
+    speed:        bSpeed,
     xpMult:       bracket.xpMult * 10,
     goldMult:     bracket.goldMult * 10,
     abilities,
@@ -530,10 +784,9 @@ function _rollRoomType() {
  * @param {object|null} bonusData — { xpBonus, goldBonus } or null
  */
 function startRun(char, zone, equippedRows, bonusData = null) {
-  const gearTotals = computeGearTotals(equippedRows);
-  const effectiveVIT = char.vit + (gearTotals.totalVITBonus * 0.2);
-  const playerMaxHp  = maxHP(char.vit);
-  const startingHp   = Math.min(char.hp_current || playerMaxHp, playerMaxHp);
+  const gearTotals  = computeGearTotals(equippedRows);
+  const playerMaxHp = maxHP(char.vit, char.level || 1);
+  const startingHp  = Math.min(char.hp_current || playerMaxHp, playerMaxHp);
 
   // Pick a zone level within the zone's range
   const zoneLevel = zone.zoneLevelMin + Math.floor(
@@ -621,7 +874,7 @@ function resolveFloorRoom(runState) {
     case 'monster':
     case 'mini_boss': {
       const isMini  = floor.roomType === 'mini_boss';
-      const isShiny = Math.random() < shinyChance(char.lck + (gear.totalLCKBonus || 0));
+      const isShiny = Math.random() < shinyChance(gear.totalLuck || 0);
       floor.enemy   = generateEnemy(runState.zone, runState.zoneLevel, null, isShiny, isMini);
       runState.combatTurn = 0;
       runState.tookDamageThisFloor = false;
@@ -655,8 +908,8 @@ function resolveFloorRoom(runState) {
     }
 
     case 'treasure': {
-      const loot = rollLootDrop(runState.zoneLevel, char.lck + (gear.totalLCKBonus || 0),
-                                _bracketForTier(runState.zone.tier), char.level, false, false);
+      const loot = rollLootDrop(runState.zoneLevel, gear.totalLuck || 0,
+                                _bracketForTier(runState.zone.tier), char.level, false, false, runState.zone.tier);
       floor.loot = { drops: [loot] };
       _applyLoot(runState, [loot], events);
       floor.completed = true;
@@ -668,11 +921,11 @@ function resolveFloorRoom(runState) {
     case 'secret': {
       // 2–4 items, one rarity above zone average
       const drops = [];
-      const count = 2 + Math.floor(Math.random() * 3);
-      const boostedLck = (char.lck + (gear.totalLCKBonus || 0)) + 30; // boost to shift rarity up
+      const count      = 2 + Math.floor(Math.random() * 3);
+      const boostedLuck = (gear.totalLuck || 0) + 100; // shift rarity up in secret rooms
       for (let i = 0; i < count; i++) {
-        drops.push(rollLootDrop(runState.zoneLevel, boostedLck,
-                                _bracketForTier(runState.zone.tier), char.level, false, false));
+        drops.push(rollLootDrop(runState.zoneLevel, boostedLuck,
+                                _bracketForTier(runState.zone.tier), char.level, false, false, runState.zone.tier));
       }
       floor.loot = { drops };
       _applyLoot(runState, drops, events);
@@ -683,12 +936,12 @@ function resolveFloorRoom(runState) {
     }
 
     case 'trap': {
-      const playerAGI = char.agi + (gear.totalAGIBonus || 0);
-      const dodgeRoll = playerAGI * 0.008; // AGI×0.8% dodge chance
-      const dodged    = Math.random() < dodgeRoll;
-      let   dmg       = 0;
+      // Trap dodge uses the player's Dodge secondary stat
+      const finalDodge = BASE_DODGE + 0.48 * ((gear.totalDodge || 0) / ((gear.totalDodge || 0) + 200));
+      const dodged     = Math.random() < finalDodge;
+      let   dmg        = 0;
       if (!dodged) {
-        dmg = trapDamage(runState.zoneLevel, effDEF);
+        dmg = trapDamage(runState.zoneLevel, gear.totalARMFlat || 0);
         runState.playerHp = Math.max(1, runState.playerHp - dmg);
       }
       floor.trap = { damage: dmg, dodged };
@@ -703,11 +956,11 @@ function resolveFloorRoom(runState) {
       // Generate 3 items for sale
       const items = [];
       for (let i = 0; i < 3; i++) {
-        const rarity = pickRarity(runState.zoneLevel, char.lck + (gear.totalLCKBonus || 0));
-        const slots  = ['weapon', 'head', 'chest', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket'];
+        const rarity = pickRarity(runState.zoneLevel, gear.totalLuck || 0);
+        const slots  = ['weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'belt', 'ring', 'amulet', 'trinket'];
         const slot   = _pickFrom(slots);
-        const item   = generateGearItem(runState.zoneLevel, rarity, slot);
-        item.buyPrice = merchantBuyPrice(runState.zoneLevel, rarity, char.lck + (gear.totalLCKBonus || 0));
+        const item   = generateGearItem(runState.zoneLevel, rarity, slot, runState.zone.tier);
+        item.buyPrice = merchantBuyPrice(runState.zoneLevel, rarity, gear.totalLuck || 0);
         items.push(item);
       }
       floor.merchant = { items };
@@ -759,8 +1012,8 @@ function _resolveEmptyFloor(runState, floor, char, gear, events) {
       break;
     }
     case 'scavenge': {
-      const loot = rollLootDrop(Math.max(1, zl - 2), effLCK,
-                                _bracketForTier(runState.zone.tier), char.level, false, false);
+      const loot = rollLootDrop(Math.max(1, zl - 2), gear.totalLuck || 0,
+                                _bracketForTier(runState.zone.tier), char.level, false, false, runState.zone.tier);
       _applyLoot(runState, [loot], events);
       events.push({ type: 'empty_scavenge', loot });
       break;
@@ -833,15 +1086,19 @@ function runCombatTurn(runState, action) {
   const char     = runState.charSnapshot;
   const gear     = runState.gearTotals;
 
-  const effATK = playerEffectiveATK(char, gear, char.level);
-  const effDEF = Math.floor(playerEffectiveDEF(char, gear));
-  const effAGI = char.agi + (gear.totalAGIBonus || 0);
-  const effLCK = char.lck + (gear.totalLCKBonus || 0);
-  const effCHA = char.cha + (gear.totalCHABonus || 0);
+  const effCHA      = softCapStat(gear.totalCHABonus || 0);
+  const weaponDmg   = calcPlayerDamage(char, gear);
+  const defPct      = gear.totalDEFPct  || 0;
+  const armFlat     = gear.totalARMFlat || 0;
+  const pierceStat  = gear.totalPierce  || 0;
+  const impactStat  = gear.totalImpact  || 0;
+  const dodgeStat   = gear.totalDodge   || 0;
+  const accStat     = gear.totalAccuracy || 0;
+  const speedStat   = gear.totalSpeed   || 0;
 
   // ── Flee ──────────────────────────────────────────────────────────────────
   if (action === 'flee') {
-    const chance = fleeChance(effAGI, enemy.agi);
+    const chance = fleeChance(speedStat, enemy.speed || 0);
     if (Math.random() < chance) {
       floor.completed = true;
       runState.phase = 'floor_complete';
@@ -849,7 +1106,7 @@ function runCombatTurn(runState, action) {
       events.push({ type: 'fled_success', scenario: 'battle_flee_success' });
     } else {
       // Enemy gets a free attack on failed flee
-      const freeAtk = _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, true);
+      const freeAtk = _resolveEnemyAttack(runState, enemy, char, defPct, armFlat, dodgeStat, events, true);
       if (runState.playerHp <= 0) {
         _handlePlayerDeath(runState, floor, enemy, events, levelUps);
       } else {
@@ -879,8 +1136,10 @@ function runCombatTurn(runState, action) {
     enemy.atk = (enemy.atk || 0) + (runState.combatTurn > 1 ? 5 : 0);
   }
 
-  // 3. Determine turn order
-  const playerFirst = effAGI >= enemy.agi;
+  // 3. Determine turn order via Speed + randomness
+  const playerTurnScore = speedStat + Math.floor(Math.random() * 21);
+  const enemyTurnScore  = (enemy.speed || 0) + Math.floor(Math.random() * 21);
+  const playerFirst     = playerTurnScore >= enemyTurnScore;
 
   // Check Ancient Ward (player can only act every other turn) — boss-only
   const ancientWardActive = enemy.isBoss && enemy.abilityState.ancientWardTimer > 0 &&
@@ -902,35 +1161,35 @@ function runCombatTurn(runState, action) {
 
   if (playerFirst) {
     if (playerCanAct) {
-      _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAGI, effLCK, events);
+      _resolvePlayerAttack(runState, enemy, char, gear, weaponDmg, defPct, armFlat, accStat, pierceStat, impactStat, events);
       if (enemy.hp <= 0) {
         _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps);
         return { runState, events, levelUps };
       }
-      _checkCHAAssist(runState, enemy, effATK, effCHA, events, levelUps, char, gear, floor);
+      _checkCHAAssist(runState, enemy, weaponDmg, effCHA, events, levelUps, char, gear, floor);
       if (enemy.hp <= 0) {
         _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps);
         return { runState, events, levelUps };
       }
     }
-    _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, false);
+    _resolveEnemyAttack(runState, enemy, char, defPct, armFlat, dodgeStat, events, false);
     if (runState.playerHp <= 0) {
       _handlePlayerDeath(runState, floor, enemy, events, levelUps);
       return { runState, events, levelUps };
     }
   } else {
-    _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, false);
+    _resolveEnemyAttack(runState, enemy, char, defPct, armFlat, dodgeStat, events, false);
     if (runState.playerHp <= 0) {
       _handlePlayerDeath(runState, floor, enemy, events, levelUps);
       return { runState, events, levelUps };
     }
     if (playerCanAct) {
-      _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAGI, effLCK, events);
+      _resolvePlayerAttack(runState, enemy, char, gear, weaponDmg, defPct, armFlat, accStat, pierceStat, impactStat, events);
       if (enemy.hp <= 0) {
         _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps);
         return { runState, events, levelUps };
       }
-      _checkCHAAssist(runState, enemy, effATK, effCHA, events, levelUps, char, gear, floor);
+      _checkCHAAssist(runState, enemy, weaponDmg, effCHA, events, levelUps, char, gear, floor);
       if (enemy.hp <= 0) {
         _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps);
         return { runState, events, levelUps };
@@ -958,19 +1217,24 @@ function runCombatTurn(runState, action) {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-function _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAGI, effLCK, events) {
+function _resolvePlayerAttack(runState, enemy, char, gear, weaponDmg, defPct, armFlat, accStat, pierceStat, impactStat, events) {
   // Apply weaken status if any
   const weakenFactor = _getStatusFactor(runState.playerStatusEffects, 'weaken', 'atkReduction');
-  const finalATK     = Math.floor(effATK * (1 - weakenFactor));
+  const finalDmg     = Math.floor(weaponDmg * (1 - weakenFactor));
 
-  const hit  = Math.random() < hitChance(effAGI, enemy.agi);
+  // Hit check: player accuracy vs enemy dodge
+  const hit = Math.random() < hitChance(accStat, enemy.dodge || 0);
   if (!hit) {
     events.push({ type: 'player_attack', hit: false });
     return;
   }
 
-  const isCrit = Math.random() < critChance(effLCK, gear.weaponCritBonus || 0);
-  let   dmg    = calcDamage(finalATK, enemy.def, isCrit);
+  // Crit check uses Pierce stat
+  const isCrit = Math.random() < critChance(pierceStat);
+
+  // Damage: apply enemy's flat DEF (enemies keep simplified def model internally)
+  // Player damage goes through enemy's def as a flat reduction (enemy has no DEF%)
+  const dmg = calcDamage(finalDmg, 0, enemy.def || 0, isCrit, impactStat);
 
   // Thorned Hide: reflect 25% back to player
   if (_hasActiveAbility(enemy, 'thorned_hide')) {
@@ -986,7 +1250,7 @@ function _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAG
     if (enemy.abilityState.lastHitType === curType) {
       enemy.abilityState.consecHitsSameType++;
       if (enemy.abilityState.consecHitsSameType >= 2) {
-        enemy.def = Math.floor(enemy.def * 1.10);
+        enemy.def = Math.floor((enemy.def || 0) * 1.10);
         enemy.abilityState.consecHitsSameType = 0;
       }
     } else {
@@ -998,11 +1262,11 @@ function _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAG
   events.push({ type: 'player_attack', hit: true, damage: dmg, isCrit });
   if (isCrit) events.push({ type: 'crit_player', damage: dmg, scenario: 'battle_crit_player' });
 
-  // Petrify tracking (boss hits player consecutively → stun)
+  // Petrify tracking
   if (enemy.isBoss && enemy.abilities.some(a => a.id === 'petrify')) {
     enemy.abilityState.consecHitsOnPlayer++;
     if (enemy.abilityState.consecHitsOnPlayer >= 3 && !enemy.abilityState.petrifyTracker.active) {
-      enemy.abilityState.petrifyTracker.active   = true;
+      enemy.abilityState.petrifyTracker.active    = true;
       enemy.abilityState.petrifyTracker.turnsLeft = 2;
       enemy.abilityState.consecHitsOnPlayer = 0;
       events.push({ type: 'player_stunned', turns: 2 });
@@ -1010,7 +1274,7 @@ function _resolvePlayerAttack(runState, enemy, char, gear, effATK, effDEF, effAG
   }
 }
 
-function _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, isFreeAttack) {
+function _resolveEnemyAttack(runState, enemy, char, defPct, armFlat, playerDodgeStat, events, isFreeAttack) {
   // Stun check
   const stunned = enemy.statusEffects.some(s => s.type === 'stun' && s.duration > 0);
   if (stunned) {
@@ -1021,14 +1285,15 @@ function _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, isFr
   // Overload: wind up turn = no attack, then 3× next turn
   if (enemy.abilityState.overloadWindingUp) {
     enemy.abilityState.overloadWindingUp = false;
-    const overloadDmg = Math.floor(calcDamage(enemy.atk, effDEF, false) * 3);
-    runState.playerHp = Math.max(0, runState.playerHp - overloadDmg);
-    events.push({ type: 'enemy_attack', hit: true, damage: overloadDmg, isOverload: true });
+    const overloadDmg = calcDamage(enemy.atk || 0, defPct, armFlat, false, 0) * 3;
+    runState.playerHp = Math.max(0, runState.playerHp - Math.floor(overloadDmg));
+    events.push({ type: 'enemy_attack', hit: true, damage: Math.floor(overloadDmg), isOverload: true });
     runState.tookDamageThisFloor = true;
-    return overloadDmg;
+    return Math.floor(overloadDmg);
   }
 
-  const hit = Math.random() < hitChance(enemy.agi, effAGI);
+  // Hit check: enemy accuracy vs player dodge
+  const hit = Math.random() < hitChance(enemy.accuracy || 0, playerDodgeStat);
   if (!hit) {
     events.push({ type: 'enemy_attack', hit: false });
     return 0;
@@ -1042,9 +1307,9 @@ function _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, isFr
     return 0;
   }
 
-  let dmg = calcDamage(enemy.atk, effDEF, false);
+  let dmg = calcDamage(enemy.atk || 0, defPct, armFlat, false, 0);
 
-  // Life Drain (boss) — steal 10% of player current HP
+  // Life Drain (boss) — steal 10% of player current HP (true damage, ignores armor)
   if (enemy.isBoss && _hasActiveAbility(enemy, 'life_drain')) {
     const stolen = Math.floor(runState.playerHp * 0.10);
     dmg          = stolen;
@@ -1073,37 +1338,18 @@ function _resolveEnemyAttack(runState, enemy, char, effDEF, effAGI, events, isFr
   return dmg;
 }
 
-function _checkCHAAssist(runState, enemy, effATK, effCHA, events, levelUps, char, gear, floor) {
-  // CHA breakpoints — see MASTER_DESIGN.md Section 5
-  let assistCount = 0;
-  if (effCHA <= 9) {
-    assistCount = 0;
-  } else if (effCHA <= 24) {
-    // CHA × 2% chance per turn
-    assistCount = Math.random() < (effCHA * 0.02) ? 1 : 0;
-  } else if (effCHA <= 49) {
-    // Guaranteed 1 assist at fight start (combatTurn === 1), then probabilistic
-    assistCount = runState.combatTurn === 1 ? 1 : (Math.random() < (effCHA * 0.02) ? 1 : 0);
-  } else if (effCHA === 50) {
-    assistCount = 1;
-  } else {
-    // 75+: twice per turn (gear-boosted)
-    assistCount = 2;
-  }
+function _checkCHAAssist(runState, enemy, weaponDmg, effCHA, events, levelUps, char, gear, floor) {
+  // Formula-based CHA assist (gear-only stat, uses softCap)
+  const softCHA = softCapStat(effCHA);
+  const chance  = companionAssistChance(softCHA);
+  const fires   = Math.random() < chance;
+  if (!fires) return;
 
-  for (let i = 0; i < assistCount; i++) {
-    const dmg = companionAssistDamage(effATK);
-    enemy.hp  = Math.max(0, enemy.hp - dmg);
-    const isKillingBlow = enemy.hp <= 0;
-    const scenario = isKillingBlow ? 'battle_companion_assist_kill' : 'battle_companion_assist';
-    events.push({ type: 'companion_assist', damage: dmg, isKillingBlow, scenario });
-    if (isKillingBlow) break;
-  }
-
-  // Smug scenario for consecutive assists
-  if (assistCount >= 2) {
-    events.push({ type: 'companion_triple_assist', scenario: 'battle_companion_triple' });
-  }
+  const dmg           = companionAssistDamage(weaponDmg, softCHA);
+  enemy.hp            = Math.max(0, enemy.hp - dmg);
+  const isKillingBlow = enemy.hp <= 0;
+  const scenario      = isKillingBlow ? 'battle_companion_assist_kill' : 'battle_companion_assist';
+  events.push({ type: 'companion_assist', damage: dmg, isKillingBlow, scenario });
 }
 
 function _checkBossAbilities(runState, enemy, char, events) {
@@ -1336,18 +1582,25 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
     }
   }
 
-  // Compute rewards
-  const xpGained   = xpReward(runState.zoneLevel, enemy.xpMult || 1, isShiny, isBoss);
+  // Compute rewards with zone-power floor and harder-kill bonus
+  const zonePwr    = calcZonePower(runState.zone.tier || 1, 1.0);
+  const playerPwr  = calcPlayerPower(char, gear);
+  const rwdMult    = rewardMultiplier(playerPwr, zonePwr);
+
+  // Zero rewards if player far outgears the zone
+  const xpGained   = rwdMult > 0
+    ? xpReward(runState.zoneLevel, enemy.xpMult || 1, isShiny, isBoss)
+    : 0;
   const lootDrop   = rollLootDrop(runState.zoneLevel,
-                                   char.lck + (gear.totalLCKBonus || 0),
+                                   gear.totalLuck || 0,
                                    enemy.bracketId || 'minion',
                                    char.level, isBoss, isShiny);
 
-  // Apply daily bonus multipliers
-  let xpFinal = xpGained;
+  // Apply daily bonus and harder-zone multiplier
+  let xpFinal = Math.floor(xpGained * rwdMult);
   let goldFinal = 0;
   if (runState.dailyBonus) {
-    xpFinal   = Math.floor(xpGained * (1 + runState.dailyBonus.xpBonus));
+    xpFinal = Math.floor(xpFinal * (1 + runState.dailyBonus.xpBonus));
   }
 
   runState.xpBag  += xpFinal;
@@ -1356,12 +1609,17 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
     ? 0
     : runState.consecutiveKillsNoDamage + 1;
 
-  // Gold from enemy itself
-  const rawGold = goldDrop(runState.zoneLevel, BRACKETS[enemy.bracketId]?.goldMult || 1, isShiny, isBoss);
-  goldFinal = rawGold;
+  // Gold from enemy — also scaled by reward multiplier
+  const rawGold = rwdMult > 0
+    ? goldDrop(runState.zoneLevel, BRACKETS[enemy.bracketId]?.goldMult || 1, isShiny, isBoss)
+    : 0;
+  goldFinal = Math.floor(rawGold * rwdMult);
   if (runState.dailyBonus) {
-    goldFinal = Math.floor(rawGold * runState.dailyBonus.goldBonus);
+    goldFinal = Math.floor(goldFinal * runState.dailyBonus.goldBonus);
   }
+  // Apply Luck gold bonus
+  const luckGoldMult = 1 + (gear.totalLuck || 0) * 0.002;
+  goldFinal = Math.floor(goldFinal * luckGoldMult);
   runState.goldBag += goldFinal;
 
   if (isBoss) runState.bossKillCount++;
@@ -1374,11 +1632,26 @@ function _handleEnemyDeath(runState, floor, enemy, char, gear, events, levelUps)
                       isBoss   ? 'battle_win_boss' :
                       'battle_win';
 
+  // Find the killing blow — last hit event before this death
+  const killingBlow = (() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const ev = events[i];
+      if (ev.type === 'companion_assist' && ev.damage) {
+        return { damage: ev.damage, isCrit: false, source: 'companion' };
+      }
+      if (ev.type === 'player_attack' && ev.hit && ev.damage) {
+        return { damage: ev.damage, isCrit: ev.isCrit || false, source: 'player' };
+      }
+    }
+    return null;
+  })();
+
   events.push({
     type: 'enemy_died',
     enemy: { name: enemy.name, isShiny, isBoss, archetype: enemy.archetype },
     xpGained: xpFinal,
     goldGained: goldFinal,
+    killingBlow,
     scenario: winScenario,
   });
 
@@ -1444,6 +1717,7 @@ function _handlePlayerDeath(runState, floor, enemy, events, levelUps) {
 
 module.exports = {
   // Scaling formulas
+  softCapStat,
   xpRequired,
   xpReward,
   enemyStatBudget,
@@ -1451,11 +1725,14 @@ module.exports = {
   allocateStats,
   applyShinyModifiers,
   maxHP,
-  playerEffectiveATK,
+  calcPlayerDamage,
+  applyDefenses,
   playerEffectiveDEF,
   hitChance,
   critChance,
+  critMultiplier,
   calcDamage,
+  companionAssistChance,
   companionAssistDamage,
   goldDrop,
   shinyChance,
@@ -1465,6 +1742,9 @@ module.exports = {
   merchantSellPrice,
   fleeChance,
   dailyBonus,
+  calcPlayerPower,
+  calcZonePower,
+  rewardMultiplier,
   // Gear
   gearStatRange,
   pickRarity,
@@ -1479,7 +1759,6 @@ module.exports = {
   // Run
   startRun,
   resolveFloorRoom,
-  maxHP,
   // Combat
   runCombatTurn,
 };

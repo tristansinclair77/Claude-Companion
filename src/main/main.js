@@ -203,10 +203,10 @@ function loadAddons() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1000,
+    height: 780,
+    minWidth: 920,
+    minHeight: 700,
     frame: false,
     transparent: false,
     backgroundColor: '#0a0a0f',

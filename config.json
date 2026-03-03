@@ -2,15 +2,15 @@
   "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
-    "pitchShift": 8,
-    "indexRate": 0.2,
+    "pitchShift": 6,
+    "indexRate": 0.6,
     "f0method": "rmvpe",
     "protect": 0.5,
     "sourceVoice": "af_heart"
   },
   "tts": {
-    "voice": "rvc:ChakiNanami",
-    "enabled": false
+    "voice": "rvc:Ashley Graham",
+    "enabled": true
   },
   "fastMode": true,
   "background": {
@@ -28,6 +28,13 @@
     "chromaticAberration": false,
     "scanlinesIntensity": "off",
     "parchmentOpacity": 30,
+    "seasonMode": "sunbeams",
+    "vuAmp": 5,
+    "vuSpeed": 22,
+    "moduleEnabled": {
+      "parchment": true,
+      "seasons": true
+    },
     "activePackage": "fantasy_rpg",
     "packages": [
       {
@@ -38,7 +45,8 @@
           "grid",
           "filmGrain",
           "overlayEffects",
-          "scanlines"
+          "scanlines",
+          "vuBounce"
         ],
         "colors": {
           "--cyan": "#00ffcc",
@@ -79,7 +87,15 @@
           "edgeGlow": true,
           "chromaticAberration": true,
           "scanlinesIntensity": "heavy",
-          "parchmentOpacity": 0
+          "parchmentOpacity": 0,
+          "vuAmp": 5,
+          "vuSpeed": 22,
+          "moduleEnabled": {
+            "grid": true,
+            "filmGrain": true,
+            "overlayEffects": true,
+            "scanlines": true
+          }
         }
       },
       {
@@ -87,7 +103,8 @@
         "name": "FANTASY RPG",
         "desc": "warm amber / arcane",
         "effectModules": [
-          "parchment"
+          "parchment",
+          "seasons"
         ],
         "colors": {
           "--cyan": "#ffaa00",
@@ -128,7 +145,14 @@
           "edgeGlow": false,
           "chromaticAberration": false,
           "scanlinesIntensity": "off",
-          "parchmentOpacity": 30
+          "parchmentOpacity": 30,
+          "seasonMode": "sunbeams",
+          "vuAmp": 5,
+          "vuSpeed": 22,
+          "moduleEnabled": {
+            "parchment": true,
+            "seasons": true
+          }
         }
       }
     ]

@@ -4,7 +4,7 @@ const path   = require('path');
 const fs     = require('fs');
 const Database = require('better-sqlite3');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /**
  * RpgDB — SQLite database for the RPG addon.
@@ -52,10 +52,13 @@ class RpgDB {
 
     if (current < 1) {
       this._applyV1();
-      this.db
-        .prepare(`INSERT OR REPLACE INTO rpg_meta (key, value) VALUES ('schema_version', '1')`)
-        .run();
     }
+    if (current < 2) {
+      this._applyV2();
+    }
+    this.db
+      .prepare(`INSERT OR REPLACE INTO rpg_meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}')`)
+      .run();
   }
 
   _applyV1() {
@@ -173,6 +176,25 @@ class RpgDB {
     console.log('[RpgDB] Schema v1 applied.');
   }
 
+  _applyV2() {
+    // Add legs slot to rpg_equipped (was missing from v1 initialization).
+    this.db.exec(`
+      INSERT OR IGNORE INTO rpg_equipped (slot, inventory_id) VALUES ('legs', NULL);
+    `);
+
+    // Add is_sacrifice column to rpg_inventory (tracks sacrifice-variant armor items).
+    // SQLite requires ALTER TABLE per column; ignore if already exists (idempotent guard via try).
+    try {
+      this.db.exec(`
+        ALTER TABLE rpg_inventory ADD COLUMN is_sacrifice INTEGER NOT NULL DEFAULT 0;
+      `);
+    } catch (e) {
+      // Column already exists — safe to ignore.
+    }
+
+    console.log('[RpgDB] Schema v2 applied.');
+  }
+
   // ── Character ────────────────────────────────────────────────────────────
 
   getCharacter() {
@@ -202,11 +224,11 @@ class RpgDB {
     const info = this.db
       .prepare(`
         INSERT INTO rpg_inventory
-          (item_id, name, slot, rarity, zone_level, stats, passives, set_id, legendary_id)
+          (item_id, name, slot, rarity, zone_level, stats, passives, set_id, legendary_id, is_sacrifice)
         VALUES
-          (@item_id, @name, @slot, @rarity, @zone_level, @stats, @passives, @set_id, @legendary_id)
+          (@item_id, @name, @slot, @rarity, @zone_level, @stats, @passives, @set_id, @legendary_id, @is_sacrifice)
       `)
-      .run(item);
+      .run({ ...item, is_sacrifice: item.is_sacrifice ? 1 : 0 });
     return info.lastInsertRowid;
   }
 
