@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/crt-effects.css" />
   <link rel="stylesheet" href="styles/animations.css" />
-  <link rel="stylesheet" href="styles/cyberpunk-bg.css" />
+  <link rel="stylesheet" href="styles/bg-effects.css" />
   <link rel="stylesheet" href="styles/settings.css" />
   <link rel="stylesheet" href="../../addons/rpg_adventure/ui/rpg.css" />
 </head>
@@ -22,6 +22,9 @@
   <div id="bg-chroma"    aria-hidden="true"></div>
   <div id="bg-parchment" aria-hidden="true"></div>
   <canvas id="bg-season"    aria-hidden="true"></canvas>
+  <canvas id="bg-arcade"    aria-hidden="true"></canvas>
+  <canvas id="bg-tv-glass"       aria-hidden="true"></canvas>
+  <canvas id="bg-space-invaders" aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -193,6 +196,37 @@
           <span class="settings-label">OPACITY</span>
           <input class="settings-slider" type="range" id="parchment-opacity" min="0" max="30" value="15" step="1" />
           <span class="settings-slider-val" id="parchment-opacity-val">15%</span>
+        </div>
+      </div>
+
+      <!-- TV Glass (Arcade Cabinet package + any package that opts in) -->
+      <div class="settings-section" data-effect-module="tvGlass">
+        <div class="settings-section-title">TV GLASS</div>
+        <div class="settings-row">
+          <span class="settings-label">SURFACE</span>
+          <span class="settings-hint">CRT glass glare, vignette &amp; rim lights</span>
+        </div>
+      </div>
+
+      <!-- Arcade Border (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="arcadeBorder">
+        <div class="settings-section-title">ARCADE BORDER</div>
+        <div class="settings-row">
+          <span class="settings-label">BEZEL</span>
+          <span class="settings-hint">Pixel-art cabinet frame + marquee</span>
+        </div>
+      </div>
+
+      <!-- Space Invaders random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="spaceInvaders">
+        <div class="settings-section-title">SPACE INVADERS</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">Ship + shields + enemy waves</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="si-spawn-btn">SPAWN</button>
         </div>
       </div>
 
@@ -371,7 +405,17 @@
   <script src="js/mic-controller.js"></script>
   <script src="js/tts-controller.js"></script>
   <script src="js/chat-controller.js"></script>
-  <script src="js/season-effects.js"></script>
+  <!-- Visual Package system (load order: base classes → registry → effects → packages → manager) -->
+  <script src="js/vp/VisualPackage.js"></script>
+  <script src="js/vp/VisualEffect.js"></script>
+  <script src="js/vp/PackageRegistry.js"></script>
+  <script src="js/effects/SeasonsEffect.js"></script>
+  <script src="js/effects/ArcadeEffect.js"></script>
+  <script src="js/effects/TvGlassEffect.js"></script>
+  <script src="js/effects/SpaceInvadersEffect.js"></script>
+  <script src="js/packages/CyberneticPackage.js"></script>
+  <script src="js/packages/FantasyRpgPackage.js"></script>
+  <script src="js/packages/ArcadePackage.js"></script>
   <script src="js/settings.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-inventory.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-panel.js"></script>

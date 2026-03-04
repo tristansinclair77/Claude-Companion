@@ -174,6 +174,139 @@ var CompanionDisplay = (() => {
     });
   }
 
+  // ── Arcade Glitch — attributed to: Arcade Cabinet package ─────────────────
+  // Axis bars occasionally glitch: pixels shift, bar crumbles + falls, then repairs.
+  // Only ONE bar can glitch at a time; a cooldown prevents back-to-back triggers.
+  let _glitchTimers   = [];
+  let _glitchActive   = false;
+  let _glitchCooldownEnd = 0;   // Date.now() timestamp — no new glitch before this
+
+  function _stopArcadeGlitch() {
+    _glitchTimers.forEach(t => clearTimeout(t));
+    _glitchTimers      = [];
+    _glitchActive      = false;
+    _glitchCooldownEnd = 0;
+  }
+
+  function _startArcadeGlitch() {
+    _stopArcadeGlitch();
+    if (document.body.dataset.package !== 'arcade_cabinet') return;
+    const fills = metersEl?.querySelectorAll('.axis-bar-fill');
+    if (!fills?.length) return;
+
+    fills.forEach((fill, idx) => {
+      function scheduleGlitch() {
+        const delay = 8000 + Math.random() * 12000;
+        const t = setTimeout(() => {
+          if (document.body.dataset.package !== 'arcade_cabinet' || !fill.isConnected) return;
+          // Another bar is already glitching or we're in the inter-glitch cooldown — try again later
+          if (_glitchActive || Date.now() < _glitchCooldownEnd) {
+            scheduleGlitch();
+            return;
+          }
+          _glitchActive = true;
+          _runGlitch(fill, () => {
+            _glitchActive      = false;
+            _glitchCooldownEnd = Date.now() + 1800;  // 1.8s breather before the next one
+            scheduleGlitch();
+          });
+        }, delay);
+        _glitchTimers.push(t);
+      }
+      // Stagger initial trigger by bar index so all four bars don't compete immediately
+      const t0 = setTimeout(() => scheduleGlitch(), idx * 2200);
+      _glitchTimers.push(t0);
+    });
+  }
+
+  function _runGlitch(fill, onDone) {
+    const trueBarVal = parseFloat(fill.style.getPropertyValue('--bar-val')) || 0.5;
+    // Phase 1: Rapid pixel jolts — bar snaps to wrong positions 3–5 times
+    const joltCount = 3 + Math.floor(Math.random() * 3);
+    let j = 0;
+    function doJolt() {
+      if (!fill.isConnected) { onDone(); return; }
+      if (j >= joltCount) { _doCrumble(fill, trueBarVal, onDone); return; }
+      const joltVal = Math.max(0.04, Math.min(0.96, trueBarVal + (Math.random() - 0.5) * 0.30));
+      fill.style.transition = 'none';
+      fill.style.width      = (joltVal * 100).toFixed(1) + '%';
+      fill.style.filter     = j % 2 === 0 ? 'brightness(2.2) saturate(0.1)' : 'brightness(0.25)';
+      j++;
+      const t = setTimeout(doJolt, 30 + Math.random() * 55);
+      _glitchTimers.push(t);
+    }
+    doJolt();
+  }
+
+  function _doCrumble(fill, trueBarVal, onDone) {
+    if (!fill.isConnected) { onDone(); return; }
+    // Spawn falling pixel fragments from the bar's screen position
+    const rect       = fill.getBoundingClientRect();
+    const fragCount  = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < fragCount; i++) {
+      const frag     = document.createElement('div');
+      const fragX    = rect.left + Math.random() * rect.width;
+      const size     = 2 + Math.floor(Math.random() * 3);
+      const fallDist = 22 + Math.random() * 36;
+      const driftX   = (Math.random() - 0.5) * 18;
+      const color    = Math.random() < 0.6 ? '#ffee00' : '#ffffff';
+      frag.style.cssText = [
+        'position:fixed',
+        `left:${fragX.toFixed(1)}px`,
+        `top:${rect.top.toFixed(1)}px`,
+        `width:${size}px`,
+        `height:${size}px`,
+        `background:${color}`,
+        'pointer-events:none',
+        'z-index:9998',
+        'will-change:transform,opacity',
+      ].join(';');
+      document.body.appendChild(frag);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        frag.style.transition = 'transform 0.5s ease-in, opacity 0.5s ease-in';
+        frag.style.transform  = `translate(${driftX.toFixed(1)}px, ${fallDist.toFixed(1)}px)`;
+        frag.style.opacity    = '0';
+      }));
+      const tFrag = setTimeout(() => frag.remove(), 650);
+      _glitchTimers.push(tFrag);
+    }
+    // Bar collapses to nothing then fades to dark
+    fill.style.transition = 'none';
+    fill.style.width      = '0%';
+    fill.style.filter     = '';
+    const tHide = setTimeout(() => {
+      if (!fill.isConnected) { onDone(); return; }
+      fill.style.opacity = '0.08';
+      _doRepair(fill, trueBarVal, onDone, 0);
+    }, 350);
+    _glitchTimers.push(tHide);
+  }
+
+  function _doRepair(fill, trueBarVal, onDone, blinkCount) {
+    if (!fill.isConnected) { onDone(); return; }
+    const maxBlinks = 5 + Math.floor(Math.random() * 4);
+    if (blinkCount >= maxBlinks) {
+      // Fully restored
+      fill.style.transition = 'none';
+      fill.style.width      = (trueBarVal * 100).toFixed(1) + '%';
+      fill.style.opacity    = '1';
+      fill.style.filter     = '';
+      const tDone = setTimeout(onDone, 60);
+      _glitchTimers.push(tDone);
+      return;
+    }
+    // Binary blink — steps(1) so the transition is instantaneous (digital feel)
+    const dur = 55 + Math.floor(Math.random() * 110);
+    fill.style.transition = `opacity ${dur}ms steps(1)`;
+    fill.style.opacity    = blinkCount % 2 === 0 ? '0.75' : '0.05';
+    // On every other blink, partially rebuild the bar width to suggest repair
+    if (blinkCount % 2 === 0 && blinkCount > 0) {
+      fill.style.width = (trueBarVal * (0.4 + Math.random() * 0.6) * 100).toFixed(1) + '%';
+    }
+    const tNext = setTimeout(() => _doRepair(fill, trueBarVal, onDone, blinkCount + 1), dur + 20);
+    _glitchTimers.push(tNext);
+  }
+
   // Returns the display label for an axis key — runes in Fantasy RPG, text otherwise.
   function _axisLabel(key) {
     if (document.body.dataset.package === 'fantasy_rpg') {
@@ -194,8 +327,9 @@ var CompanionDisplay = (() => {
   function updateMeters(state) {
     ensureMeters();
     if (!metersEl) return;
-    // Stop any running tremor before the DOM is replaced — timers hold refs to old elements.
+    // Stop any running per-theme effects before the DOM is replaced — timers hold refs to old elements.
     _stopDivinationTremor();
+    _stopArcadeGlitch();
     // undefined = re-render with cached state (called by _applyBarWidth after padding change)
     // null/object = update the cache too
     if (state !== undefined) _cachedMeterState = state;
@@ -237,8 +371,9 @@ var CompanionDisplay = (() => {
         `</div>`;
     }).join('');
 
-    // Start Divination Tremor for Fantasy RPG now that new bar elements exist in DOM
-    _startDivinationTremor();
+    // Start per-theme axis bar effects now that new bar elements exist in DOM
+    _startDivinationTremor();   // Fantasy RPG: divination tremor flicker
+    _startArcadeGlitch();       // Arcade Cabinet: pixel corruption + repair sequence
   }
 
   function lerpHex(a, b, t) {

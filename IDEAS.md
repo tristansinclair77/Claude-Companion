@@ -6,6 +6,36 @@ Parking lot for future ideas. Not planned, not scheduled — just captured.
 
 ## UI / Visual
 
+### Visual Packages — Candidate Themes
+Parking lot for future visual package ideas:
+
+**Retro / Nostalgic**
+- **Old Terminal** — green-on-black phosphor glow, scanlines, blinking cursor aesthetic
+- **VHS Rental Store** — washed-out VHS colors, tracking glitch effects, chunky 80s video font
+- **Arcade Cabinet** — pixel art borders, coin-op color palette, marquee-style header *(next up)*
+
+**Sci-Fi / Tech**
+- **Holographic HUD** — translucent blue panels, floating UI elements, targeting reticle accents
+- **Deep Space** — dark navy/black, nebula color accents, star field canvas background
+- **Biomechanical** — HR Giger-inspired, organic-mechanical hybrid textures, muted greens and bone
+
+**Nature / Ambient**
+- **Rainy Window** — rain streaks on glass canvas effect, muted grays, cozy indoor warmth
+- **Bioluminescent Ocean** — deep black with glowing teal/purple particles drifting upward
+- **Northern Lights** — aurora color shifts (green → purple → pink) animating across the background
+
+**Aesthetic / Subculture**
+- **Vaporwave** — pink/purple gradients, grid floors, sunsets, retro 3D shapes
+- **Cottagecore** — warm earthy tones, hand-drawn style borders, soft botanical accents
+- **Brutalist** — raw concrete texture, harsh black outlines, no-nonsense heavy typography
+
+**Whimsical / Fun**
+- **Underwater Aquarium** — bubble particles floating up, caustic light ripple on panels
+- **Paper Craft** — everything looks cut and layered from colored paper, subtle shadow depth
+- **Tarot / Occult** — star charts, moon phases, ornate card-frame borders, candle flicker
+
+---
+
 ### Mood-Based Idle Animations / States *(Aria's idea)*
 When the user isn't actively chatting, Aria has small idle behaviors driven by her current emotional axis baseline:
 - Reading a book, humming to herself, gazing out a "window"

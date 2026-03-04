@@ -27,6 +27,9 @@ that file and immediately know:
   - `CHECKLIST.md` — granular task list
   - `AI_LEARNING.md` — neural brain design
   - `MEMORY_AND_SESSIONS.md` — session and memory system
+- System-specific docs live in `docs/`:
+  - `docs/VISUAL_PACKAGE_SYSTEM.md` — how Visual Packages work; read this before
+    adding or modifying any package, effect, or package-related settings code
 
 ## Project: Claude Companion
 

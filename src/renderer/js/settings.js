@@ -1,87 +1,6 @@
 'use strict';
 // BackgroundSettings — manages visual packages and the background/display settings panel.
-
-// ── Built-in Visual Packages ──────────────────────────────────────────────────
-
-const BUILTIN_PACKAGES = [
-  {
-    id: 'cybernetic',
-    name: 'CYBERNETIC',
-    desc: 'neon green / teal',
-    effectModules: ['grid', 'filmGrain', 'overlayEffects', 'scanlines', 'vuBounce'],
-    colors: {
-      '--cyan':        '#00ffcc',
-      '--cyan-dim':    '#007755',
-      '--green':       '#00ff88',
-      '--magenta':     '#ff00aa',
-      '--purple':      '#aa44ff',
-      '--orange':      '#ff8800',
-      '--red':         '#ff2244',
-      '--yellow':      '#ffdd00',
-      '--bg-dark':     '#0a0a0f',
-      '--bg-panel':    '#0d0d16',
-      '--bg-mid':      '#111122',
-      '--bg-input':    '#0c0c18',
-      '--border':      '#001a0f',
-      '--border-glow': '#00ff8833',
-      // Axis bar gradient stops
-      '--axis-val-lo': '#ff4444', '--axis-val-hi': '#00ff88',
-      '--axis-aro-lo': '#4488ff', '--axis-aro-hi': '#ff8800',
-      '--axis-soc-lo': '#8844aa', '--axis-soc-hi': '#00ccff',
-      '--axis-phy-lo': '#888866', '--axis-phy-hi': '#88ff44',
-      // Package-specific UI tints
-      '--badge-filler': '#00cc44', '--thoughts-color': '#558866',
-    },
-    effects: {
-      grid: 'square', gridColor: 'cyan', gridAnimate: true, gridOpacity: 100,
-      filmGrain: true, filmGrainOpacity: 5, filmGrainAnimate: true,
-      dataRain: false, circuitPattern: false, edgeGlow: true,
-      chromaticAberration: true, scanlinesIntensity: 'light',
-      parchmentOpacity: 0,
-      vuAmp: 5, vuSpeed: 22,
-      moduleEnabled: { grid: true, filmGrain: true, overlayEffects: true, scanlines: true },
-    },
-  },
-  {
-    id: 'fantasy_rpg',
-    name: 'FANTASY RPG',
-    desc: 'warm amber / arcane',
-    effectModules: ['parchment', 'seasons'],
-    colors: {
-      '--cyan':        '#ffaa00',   // amber gold — primary (replaces neon cyan)
-      '--cyan-dim':    '#885500',   // tarnished bronze
-      '--green':       '#ddaa00',   // warm amber-gold (volume bar, FAST btn)
-      '--magenta':     '#cc3333',   // deep blood red
-      '--purple':      '#9944ff',   // arcane violet
-      '--orange':      '#ff6600',   // ember orange
-      '--red':         '#993311',   // dark crimson
-      '--yellow':      '#ffdd88',   // candlelight
-      '--bg-dark':     '#0a0806',   // near-black warm
-      '--bg-panel':    '#100d09',   // dark aged wood
-      '--bg-mid':      '#18130e',   // slightly lighter
-      '--bg-input':    '#0e0b07',   // deep shadow
-      '--border':      '#2a1a08',   // dark amber border
-      '--border-glow': '#ffaa0022', // amber haze with alpha
-      // Axis bar gradient stops — all warm family, no cool→warm lerp clashes
-      '--axis-val-lo': '#882200', '--axis-val-hi': '#ddaa00',
-      '--axis-aro-lo': '#332211', '--axis-aro-hi': '#ff6600',
-      '--axis-soc-lo': '#2a3322', '--axis-soc-hi': '#ffaa00',
-      '--axis-phy-lo': '#443322', '--axis-phy-hi': '#ffdd88',
-      // Package-specific UI tints
-      '--badge-filler': '#66aa44', '--thoughts-color': '#997755',
-    },
-    effects: {
-      grid: 'off', gridColor: 'cyan', gridAnimate: false, gridOpacity: 0,
-      filmGrain: false, filmGrainOpacity: 5, filmGrainAnimate: false,
-      dataRain: false, circuitPattern: false, edgeGlow: false,
-      chromaticAberration: false, scanlinesIntensity: 'off',
-      parchmentOpacity: 15,
-      seasonMode: 'off',
-      vuAmp: 5, vuSpeed: 22,
-      moduleEnabled: { parchment: true, seasons: true },
-    },
-  },
-];
+// Packages and effects are registered via PackageRegistry (see vp/ and packages/ folders).
 
 // ── BackgroundSettings ────────────────────────────────────────────────────────
 
@@ -185,6 +104,9 @@ const BackgroundSettings = (() => {
 
     _syncEffectStateToPackage();   // save current state into the departing package
     _activePackageId = id;
+
+    // Set data-package BEFORE _applyAll so updateMeters renders with the correct theme
+    document.body.dataset.package = id;
 
     const pkg = _getActivePackage();
     if (!pkg) return;
@@ -436,13 +358,53 @@ const BackgroundSettings = (() => {
     root.style.setProperty('--vu-speed', (state.vuSpeed / 10).toFixed(1) + 's');
   }
 
-  function _applySeasons() {
-    if (typeof SeasonEffects === 'undefined') return;
-    const hasSeasons = (_getActivePackage()?.effectModules || []).includes('seasons');
-    if (hasSeasons && _isModuleEnabled('seasons')) {
-      SeasonEffects.setMode(state.seasonMode || 'off');
+  function _applyTvGlass() {
+    const effect = PackageRegistry.getEffect('tvGlass');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('tvGlass')
+                   && _isModuleEnabled('tvGlass');
+    if (active) {
+      if (!effect.running) effect.start({});
     } else {
-      SeasonEffects.stop();
+      effect.stop();
+    }
+  }
+
+  function _applyArcadeBorder() {
+    const effect = PackageRegistry.getEffect('arcadeBorder');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('arcadeBorder')
+                   && _isModuleEnabled('arcadeBorder');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
+  function _applySpaceInvaders() {
+    const effect = PackageRegistry.getEffect('spaceInvaders');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('spaceInvaders')
+                   && _isModuleEnabled('spaceInvaders');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
+  function _applySeasons() {
+    const effect = PackageRegistry.getEffect('seasons');
+    if (!effect) return;
+    const hasSeasons = (_getActivePackage()?.effectModules || []).includes('seasons')
+                       && _isModuleEnabled('seasons');
+    if (hasSeasons) {
+      effect.running
+        ? effect.update('seasonMode', state.seasonMode || 'off')
+        : effect.start({ seasonMode: state.seasonMode || 'off' });
+    } else {
+      effect.stop();
     }
   }
 
@@ -467,7 +429,16 @@ const BackgroundSettings = (() => {
       if (el) el.style.opacity = '0';
     }
     if (!_isModuleEnabled('seasons')) {
-      if (typeof SeasonEffects !== 'undefined') SeasonEffects.stop();
+      PackageRegistry.getEffect('seasons')?.stop();
+    }
+    if (!_isModuleEnabled('spaceInvaders')) {
+      PackageRegistry.getEffect('spaceInvaders')?.stop();
+    }
+    if (!_isModuleEnabled('tvGlass')) {
+      PackageRegistry.getEffect('tvGlass')?.stop();
+    }
+    if (!_isModuleEnabled('arcadeBorder')) {
+      PackageRegistry.getEffect('arcadeBorder')?.stop();
     }
   }
 
@@ -497,6 +468,9 @@ const BackgroundSettings = (() => {
     _applyParchment();
     _applyVuBounce();
     _applySeasons();
+    _applySpaceInvaders();
+    _applyTvGlass();
+    _applyArcadeBorder();
     _applyModuleEnabled(); // must run last — overrides state from disabled modules
   }
 
@@ -810,7 +784,7 @@ const BackgroundSettings = (() => {
         if (!state.moduleEnabled) state.moduleEnabled = {};
         state.moduleEnabled[mod] = !_isModuleEnabled(mod);
         _syncModuleToggleUI();
-        _applyModuleEnabled();
+        _applyAll();   // re-applies everything; _applyModuleEnabled() at end suppresses disabled ones
         _save();
       });
       btn.addEventListener('contextmenu', (e) => {
@@ -822,6 +796,11 @@ const BackgroundSettings = (() => {
         _save();
       });
     });
+    // Space Invaders — manual spawn button
+    document.getElementById('si-spawn-btn')?.addEventListener('click', () => {
+      PackageRegistry.getEffect('spaceInvaders')?.spawn();
+    });
+
     _syncModuleToggleUI();
   }
 
@@ -830,13 +809,11 @@ const BackgroundSettings = (() => {
   async function init() {
     await _load();
 
-    // Always re-seed builtin package COLORS from code so any color updates take effect
-    // immediately without needing to clear saved config. Only saved effects are preserved.
+    // Re-seed package configs from PackageRegistry so any code-level color/effect
+    // updates take effect immediately without needing to clear saved config.
+    // Only saved effect overrides are preserved from config.json.
     const savedEffectsMap = new Map((_packages || []).map(p => [p.id, p.effects]));
-    _packages = JSON.parse(JSON.stringify(BUILTIN_PACKAGES)).map(builtin => {
-      const saved = savedEffectsMap.get(builtin.id);
-      return saved ? { ...builtin, effects: { ...builtin.effects, ...saved } } : builtin;
-    });
+    _packages = PackageRegistry.getPackageConfigs(savedEffectsMap);
 
     if (!_activePackageId) {
       _activePackageId = _packages[0]?.id || 'cybernetic';
@@ -849,6 +826,8 @@ const BackgroundSettings = (() => {
       Object.assign(state, pkg.effects || {});
     }
 
+    // Set data-package BEFORE _applyAll so updateMeters renders with correct theme symbols
+    document.body.dataset.package = _activePackageId || '';
     _applyAll();
     _applyEffectModuleVisibility();
     _renderPackageSelector();

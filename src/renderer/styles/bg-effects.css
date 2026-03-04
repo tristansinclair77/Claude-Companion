@@ -1,5 +1,9 @@
-/* ── Cyberpunk Background Effects ─────────────────────────────────────────── */
-/* All layers: fixed, non-interactive, behind all UI (z-index: -1)           */
+/* ── Shared Background Effect Layers ───────────────────────────────────────── */
+/* Most layers: fixed, non-interactive, behind all UI (z-index: -1)           */
+/* Exceptions:                                                                 */
+/*   #bg-arcade    z-index: 1  — foreground bezel frame overlay               */
+/*   #bg-tv-glass  z-index: 15 — above bezel, below title bar (z:100)         */
+/* Activated/deactivated by settings.js based on the active Visual Package.   */
 
 #bg-grid,
 #bg-noise,
@@ -157,7 +161,37 @@
 
 #bg-chroma.active { opacity: 1; }
 
-/* ── Parchment Overlay (Fantasy RPG package) ───────────────────────────────── */
+/* ── Arcade Cabinet Bezel Canvas ──────────────────────────────────────────── */
+/* Used by: Arcade Cabinet package.                                            */
+/* z-index: 1 so it appears above content but below title-bar (z-index:100)   */
+/* and all panels/popups. pointer-events: none so it never blocks interaction. */
+
+#bg-arcade {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── TV Glass surface overlay ───────────────────────────────────────────────── */
+#bg-tv-glass {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* ── Space Invaders random event canvas ─────────────────────────────────────── */
+/* z-index: 2 — above arcade bezel (z:1), below tv glass (z:15)                 */
+#bg-space-invaders {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Parchment Overlay ─────────────────────────────────────────────────────── */
+/* Currently used by: Fantasy RPG package.                                     */
 
 #bg-parchment {
   position: fixed;

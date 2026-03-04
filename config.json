@@ -1,5 +1,5 @@
 {
-  "activeCharacter": "default",
+  "activeCharacter": "nataltieri",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
     "pitchShift": 6,
@@ -10,7 +10,7 @@
   },
   "tts": {
     "voice": "rvc:Ashley Graham",
-    "enabled": true
+    "enabled": false
   },
   "fastMode": true,
   "background": {
@@ -19,35 +19,30 @@
     "gridAnimate": false,
     "gridOpacity": 0,
     "barWidth": 80,
-    "filmGrain": false,
-    "filmGrainOpacity": 5,
-    "filmGrainAnimate": false,
+    "filmGrain": true,
+    "filmGrainOpacity": 2,
+    "filmGrainAnimate": true,
     "dataRain": false,
     "circuitPattern": false,
     "edgeGlow": false,
     "chromaticAberration": false,
-    "scanlinesIntensity": "off",
-    "parchmentOpacity": 30,
+    "scanlinesIntensity": "light",
+    "parchmentOpacity": 0,
     "seasonMode": "sunbeams",
     "vuAmp": 5,
     "vuSpeed": 22,
     "moduleEnabled": {
-      "parchment": true,
-      "seasons": true
+      "arcadeBorder": true,
+      "scanlines": true,
+      "filmGrain": true,
+      "tvGlass": true
     },
-    "activePackage": "fantasy_rpg",
+    "activePackage": "arcade_cabinet",
     "packages": [
       {
         "id": "cybernetic",
         "name": "CYBERNETIC",
         "desc": "neon green / teal",
-        "effectModules": [
-          "grid",
-          "filmGrain",
-          "overlayEffects",
-          "scanlines",
-          "vuBounce"
-        ],
         "colors": {
           "--cyan": "#00ffcc",
           "--cyan-dim": "#007755",
@@ -74,13 +69,20 @@
           "--badge-filler": "#00cc44",
           "--thoughts-color": "#558866"
         },
+        "effectModules": [
+          "grid",
+          "filmGrain",
+          "overlayEffects",
+          "scanlines",
+          "vuBounce"
+        ],
         "effects": {
           "grid": "hex",
-          "gridColor": "cyan",
+          "gridColor": "green",
           "gridAnimate": true,
           "gridOpacity": 10,
           "filmGrain": true,
-          "filmGrainOpacity": 6,
+          "filmGrainOpacity": 7,
           "filmGrainAnimate": true,
           "dataRain": true,
           "circuitPattern": true,
@@ -95,17 +97,29 @@
             "filmGrain": true,
             "overlayEffects": true,
             "scanlines": true
-          }
+          },
+          "seasonMode": "sunbeams"
+        },
+        "background": {
+          "type": "none",
+          "src": null
+        },
+        "fonts": {
+          "ui": null,
+          "header": null
+        },
+        "music": {
+          "track": null,
+          "volume": 0.5
+        },
+        "sounds": {
+          "pack": null
         }
       },
       {
         "id": "fantasy_rpg",
         "name": "FANTASY RPG",
         "desc": "warm amber / arcane",
-        "effectModules": [
-          "parchment",
-          "seasons"
-        ],
         "colors": {
           "--cyan": "#ffaa00",
           "--cyan-dim": "#885500",
@@ -132,6 +146,10 @@
           "--badge-filler": "#66aa44",
           "--thoughts-color": "#997755"
         },
+        "effectModules": [
+          "parchment",
+          "seasons"
+        ],
         "effects": {
           "grid": "off",
           "gridColor": "cyan",
@@ -153,6 +171,97 @@
             "parchment": true,
             "seasons": true
           }
+        },
+        "background": {
+          "type": "none",
+          "src": null
+        },
+        "fonts": {
+          "ui": null,
+          "header": null
+        },
+        "music": {
+          "track": null,
+          "volume": 0.5
+        },
+        "sounds": {
+          "pack": null
+        }
+      },
+      {
+        "id": "arcade_cabinet",
+        "name": "ARCADE",
+        "desc": "coin-op yellow / pixel bezel",
+        "colors": {
+          "--cyan": "#ffee00",
+          "--cyan-dim": "#997700",
+          "--green": "#00dd44",
+          "--magenta": "#ff2200",
+          "--purple": "#ff6600",
+          "--orange": "#ffaa00",
+          "--red": "#cc0000",
+          "--yellow": "#ffff66",
+          "--bg-dark": "#080808",
+          "--bg-panel": "#0f0f0f",
+          "--bg-mid": "#161616",
+          "--bg-input": "#0a0a0a",
+          "--border": "#2a1400",
+          "--border-glow": "#ffee0033",
+          "--axis-val-lo": "#882200",
+          "--axis-val-hi": "#ffee00",
+          "--axis-aro-lo": "#221100",
+          "--axis-aro-hi": "#ff4400",
+          "--axis-soc-lo": "#002211",
+          "--axis-soc-hi": "#00dd44",
+          "--axis-phy-lo": "#221100",
+          "--axis-phy-hi": "#ffee00",
+          "--badge-filler": "#00bb44",
+          "--thoughts-color": "#886600"
+        },
+        "effectModules": [
+          "tvGlass",
+          "arcadeBorder",
+          "scanlines",
+          "filmGrain"
+        ],
+        "effects": {
+          "grid": "off",
+          "gridColor": "cyan",
+          "gridAnimate": false,
+          "gridOpacity": 0,
+          "filmGrain": true,
+          "filmGrainOpacity": 2,
+          "filmGrainAnimate": true,
+          "dataRain": false,
+          "circuitPattern": false,
+          "edgeGlow": false,
+          "chromaticAberration": false,
+          "scanlinesIntensity": "light",
+          "parchmentOpacity": 0,
+          "seasonMode": "sunbeams",
+          "vuAmp": 5,
+          "vuSpeed": 22,
+          "moduleEnabled": {
+            "arcadeBorder": true,
+            "scanlines": true,
+            "filmGrain": true,
+            "tvGlass": true
+          }
+        },
+        "background": {
+          "type": "none",
+          "src": null
+        },
+        "fonts": {
+          "ui": null,
+          "header": null
+        },
+        "music": {
+          "track": null,
+          "volume": 0.5
+        },
+        "sounds": {
+          "pack": null
         }
       }
     ]
@@ -160,8 +269,8 @@
   "zoom": 200,
   "rpgWinBounds": {
     "adventure": {
-      "x": 713,
-      "y": 314,
+      "x": 852,
+      "y": 260,
       "width": 1084,
       "height": 900
     },
