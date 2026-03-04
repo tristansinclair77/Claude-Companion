@@ -24,11 +24,16 @@ const BackgroundSettings = (() => {
     seasonMode:          'off',     // 'off' | 'random' | 'snow' | 'rain' | 'sunbeams' | 'leaves'
     vuAmp:               5,         // 1–15: VU meter bounce amplitude (÷100 = decimal offset)
     vuSpeed:             22,        // 5–60: VU meter speed (÷10 = seconds per cycle)
+    arcadeRasterBeam:    true,      // arcade ambient sub-effects
+    arcadePixelDust:     true,
+    arcadeAttract:       true,
+    arcadeGlitches:      true,
     moduleEnabled:       {},        // per-module on/off; missing key = enabled by default
   };
 
   let state = { ...DEFAULTS };
   let _rainCols = [];
+  let _siPollInterval = null;  // polls while Space Invaders is running to re-enable spawn btn
 
   // ── Package state ─────────────────────────────────────────────────────────
 
@@ -61,6 +66,10 @@ const BackgroundSettings = (() => {
       seasonMode:          state.seasonMode,
       vuAmp:               state.vuAmp,
       vuSpeed:             state.vuSpeed,
+      arcadeRasterBeam:    state.arcadeRasterBeam,
+      arcadePixelDust:     state.arcadePixelDust,
+      arcadeAttract:       state.arcadeAttract,
+      arcadeGlitches:      state.arcadeGlitches,
       moduleEnabled:       { ...(state.moduleEnabled || {}) },
     };
   }
@@ -394,6 +403,43 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _applyAsteroids() {
+    const effect = PackageRegistry.getEffect('asteroids');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('asteroids')
+                   && _isModuleEnabled('asteroids');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
+  function _applyArcadeAmbient() {
+    const effect = PackageRegistry.getEffect('arcadeAmbient');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('arcadeAmbient')
+                   && _isModuleEnabled('arcadeAmbient');
+    if (active) {
+      const cfg = {
+        rasterBeam: state.arcadeRasterBeam !== false,
+        pixelDust:  state.arcadePixelDust  !== false,
+        attract:    state.arcadeAttract    !== false,
+        glitches:   state.arcadeGlitches   !== false,
+      };
+      if (!effect.running) {
+        effect.start(cfg);
+      } else {
+        effect.update('rasterBeam', cfg.rasterBeam);
+        effect.update('pixelDust',  cfg.pixelDust);
+        effect.update('attract',    cfg.attract);
+        effect.update('glitches',   cfg.glitches);
+      }
+    } else {
+      effect.stop();
+    }
+  }
+
   function _applySeasons() {
     const effect = PackageRegistry.getEffect('seasons');
     if (!effect) return;
@@ -434,11 +480,17 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('spaceInvaders')) {
       PackageRegistry.getEffect('spaceInvaders')?.stop();
     }
+    if (!_isModuleEnabled('asteroids')) {
+      PackageRegistry.getEffect('asteroids')?.stop();
+    }
     if (!_isModuleEnabled('tvGlass')) {
       PackageRegistry.getEffect('tvGlass')?.stop();
     }
     if (!_isModuleEnabled('arcadeBorder')) {
       PackageRegistry.getEffect('arcadeBorder')?.stop();
+    }
+    if (!_isModuleEnabled('arcadeAmbient')) {
+      PackageRegistry.getEffect('arcadeAmbient')?.stop();
     }
   }
 
@@ -469,6 +521,8 @@ const BackgroundSettings = (() => {
     _applyVuBounce();
     _applySeasons();
     _applySpaceInvaders();
+    _applyAsteroids();
+    _applyArcadeAmbient();
     _applyTvGlass();
     _applyArcadeBorder();
     _applyModuleEnabled(); // must run last — overrides state from disabled modules
@@ -481,6 +535,19 @@ const BackgroundSettings = (() => {
     if (!el) return;
     el.classList.toggle('active', active);
     el.textContent = active ? 'ON' : 'OFF';
+  }
+
+  // All arcade event IDs — adding a new event here auto-gates all spawn buttons
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids'];
+
+  function _syncEventSpawnBtns() {
+    const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn']) {
+      const btn = document.getElementById(id);
+      if (!btn) continue;
+      btn.disabled = anyBusy;
+      btn.classList.toggle('active', !anyBusy);
+    }
   }
 
   function _updateSlider(sliderId, valId, value, min, max) {
@@ -531,6 +598,13 @@ const BackgroundSettings = (() => {
     _updateSlider('vu-speed', 'vu-speed-val', state.vuSpeed, 5, 60);
     const vuSpeedValEl = document.getElementById('vu-speed-val');
     if (vuSpeedValEl) vuSpeedValEl.textContent = (state.vuSpeed / 10).toFixed(1) + 's';
+    // Event spawn buttons — dim all while any event is busy
+    _syncEventSpawnBtns();
+    // Arcade ambient sub-effect toggles
+    _setToggle('ambient-raster-btn',  state.arcadeRasterBeam !== false);
+    _setToggle('ambient-dust-btn',    state.arcadePixelDust  !== false);
+    _setToggle('ambient-attract-btn', state.arcadeAttract    !== false);
+    _setToggle('ambient-glitch-btn',  state.arcadeGlitches   !== false);
     // Module toggle buttons
     _syncModuleToggleUI();
   }
@@ -796,9 +870,36 @@ const BackgroundSettings = (() => {
         _save();
       });
     });
-    // Space Invaders — manual spawn button
-    document.getElementById('si-spawn-btn')?.addEventListener('click', () => {
-      PackageRegistry.getEffect('spaceInvaders')?.spawn();
+    // Arcade event spawn buttons — all share the busy-gate; poll re-enables after run
+    function _spawnEvent(effectId) {
+      if (_EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy)) return;
+      PackageRegistry.getEffect(effectId)?.spawn();
+      _syncEventSpawnBtns();
+      if (_siPollInterval) clearInterval(_siPollInterval);
+      _siPollInterval = setInterval(() => {
+        _syncEventSpawnBtns();
+        if (!_EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy)) {
+          clearInterval(_siPollInterval); _siPollInterval = null;
+        }
+      }, 500);
+    }
+    document.getElementById('si-spawn-btn')?.addEventListener('click',  () => _spawnEvent('spaceInvaders'));
+    document.getElementById('ast-spawn-btn')?.addEventListener('click', () => _spawnEvent('asteroids'));
+
+    // Arcade Ambient — sub-effect toggle buttons
+    [
+      ['ambient-raster-btn',  'arcadeRasterBeam', 'rasterBeam'],
+      ['ambient-dust-btn',    'arcadePixelDust',  'pixelDust'],
+      ['ambient-attract-btn', 'arcadeAttract',    'attract'],
+      ['ambient-glitch-btn',  'arcadeGlitches',   'glitches'],
+    ].forEach(([id, stateKey, effectKey]) => {
+      document.getElementById(id)?.addEventListener('click', () => {
+        state[stateKey] = !(state[stateKey] !== false);
+        _syncUI();
+        const effect = PackageRegistry.getEffect('arcadeAmbient');
+        if (effect?.running) effect.update(effectKey, state[stateKey]);
+        _save();
+      });
     });
 
     _syncModuleToggleUI();

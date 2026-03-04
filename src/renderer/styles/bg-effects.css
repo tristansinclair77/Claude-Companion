@@ -190,6 +190,24 @@
   z-index: 2;
 }
 
+/* ── Asteroids random event canvas ──────────────────────────────────────────── */
+/* Same z-index:2 as space invaders — events never run simultaneously.          */
+#bg-asteroids {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Arcade Ambient canvas (raster beam, pixel dust, attract mode, degauss) ── */
+/* z-index: 3 — above space-invaders (z:2), below tv glass (z:15)              */
+#bg-arcade-ambient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
 /* ── Parchment Overlay ─────────────────────────────────────────────────────── */
 /* Currently used by: Fantasy RPG package.                                     */
 

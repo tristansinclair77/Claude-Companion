@@ -197,6 +197,11 @@
   color: var(--cyan);
   text-shadow: 0 0 5px var(--cyan);
 }
+.settings-toggle:disabled {
+  opacity: 0.30;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 /* Radio pill group */
 .settings-radio-group {

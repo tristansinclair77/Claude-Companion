@@ -22,9 +22,11 @@
   <div id="bg-chroma"    aria-hidden="true"></div>
   <div id="bg-parchment" aria-hidden="true"></div>
   <canvas id="bg-season"    aria-hidden="true"></canvas>
-  <canvas id="bg-arcade"    aria-hidden="true"></canvas>
-  <canvas id="bg-tv-glass"       aria-hidden="true"></canvas>
-  <canvas id="bg-space-invaders" aria-hidden="true"></canvas>
+  <canvas id="bg-arcade"          aria-hidden="true"></canvas>
+  <canvas id="bg-tv-glass"        aria-hidden="true"></canvas>
+  <canvas id="bg-space-invaders"  aria-hidden="true"></canvas>
+  <canvas id="bg-asteroids"       aria-hidden="true"></canvas>
+  <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -230,6 +232,40 @@
         </div>
       </div>
 
+      <!-- Asteroids random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="asteroids">
+        <div class="settings-section-title">ASTEROIDS</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">Triangle ship vs. asteroid field</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="ast-spawn-btn">SPAWN</button>
+        </div>
+      </div>
+
+      <!-- Arcade Ambient (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="arcadeAmbient">
+        <div class="settings-section-title">ARCADE AMBIENT</div>
+        <div class="settings-row">
+          <span class="settings-label">RASTER BEAM</span>
+          <button class="settings-toggle active" id="ambient-raster-btn">ON</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">PIXEL DUST</span>
+          <button class="settings-toggle active" id="ambient-dust-btn">ON</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">INSERT COIN</span>
+          <button class="settings-toggle active" id="ambient-attract-btn">ON</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">GLITCHES</span>
+          <button class="settings-toggle active" id="ambient-glitch-btn">ON</button>
+        </div>
+      </div>
+
       <!-- Background Grid (Cybernetic package) -->
       <div class="settings-section" data-effect-module="grid">
         <div class="settings-section-title">BACKGROUND GRID</div>
@@ -413,6 +449,8 @@
   <script src="js/effects/ArcadeEffect.js"></script>
   <script src="js/effects/TvGlassEffect.js"></script>
   <script src="js/effects/SpaceInvadersEffect.js"></script>
+  <script src="js/effects/AsteroidsEffect.js"></script>
+  <script src="js/effects/ArcadeAmbientEffect.js"></script>
   <script src="js/packages/CyberneticPackage.js"></script>
   <script src="js/packages/FantasyRpgPackage.js"></script>
   <script src="js/packages/ArcadePackage.js"></script>

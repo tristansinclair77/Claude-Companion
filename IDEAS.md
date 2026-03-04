@@ -36,6 +36,60 @@ Parking lot for future visual package ideas:
 
 ---
 
+### Arcade Cabinet — Random Events System
+The Arcade Cabinet visual package plays random "event" sequences — self-contained pixel-art mini-games and
+vignettes that run autonomously for ~45–90 seconds, then crumble into falling pixels and fade out. Events
+are triggered on a random timer or manually via the Spawn button in settings. Only one event runs at a time.
+
+**Already built:**
+- **Space Invaders** — 3-row enemy formation marches and fires, player ship slides in and shoots back.
+  Enemies explode into firework sparks. Ends with a blink-and-crumble outro.
+
+**User ideas:**
+
+- **Pixel Side-Scroller Fantasy** — A little pixel hero walks right across a parallax background (white clouds,
+  green rolling mountains, trees and bushes scrolling at different speeds). Encounters random pixel enemies
+  along the way — slashes with a sword, gains gold and XP counter ticks up. Partway through, a boss
+  enters from the right and the hero fights it — but the boss wins. "GAME OVER" screen flashes, then
+  everything crumbles into falling pixels and drops out of frame.
+
+- **Asteroids** — A pixel triangle ship enters from off-screen, zips around the game area and fires at
+  drifting asteroids. Hit asteroids break into 2–3 smaller chunks (authentic Asteroids behavior).
+  If the ship touches an asteroid it explodes; a new ship flies in from off-screen blinking white
+  (invincibility frames). Continues for the event duration, then the ship's final explosion sends
+  shrapnel that shatters the asteroids — all pixels rain down out of frame.
+
+- **Megaman Boss Fight** — A pixel spaceman character stands on a four-platform arena (platforms you can
+  jump up through from below, drop through from above). Character moves around semi-randomly, arm always
+  aiming at the boss in the center on a flat floor. Boss is a yellow blob with stubby arms, legs, and
+  one large eye — swipes its arm at the spaceman and fires laser beams. After a dramatic exchange
+  the boss is defeated, flashes white, and everything crumbles.
+
+**My ideas:**
+
+- **Pong Duel** — Two AI paddles rally a ball back and forth. Ball speeds up on each hit; both paddles
+  start lagging behind as pace becomes frantic. Score counter ticks up for each side. After a
+  final impossibly fast rally the ball shatters both paddles into pixel shards that rain down.
+
+- **Tetris Panic** — Tetrominoes rain down and a CPU player frantically clears lines — but it can't
+  keep up. The stack climbs. Near the top, new pieces start overflowing, the whole stack shudders,
+  cracks in half, and collapses out the bottom in a cascade of pixel rubble.
+
+- **Galaga Assault** — Enemy fleet forms up in tight formation then peels off into sweeping dive-bomb
+  attacks with pixel flame trails. Features the iconic tractor beam ship-capture moment — one enemy
+  swoops down, beam locks onto the player ship, drags it into the formation. Final enemy kamikaze-dives
+  at the player for a mutual explosion. All pixels rain down.
+
+- **Duck Hunt** — Pixel ducks arc silently across the sky one or two at a time; a crosshair tracks and
+  fires — direct hits burst into falling feathers. After several rounds the laughing dog pops up
+  from the grass bottom edge. Then the whole scene dissolves into crumbling pixel confetti.
+
+- **Snake Spiral** — Classic snake chases glowing pixel dots; grows longer and faster. AI drives it
+  into an increasingly tight spiral. At the dramatic moment it hits its own tail — the snake
+  writhes, flashes, and pixelates out from tail to head.
+
+---
+
 ### Mood-Based Idle Animations / States *(Aria's idea)*
 When the user isn't actively chatting, Aria has small idle behaviors driven by her current emotional axis baseline:
 - Reading a book, humming to herself, gazing out a "window"

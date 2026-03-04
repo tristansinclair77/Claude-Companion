@@ -88,7 +88,10 @@ class SpaceInvadersEffect extends VisualEffect {
     return { x: r.left + 10, y: r.top + 10, w: r.width - 20, h: r.height - 20 };
   }
 
-  // ── Public: trigger a spawn ───────────────────────────────────────────────
+  // ── Public API ───────────────────────────────────────────────────────────
+
+  /** True while a game sequence is running (not idle). Use to gate spawn button. */
+  get busy() { return this._state !== 'idle'; }
 
   spawn() {
     if (!this._initCanvas()) return;
