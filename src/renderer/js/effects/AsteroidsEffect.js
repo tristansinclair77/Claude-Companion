@@ -25,7 +25,6 @@ class AsteroidsEffect extends VisualEffect {
   static BULLET_LIFE       = 1.5;   // seconds before bullet expires
   static FIRE_INTERVAL     = 0.52;  // seconds between shots
   static INVINC_DUR        = 2.2;   // seconds of invincibility after respawn
-  static MAX_LIVES         = 3;
   static ASTEROID_COUNT    = 5;     // initial large asteroids (spawned from edges)
   static THRUST_ON_TIME    = 0.65;  // seconds of thrust per burst
   static THRUST_OFF_TIME   = 1.6;   // seconds between thrust bursts
@@ -119,7 +118,6 @@ class AsteroidsEffect extends VisualEffect {
       vy:         0,
       angle:      0,          // current heading (radians; 0 = right)
       invincible: AsteroidsEffect.INVINC_DUR,
-      lives:      AsteroidsEffect.MAX_LIVES,
       alive:      true,
     };
     this._thrusting       = false;
@@ -575,16 +573,7 @@ class AsteroidsEffect extends VisualEffect {
     if (this._ship.invincible > 0) return;
 
     this._spawnExplosion(this._ship.x, this._ship.y, '#ffee00');
-    this._ship.lives--;
-    if (this._ship.lives <= 0) {
-      this._ship.alive     = false;
-      this._state          = 'outro';
-      this._t              = 0;
-      this._blinkVis       = true;
-      this._crumbleStarted = false;
-      return;
-    }
-    // Respawn in center, fully invincible
+    // Respawn in center, fully invincible (no lives limit)
     this._ship.x          = ga.x + ga.w * 0.5;
     this._ship.y          = ga.y + ga.h * 0.5;
     this._ship.vx         = 0;

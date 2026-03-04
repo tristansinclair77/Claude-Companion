@@ -71,6 +71,13 @@ are triggered on a random timer or manually via the Spawn button in settings. On
   start lagging behind as pace becomes frantic. Score counter ticks up for each side. After a
   final impossibly fast rally the ball shatters both paddles into pixel shards that rain down.
 
+- **Breakout** — A grid of coloured pixel bricks fills the top half of the area. A single ball
+  bounces off a paddle at the bottom and chips away at the wall row by row; the paddle AI tracks
+  it well at first but gradually goes erratic as the ball angle becomes unpredictable. As bricks
+  are cleared, the ball accelerates — rows vanish faster and faster. When the last brick pops,
+  the paddle itself explodes into shards and every cleared-brick fragment rains down together
+  in a final cascade of pixel confetti.
+
 - **Tetris Panic** — Tetrominoes rain down and a CPU player frantically clears lines — but it can't
   keep up. The stack climbs. Near the top, new pieces start overflowing, the whole stack shudders,
   cracks in half, and collapses out the bottom in a cascade of pixel rubble.

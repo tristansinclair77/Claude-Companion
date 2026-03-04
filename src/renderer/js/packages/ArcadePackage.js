@@ -44,15 +44,15 @@ class ArcadePackage extends VisualPackage {
       '--axis-aro-hi':   '#ff4400',
       '--axis-soc-lo':   '#002211',
       '--axis-soc-hi':   '#00dd44',
-      '--axis-phy-lo':   '#221100',
-      '--axis-phy-hi':   '#ffee00',
+      '--axis-phy-lo':   '#001133',
+      '--axis-phy-hi':   '#4488ff',
       // Package-specific UI tints
       '--badge-filler':  '#00bb44',
       '--thoughts-color':'#886600',
     };
 
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'arcadeAmbient', 'scanlines', 'filmGrain'];
+    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'pong', 'arcadeAmbient', 'scanlines', 'filmGrain'];
 
     this.defaultEffects = {
       grid:                'off',
@@ -79,6 +79,7 @@ class ArcadePackage extends VisualPackage {
         arcadeBorder:   true,
         spaceInvaders:  true,
         asteroids:      true,
+        pong:           true,
         arcadeAmbient:  true,
         scanlines:      true,
         filmGrain:      true,

@@ -26,6 +26,7 @@
   <canvas id="bg-tv-glass"        aria-hidden="true"></canvas>
   <canvas id="bg-space-invaders"  aria-hidden="true"></canvas>
   <canvas id="bg-asteroids"       aria-hidden="true"></canvas>
+  <canvas id="bg-pong"            aria-hidden="true"></canvas>
   <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
@@ -245,6 +246,19 @@
         </div>
       </div>
 
+      <!-- Pong random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="pong">
+        <div class="settings-section-title">PONG</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">AI paddle rally — speeds up until shatter</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="pong-spawn-btn">SPAWN</button>
+        </div>
+      </div>
+
       <!-- Arcade Ambient (Arcade Cabinet package) -->
       <div class="settings-section" data-effect-module="arcadeAmbient">
         <div class="settings-section-title">ARCADE AMBIENT</div>
@@ -450,6 +464,7 @@
   <script src="js/effects/TvGlassEffect.js"></script>
   <script src="js/effects/SpaceInvadersEffect.js"></script>
   <script src="js/effects/AsteroidsEffect.js"></script>
+  <script src="js/effects/PongEffect.js"></script>
   <script src="js/effects/ArcadeAmbientEffect.js"></script>
   <script src="js/packages/CyberneticPackage.js"></script>
   <script src="js/packages/FantasyRpgPackage.js"></script>

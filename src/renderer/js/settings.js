@@ -33,7 +33,10 @@ const BackgroundSettings = (() => {
 
   let state = { ...DEFAULTS };
   let _rainCols = [];
-  let _siPollInterval = null;  // polls while Space Invaders is running to re-enable spawn btn
+  let _siPollInterval   = null;  // polls while an event is running to re-enable spawn btn
+  let _idleCheckTimer   = null;  // setInterval that checks for user inactivity
+  let _lastActivity     = Date.now();
+  let _idleThresholdMs  = 0;    // randomised each cycle: 120–180 s
 
   // ── Package state ─────────────────────────────────────────────────────────
 
@@ -415,6 +418,18 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _applyPong() {
+    const effect = PackageRegistry.getEffect('pong');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('pong')
+                   && _isModuleEnabled('pong');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
   function _applyArcadeAmbient() {
     const effect = PackageRegistry.getEffect('arcadeAmbient');
     if (!effect) return;
@@ -483,6 +498,9 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('asteroids')) {
       PackageRegistry.getEffect('asteroids')?.stop();
     }
+    if (!_isModuleEnabled('pong')) {
+      PackageRegistry.getEffect('pong')?.stop();
+    }
     if (!_isModuleEnabled('tvGlass')) {
       PackageRegistry.getEffect('tvGlass')?.stop();
     }
@@ -522,6 +540,7 @@ const BackgroundSettings = (() => {
     _applySeasons();
     _applySpaceInvaders();
     _applyAsteroids();
+    _applyPong();
     _applyArcadeAmbient();
     _applyTvGlass();
     _applyArcadeBorder();
@@ -538,11 +557,11 @@ const BackgroundSettings = (() => {
   }
 
   // All arcade event IDs — adding a new event here auto-gates all spawn buttons
-  const _EVENT_IDS = ['spaceInvaders', 'asteroids'];
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong'];
 
   function _syncEventSpawnBtns() {
     const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
-    for (const id of ['si-spawn-btn', 'ast-spawn-btn']) {
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn']) {
       const btn = document.getElementById(id);
       if (!btn) continue;
       btn.disabled = anyBusy;
@@ -883,8 +902,41 @@ const BackgroundSettings = (() => {
         }
       }, 500);
     }
-    document.getElementById('si-spawn-btn')?.addEventListener('click',  () => _spawnEvent('spaceInvaders'));
-    document.getElementById('ast-spawn-btn')?.addEventListener('click', () => _spawnEvent('asteroids'));
+    document.getElementById('si-spawn-btn')?.addEventListener('click',   () => _spawnEvent('spaceInvaders'));
+    document.getElementById('ast-spawn-btn')?.addEventListener('click',  () => _spawnEvent('asteroids'));
+    document.getElementById('pong-spawn-btn')?.addEventListener('click', () => _spawnEvent('pong'));
+
+    // ── Idle auto-spawn ───────────────────────────────────────────────────────
+    // After 2–3 min of user inactivity, fire a random arcade event (if arcade
+    // package is active and no event is already running).
+    function _pickIdleThreshold() {
+      return (120 + Math.random() * 60) * 1000;   // 120–180 s in ms
+    }
+    function _idleSpawn() {
+      const mods = _getActivePackage()?.effectModules || [];
+      const eligible = _EVENT_IDS.filter(id =>
+        mods.includes(id) && _isModuleEnabled(id)
+      );
+      if (!eligible.length) return;
+      if (_EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy)) return;
+      const id = eligible[Math.floor(Math.random() * eligible.length)];
+      _spawnEvent(id);
+    }
+    _idleThresholdMs = _pickIdleThreshold();
+    _idleCheckTimer  = setInterval(() => {
+      if (Date.now() - _lastActivity >= _idleThresholdMs) {
+        _lastActivity    = Date.now();           // prevent double-firing
+        _idleThresholdMs = _pickIdleThreshold(); // new random window next cycle
+        _idleSpawn();
+      }
+    }, 15_000);   // check every 15 s
+
+    // Reset idle counter on any user interaction
+    const _resetIdle = () => { _lastActivity = Date.now(); };
+    document.addEventListener('mousemove',  _resetIdle, { passive: true });
+    document.addEventListener('mousedown',  _resetIdle, { passive: true });
+    document.addEventListener('keydown',    _resetIdle, { passive: true });
+    document.addEventListener('touchstart', _resetIdle, { passive: true });
 
     // Arcade Ambient — sub-effect toggle buttons
     [
