@@ -27,6 +27,7 @@
   <canvas id="bg-space-invaders"  aria-hidden="true"></canvas>
   <canvas id="bg-asteroids"       aria-hidden="true"></canvas>
   <canvas id="bg-pong"            aria-hidden="true"></canvas>
+  <canvas id="bg-side-scroller"   aria-hidden="true"></canvas>
   <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
@@ -259,6 +260,19 @@
         </div>
       </div>
 
+      <!-- Side Scroller random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="sideScroller">
+        <div class="settings-section-title">SIDE SCROLLER</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">Hero battles monsters, boss kills hero</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="ss-spawn-btn">SPAWN</button>
+        </div>
+      </div>
+
       <!-- Arcade Ambient (Arcade Cabinet package) -->
       <div class="settings-section" data-effect-module="arcadeAmbient">
         <div class="settings-section-title">ARCADE AMBIENT</div>
@@ -465,6 +479,7 @@
   <script src="js/effects/SpaceInvadersEffect.js"></script>
   <script src="js/effects/AsteroidsEffect.js"></script>
   <script src="js/effects/PongEffect.js"></script>
+  <script src="js/effects/SideScrollerEffect.js"></script>
   <script src="js/effects/ArcadeAmbientEffect.js"></script>
   <script src="js/packages/CyberneticPackage.js"></script>
   <script src="js/packages/FantasyRpgPackage.js"></script>

@@ -208,6 +208,15 @@
   z-index: 2;
 }
 
+/* ── Side Scroller random event canvas ───────────────────────────────────────── */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.     */
+#bg-side-scroller {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ── Arcade Ambient canvas (raster beam, pixel dust, attract mode, degauss) ── */
 /* z-index: 3 — above space-invaders (z:2), below tv glass (z:15)              */
 #bg-arcade-ambient {
@@ -256,4 +265,14 @@
     rgba(0, 0, 0, 0.22) 1px,
     rgba(0, 0, 0, 0.22) 3px
   );
+}
+
+/* ── Dialogue panels above all event canvases ────────────────────────────── */
+/* Non-positioned block elements paint BEFORE fixed z-index:0 canvases in    */
+/* the CSS stacking order, so dialogue gets covered. Fix: create stacking     */
+/* contexts at z-index:4 (above arcade-ambient z:3, below tv-glass z:15).    */
+#companion-output,
+#internal-state {
+  position: relative;
+  z-index: 4;
 }

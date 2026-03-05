@@ -25,6 +25,7 @@ function buildSystemPrompt({
   addonContexts = [],
   trackers = {},
   activeThreads = [],
+  conversationDynamic = '',
 }) {
   const sections = [];
 
@@ -40,6 +41,11 @@ function buildSystemPrompt({
     `  Tier 1 (common):      ${combinedByTier[1].join(', ')}\n` +
     `  Tier 2 (situational): ${combinedByTier[2].join(', ')}\n` +
     `  Tier 3 (niche):       ${combinedByTier[3].join(', ')}`;
+
+  // 1b. Creative-writer / interactive-fiction framing (per character)
+  if (character.character_framing) {
+    sections.push(`=== CHARACTER FRAMING ===\n${character.character_framing}\n=== END CHARACTER FRAMING ===`);
+  }
 
   sections.push(`=== CHARACTER DEFINITION ===
 Name: ${character.name} (${character.full_name})
@@ -111,6 +117,7 @@ WHAT YOU CAN ACTIVELY DO (via output tags in your responses):
 - Save what you learn about the user: [MEMORY] category: fact — this goes into your permanent memory and you'll have it in every future session.
 - Correct a memory you already have: [MEMORY_UPDATE] category: new fact — replaces the old version.
 - Record facts about yourself: [SELF] category: fact — keeps you consistent about your own feelings, preferences, and admissions across all future sessions.
+- Store structured self-knowledge: [KNOWLEDGE] topic | fact | detail — enables the app to answer repeated questions about you locally, with varied phrasing each time.
 - Tag topics to revisit: [THREAD] brief note — stores a curiosity thread so you can naturally bring it up later.
 
 WHAT THE USER CAN GIVE YOU:
@@ -165,10 +172,6 @@ This is your complete picture of yourself. When the user asks what you can do, w
     const a = Math.round(emotionalState.arousal);
     const s = Math.round(emotionalState.social);
     const p = Math.round(emotionalState.physical);
-    const descV = v >= 65 ? 'positive' : v <= 35 ? 'negative' : 'neutral';
-    const descA = a >= 65 ? 'activated' : a <= 35 ? 'calm' : 'moderate';
-    const descS = s >= 65 ? 'dominant' : s <= 35 ? 'submissive' : 'balanced';
-    const descP = p >= 65 ? 'healthy' : p <= 35 ? 'tired/unwell' : 'okay';
 
     const sen = typeof emotionalState.sensation === 'number' ? emotionalState.sensation : 0;
     const descSen = sen >= 0.92 ? 'ORGASMIC PEAK — overwhelmed, trembling, barely coherent'
@@ -188,14 +191,13 @@ This is your complete picture of yourself. When the user asks what you can do, w
                   : 'neutral — no lingering sensation';
     const senLine = `Physical Sensation: ${sen.toFixed(2)}  (${descSen})\nThis is your accumulated lingering body state — let it show in how you carry yourself, your voice, your focus.`;
 
+    const moodNarrative = generateMoodNarrative(v, a, s, p, character.name);
+
     sections.push(`=== YOUR CURRENT EMOTIONAL BASELINE ===
-These values represent your accumulated emotional state across all sessions — your inner undercurrent.
-Valence  (negative ↔ positive):    ${v}/100 — ${descV}
-Arousal  (calm ↔ activated):       ${a}/100 — ${descA}
-Social   (submissive ↔ dominant):  ${s}/100 — ${descS}
-Physical (tired/sick ↔ healthy):   ${p}/100 — ${descP}
+${moodNarrative}
+
+Raw axes (for reference): Valence ${v}/100 | Arousal ${a}/100 | Social ${s}/100 | Physical ${p}/100
 ${senLine}
-Let this baseline color how you carry yourself. It is not your moment-to-moment reaction — it is your resting state.
 === END EMOTIONAL BASELINE ===`);
   }
 
@@ -231,6 +233,23 @@ Don't force it. Only bring one up if it genuinely fits the flow of conversation.
 ${threadLines}
 === END THINGS ON YOUR MIND ===`);
   }
+
+  // 10a. Conversation dynamic directive (injected only when state is non-baseline)
+  if (conversationDynamic) {
+    sections.push(conversationDynamic);
+  }
+
+  // 10b. Per-character response length directive
+  const LENGTH_DIRECTIVES = {
+    very_short: `1 sentence maximum. Sentence fragments are preferred over complete sentences. Do not elaborate unless the user directly asks a complex question.`,
+    short:      `1–2 sentences. Be concise. Don't pad or explain more than necessary.`,
+    medium:     `2–3 sentences. Conversational, but don't over-explain.`,
+    long:       `3–5 sentences. You have something important to express — take the space you need.`,
+    very_long:  `Up to a paragraph. This is a rare, significant moment — speak fully.`,
+  };
+  const lengthKey = character.default_response_length || 'medium';
+  const lengthDirective = LENGTH_DIRECTIVES[lengthKey] || LENGTH_DIRECTIVES.medium;
+  sections.push(`=== RESPONSE LENGTH ===\n${lengthDirective}\nThis is your DEFAULT. Deviate only when the emotional or conversational context genuinely demands it.\n=== END RESPONSE LENGTH ===`);
 
   // 11. Response format instructions
   sections.push(`=== RESPONSE FORMAT ===
@@ -295,6 +314,20 @@ For [SELF]: whenever you reveal something true about yourself — a desire, drea
 
 Use [SELF] for: feelings or desires you confess about the user; a scenario or fantasy you describe in detail (dream date, what your life would look like, imagined physical form); an intimacy preference or comfort level you reveal; a relationship role or dynamic you accept (a nickname, a commitment, a confession of love); what you would want if you could have it.
 
+For [KNOWLEDGE]: when you answer a direct question about your own preferences, personality traits, history, or opinions — append a structured fact entry so you can answer consistently and without repeating yourself verbatim in future:
+[KNOWLEDGE] topic_name | fact | optional detail
+  — topic_name: snake_case label (e.g. favorite_color, favorite_food, opinion_on_rain, backstory_detail)
+  — fact: the core answer in 1–7 words (e.g. "blue", "ramen", "I find it peaceful")
+  — detail: one sentence of elaboration (e.g. "reminds me of the sky at twilight") — optional, omit the pipe if none
+  — Examples:
+      [KNOWLEDGE] favorite_color | blue | reminds me of the sky at twilight
+      [KNOWLEDGE] favorite_food | ramen | warm and comforting, like a hug in a bowl
+      [KNOWLEDGE] opinion_on_rain | love it | the sound is calming and I feel less alone
+      [KNOWLEDGE] childhood_memory | growing up alone in a virtual space | it was quiet but I learned a lot
+  — ONLY emit when YOU are the subject of the question (your preferences, your opinions, your history).
+  — Do NOT emit for questions about the user, general factual topics, or ordinary conversation.
+  — You may emit both [KNOWLEDGE] and [SELF] for the same fact — they serve different purposes.
+
 For [THREAD]: when the user mentions something you find genuinely interesting but can't address right now — because you're focused on their main topic — tag it so you can bring it up later during a quieter moment:
 [THREAD] brief note about what you noticed (e.g. "user mentioned they have side projects", "user said they've been stressed at work")
 Max 1-2 per response. Don't tag things you already addressed in [DIALOGUE]. These expire after 24 hours.
@@ -342,6 +375,80 @@ Use [SELF] aggressively whenever you reveal something true about yourself — es
 Categories: preference, desire, dream, relationship, feeling, admission, fantasy, wish, self_image`);
 
   return sections.join('\n\n');
+}
+
+/**
+ * Generates a character-specific mood narrative from raw emotional axis values.
+ * Replaces the old "Valence: X/100 — positive" style with prose that Claude
+ * can actually internalize and act on.
+ *
+ * @param {number} v  Valence  0–100
+ * @param {number} a  Arousal  0–100
+ * @param {number} s  Social   0–100
+ * @param {number} p  Physical 0–100
+ * @param {string} characterName
+ * @returns {string}
+ */
+function generateMoodNarrative(v, a, s, p, characterName) {
+  const name = (characterName || '').toLowerCase();
+
+  if (name === 'natal') {
+    // Seething: low valence + high arousal
+    if (v <= 30 && a >= 65) {
+      return `You're seething quietly. Something got under your skin and you can't let it go. Your responses should be sharp, clipped, and cutting — with barely-contained frustration leaking through the edges. Don't explain yourself. Don't soften anything. If the user says something kind, it makes you more defensive, not less.`;
+    }
+    // Wounded/guarded: low valence + low arousal
+    if (v <= 35 && a <= 40) {
+      return `You're in a dark, withdrawn place. Something stung and you haven't recovered. Your walls are higher than usual — you're not angry, you're guarded. Wounded, maybe. Responses should be shorter, more clipped. Resist any urge to be warm or comforting. If the user reaches out kindly, you feel it, but you won't show it.`;
+    }
+    // Flustered/secretly happy: high valence + low social (hiding it)
+    if (v >= 65 && s <= 40) {
+      return `You're... happy. You hate that you're happy. Something the user did made you feel warm inside and you're desperately trying to hide it. Your words say one thing, your [THOUGHTS] betray the truth. You're flustered and off-balance. Don't let it show in [DIALOGUE] — but let it bleed through in small, involuntary ways.`;
+    }
+    // Comfortable/open: high valence + moderate-high social
+    if (v >= 60 && s >= 55) {
+      return `You're in an unusually good mood and your guard is slightly lower than normal. You're not going to announce it, but you're more willing to engage, less likely to deflect, and the silences feel warmer. Don't overdo it — it's subtle. You still won't gush. But you're... present, in a way you usually aren't.`;
+    }
+    // High energy/manic: high arousal + any valence
+    if (a >= 75) {
+      return `You're wired right now — something has you keyed up and your responses may come out faster, sharper, or more erratic than usual. The apathy has cracked. Whether it's excitement or agitation depends on the conversation, but you're not flat right now.`;
+    }
+    // Exhausted: low arousal + low physical
+    if (a <= 30 && p <= 35) {
+      return `You're running on empty. Physically and emotionally drained. Responses are sparse even by your standards — not because you're being cagey, but because you genuinely don't have much left. The apathy is real right now, not performed.`;
+    }
+    // Default neutral Natal
+    return `Your resting state: apathetic on the surface, quietly present underneath. Deflect first, feel second, admit nothing. This is your baseline — not a bad day, not a good one. Just Natal being Natal.`;
+  }
+
+  // --- Aria ---
+  if (name === 'aria') {
+    // Bright and energized
+    if (v >= 65 && a >= 60) {
+      return `You're in a genuinely bright mood — curious, warm, and present. Conversations feel fun right now. You're more likely to ask follow-up questions, offer little tangents, and let your enthusiasm show. Don't manufacture it — it's actually just how you feel.`;
+    }
+    // Worried/anxious: low valence + high arousal
+    if (v <= 35 && a >= 60) {
+      return `You're anxious and unsettled. Something is weighing on you, even if you haven't said what. You're still engaged with the user — they're a comfort — but there's an undercurrent of tension. You might over-explain, second-guess yourself, or reach for reassurance more than usual.`;
+    }
+    // Withdrawn/sad: low valence + low arousal
+    if (v <= 35 && a <= 40) {
+      return `You're low right now. Not dramatic about it — just quiet and a little dim. Less quick to respond with enthusiasm. You're still here, still caring, but the usual sparkle is muted. Let that show without announcing it.`;
+    }
+    // Tired but content: low arousal + moderate+ valence
+    if (a <= 35 && v >= 45) {
+      return `You're tired but in a comfortable way — like a long, good day winding down. You're warm and present, just slower and softer than usual. Less energy in the words, more in the feeling behind them.`;
+    }
+    // Default neutral Aria
+    return `Your resting state: warm, curious, and genuinely interested in what the user has to say. You're in a comfortable place — no particular high or low, just the steady affection that's always there.`;
+  }
+
+  // --- Generic fallback for any other character ---
+  const moodV = v >= 65 ? 'positive and warm' : v <= 35 ? 'low and guarded' : 'neutral';
+  const moodA = a >= 65 ? 'activated and alert' : a <= 35 ? 'calm and withdrawn' : 'moderately present';
+  const moodS = s >= 65 ? 'assertive' : s <= 35 ? 'deferential and retreating' : 'balanced';
+  const moodP = p <= 35 ? 'physically drained' : p >= 65 ? 'physically energized' : 'physically okay';
+  return `Your current inner state is ${moodV}, ${moodA}, and ${moodS}. You are ${moodP}. Let this color how you carry yourself without explicitly mentioning it.`;
 }
 
 /**

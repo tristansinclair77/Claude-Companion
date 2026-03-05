@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { buildSystemPrompt, formatConversationWindow } = require('../shared/system-prompt');
 const { parseResponse } = require('../shared/response-parser');
+const { loadVoiceRules, processDialogue } = require('./voice-translator');
 const logger = require('./debug-logger');
 
 const DEFAULT_TIMEOUT_MS = 120000; // 120 seconds
@@ -91,6 +92,8 @@ async function sendToClaude({
   addonContexts = [],
   trackers = {},
   activeThreads = [],
+  characterDir = null,
+  conversationDynamic = '',
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -103,6 +106,7 @@ async function sendToClaude({
     addonContexts,
     trackers,
     activeThreads,
+    conversationDynamic,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -291,6 +295,16 @@ async function sendToClaude({
       try {
         const raw = extractRawText(stdout);
         const parsed = parseResponse(raw);
+
+        // Voice translation: post-process dialogue through character voice rules
+        if (characterDir && parsed.dialogue) {
+          const voiceRules = loadVoiceRules(characterDir);
+          if (voiceRules) {
+            const effectiveState = { ...(emotionalState || {}), currentEmotion: parsed.emotion };
+            parsed.dialogue = processDialogue(parsed.dialogue, voiceRules, effectiveState);
+          }
+        }
+
         logger.log('claude_response', {
           raw,
           dialogue: parsed.dialogue,
@@ -304,6 +318,16 @@ async function sendToClaude({
       } catch (err) {
         // If JSON parse fails, try treating stdout as plain text
         const parsed = parseResponse(stdout.trim());
+
+        // Voice translation: post-process dialogue through character voice rules
+        if (characterDir && parsed.dialogue) {
+          const voiceRules = loadVoiceRules(characterDir);
+          if (voiceRules) {
+            const effectiveState = { ...(emotionalState || {}), currentEmotion: parsed.emotion };
+            parsed.dialogue = processDialogue(parsed.dialogue, voiceRules, effectiveState);
+          }
+        }
+
         logger.log('claude_response', {
           raw: stdout.trim(),
           dialogue: parsed.dialogue,

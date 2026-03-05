@@ -154,6 +154,7 @@ function initBrain() {
     character,
     characterRules,
     sessionManager,
+    characterDir: CHARACTER_DIR,
   });
 
   // Prune dead topic threads left over from the previous session

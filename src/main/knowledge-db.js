@@ -148,8 +148,32 @@ class KnowledgeDB {
       INSERT OR IGNORE INTO emotional_state (id) VALUES (1);
     `);
 
+    // ── companion_knowledge — structured facts about the companion herself ──
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS companion_knowledge (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        intent       TEXT    NOT NULL,
+        topic        TEXT    NOT NULL,
+        topic_words  TEXT    NOT NULL,
+        fact_key     TEXT    NOT NULL,
+        fact_detail  TEXT,
+        fact_context TEXT,
+        original_response TEXT,
+        times_asked  INTEGER DEFAULT 1,
+        confidence   REAL    DEFAULT 0.9,
+        last_asked_at TEXT   DEFAULT (datetime('now')),
+        created_at   TEXT    DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ck_intent ON companion_knowledge(intent);
+      CREATE INDEX IF NOT EXISTS idx_ck_topic  ON companion_knowledge(topic);
+    `);
+
     // Schema migration: add messages_json column to conversation_sessions if not yet present
     try { this.db.exec('ALTER TABLE conversation_sessions ADD COLUMN messages_json TEXT'); } catch {}
+
+    // Schema v2 migration: rebuild FTS index after stop-word list was narrowed.
+    // This only runs once, flagged by 'schema_version' in user_profile.
+    this._runMigrations();
 
     // Seed emotion lexicon if empty
     const count = this.db.prepare('SELECT COUNT(*) as n FROM emotion_lexicon').get();
@@ -173,6 +197,135 @@ class KnowledgeDB {
     );
     const insertMany = this.db.transaction((rows) => { for (const r of rows) stmt.run(...r); });
     insertMany(seeds);
+  }
+
+  _runMigrations() {
+    const row = this.db.prepare("SELECT value FROM user_profile WHERE key = 'schema_version'").get();
+    const version = row ? parseInt(row.value, 10) : 1;
+
+    if (version < 2) {
+      // Rebuild input_pattern for all learned_responses using the improved normalizeText()
+      // (stop-word list was narrowed — we keep question words and pronouns now)
+      try {
+        const rows = this.db.prepare('SELECT id, input_text FROM learned_responses').all();
+        if (rows.length > 0) {
+          const updateStmt = this.db.prepare('UPDATE learned_responses SET input_pattern = ? WHERE id = ?');
+          const migration = this.db.transaction((rs) => {
+            for (const r of rs) updateStmt.run(normalizeText(r.input_text || ''), r.id);
+          });
+          migration(rows);
+
+          // Rebuild FTS index from the updated patterns
+          this.db.exec("INSERT INTO learned_responses_fts(learned_responses_fts) VALUES('delete-all')");
+          this.db.exec(`
+            INSERT INTO learned_responses_fts (rowid, input_pattern)
+            SELECT id, input_pattern FROM learned_responses
+          `);
+          console.log('[KnowledgeDB] v2 migration: rebuilt FTS index for', rows.length, 'entries');
+        }
+      } catch (err) {
+        console.error('[KnowledgeDB] v2 migration failed:', err.message);
+      }
+
+      this.db.prepare("INSERT OR REPLACE INTO user_profile (key, value, updated_at) VALUES ('schema_version', '2', datetime('now'))").run();
+    }
+  }
+
+  // ── Companion Knowledge ──────────────────────────────────────────────────────
+
+  /**
+   * Inserts or updates a companion knowledge entry.
+   * If an entry for this topic already exists, increments times_asked and optionally updates the fact.
+   */
+  upsertKnowledge({ intent, topic, topicWords, factKey, factDetail, factContext, originalResponse }) {
+    const existing = this.db.prepare('SELECT * FROM companion_knowledge WHERE topic = ?').get(topic);
+
+    if (existing) {
+      // Update times_asked and last_asked_at; update fact if it changed
+      const factChanged = existing.fact_key !== factKey;
+      this.db.prepare(`
+        UPDATE companion_knowledge
+        SET times_asked   = times_asked + 1,
+            last_asked_at = datetime('now'),
+            fact_key      = ?,
+            fact_detail   = ?,
+            fact_context  = ?,
+            original_response = ?
+        WHERE id = ?
+      `).run(factKey, factDetail || existing.fact_detail, factContext || existing.fact_context, originalResponse || existing.original_response, existing.id);
+
+      if (factChanged) {
+        console.log(`[KnowledgeDB] Knowledge updated: topic=${topic} old="${existing.fact_key}" new="${factKey}"`);
+      }
+      return existing.id;
+    }
+
+    const info = this.db.prepare(`
+      INSERT INTO companion_knowledge (intent, topic, topic_words, fact_key, fact_detail, fact_context, original_response)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(intent, topic, topicWords || '', factKey, factDetail || null, factContext || null, originalResponse || null);
+    return info.lastInsertRowid;
+  }
+
+  /**
+   * Increments times_asked for a knowledge entry (called when local brain answers from it).
+   */
+  bumpKnowledgeAsked(id) {
+    this.db.prepare(`
+      UPDATE companion_knowledge
+      SET times_asked = times_asked + 1, last_asked_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+  }
+
+  /**
+   * Searches companion_knowledge for the best match given an intent and query word set.
+   * Uses synonym expansion to broaden matching.
+   *
+   * @param {string}    intent         - e.g. 'QUESTION_ABOUT_COMPANION'
+   * @param {Set}       queryWordSet   - normalized query words (already synonym-expanded by caller)
+   * @param {number}    [threshold=0.12] - minimum fraction of topic_words that must match
+   * @returns {object|null} - best matching row or null
+   */
+  findKnowledge(intent, queryWordSet, threshold = 0.12) {
+    if (!queryWordSet || !queryWordSet.size) return null;
+
+    const entries = this.db.prepare(
+      'SELECT * FROM companion_knowledge WHERE intent = ? ORDER BY times_asked DESC'
+    ).all(intent);
+    if (!entries.length) return null;
+
+    let best = null;
+    let bestScore = 0;
+
+    for (const entry of entries) {
+      const topicWords = new Set((entry.topic_words || '').split(' ').filter(Boolean));
+      if (!topicWords.size) continue;
+
+      let matches = 0;
+      for (const word of queryWordSet) {
+        if (topicWords.has(word)) matches++;
+      }
+      const score = matches / topicWords.size;
+
+      // Require at least one *specific* (non-generic-qualifier) query word to appear
+      // in the topic_words. Without this, "favorite ice cream" matches "favorite_color"
+      // because the "favorite/prefer/like/enjoy" synonym cluster is shared by all
+      // "favorite X" entries and inflates the score to 0.6+ even for wrong topics.
+      if (score > bestScore && score >= threshold && _hasSpecificTopicMatch(queryWordSet, topicWords)) {
+        bestScore = score;
+        best = entry;
+      }
+    }
+
+    return best;
+  }
+
+  /**
+   * Returns all companion_knowledge entries for debugging / the knowledge browser.
+   */
+  getAllKnowledge() {
+    return this.db.prepare('SELECT * FROM companion_knowledge ORDER BY topic').all();
   }
 
   // ── Learned Responses ──────────────────────────────────────────────────────
@@ -499,13 +652,24 @@ class KnowledgeDB {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Structural-only stop words — intentionally keeps question words and pronouns
+// so that "What's your favorite color?" normalises to "what your favorite color"
+// instead of just "favorite color". This is critical for intent-based matching.
+//
+// KEPT (not stripped): you, your, i, me, my, what, how, why, when, where, who,
+//                      which, do, does, did, can, will
+// STRIPPED: purely grammatical glue words that add no semantic signal.
 const STOP_WORDS = new Set([
-  'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-  'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used',
-  'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'it', 'they',
-  'this', 'that', 'these', 'those', 'to', 'of', 'in', 'on', 'at', 'by', 'for',
-  'with', 'about', 'into', 'through', 'from', 'up', 'if', 'or', 'but', 'and', 'so',
+  'a', 'an', 'the',
+  'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had',
+  'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'need', 'dare', 'ought',
+  'it', 'its', 'he', 'she', 'they', 'him', 'her', 'them', 'his', 'hers', 'their',
+  'we', 'our', 'us',
+  'this', 'that', 'these', 'those',
+  'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'into', 'through', 'from', 'up',
+  'if', 'or', 'but', 'and', 'so', 'then', 'than', 'as', 'also', 'just', 'very', 'too',
+  'well', 'only', 'still', 'now',
 ]);
 
 function normalizeText(text) {
@@ -522,6 +686,29 @@ function normalizeText(text) {
 function escapeFTS(query) {
   // FTS5 special chars: " * ^ ( )
   return query.replace(/["*()\^]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Words that appear in virtually every "favorite X" topic's synonym-expanded topic_words.
+// A knowledge match is only valid if at least one query word NOT in this set also matches
+// the topic_words — i.e. the *subject* of the question actually overlaps the stored topic.
+const GENERIC_QUALIFIERS = new Set([
+  'favorite', 'favourite', 'prefer', 'like', 'love', 'hate', 'feel', 'think',
+  'believe', 'want', 'dream', 'wish', 'opinion', 'view', 'enjoy', 'dislike',
+  'fear', 'fav', 'best', 'top', 'choice', 'pick',
+  'what', 'your', 'you', 'do', 'does', 'is', 'are', 'how',
+]);
+
+/**
+ * Returns true if at least one word in queryWordSet is both:
+ *   (a) NOT a generic qualifier (preference word / question word), and
+ *   (b) present in topicWords.
+ * Prevents topic cross-contamination caused by synonym expansion of "favorite" etc.
+ */
+function _hasSpecificTopicMatch(queryWordSet, topicWords) {
+  for (const word of queryWordSet) {
+    if (!GENERIC_QUALIFIERS.has(word) && topicWords.has(word)) return true;
+  }
+  return false;
 }
 
 module.exports = KnowledgeDB;

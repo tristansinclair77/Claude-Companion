@@ -25,7 +25,7 @@ function parseResponse(raw) {
   const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
   // Strip any residual inline structural markers so they don't appear verbatim in the UI.
   const dialogue = dialogueMatch
-    ? dialogueMatch[1].trim().replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD)\]/gi, '').trim()
+    ? dialogueMatch[1].trim().replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE)\]/gi, '').trim()
     : '';
 
   // Extract [THOUGHTS] — only match when the tag starts a line; mid-sentence mentions are ignored.
@@ -111,6 +111,21 @@ function parseResponse(raw) {
     threads.push(threadMatch[1].trim());
   }
 
+  // Extract [KNOWLEDGE] tags — structured facts about the companion herself.
+  // Format: [KNOWLEDGE] topic_name | fact | optional detail
+  // e.g.:   [KNOWLEDGE] favorite_color | blue | reminds me of the sky at twilight
+  const knowledge = [];
+  const knowledgeRegex = /^[ \t]*\[KNOWLEDGE\]\s*([^|\n]+)\|([^|\n]+)(?:\|([^\n]*))?/gim;
+  let knowledgeMatch;
+  while ((knowledgeMatch = knowledgeRegex.exec(text)) !== null) {
+    const topic     = knowledgeMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
+    const factKey   = knowledgeMatch[2].trim();
+    const factDetail = knowledgeMatch[3] ? knowledgeMatch[3].trim() : null;
+    if (topic && factKey) {
+      knowledge.push({ topic, factKey, factDetail, intent: 'QUESTION_ABOUT_COMPANION' });
+    }
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -121,6 +136,7 @@ function parseResponse(raw) {
     memories,
     memoryUpdates,
     selfFacts,
+    knowledge,
     sensation,
     sensationLingers,
     trackUpdates,
@@ -132,15 +148,16 @@ function parseResponse(raw) {
  * If response has no [DIALOGUE] marker, try to extract useful text.
  */
 function extractFallbackDialogue(text) {
-  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD] parts
+  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD], [KNOWLEDGE] parts
   let cleaned = text
-    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|$)/gi, '')
+    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|\[KNOWLEDGE\]|$)/gi, '')
     .replace(/\([a-z_]+\)/g, '')
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
     .replace(/\[SENSATION\][^\n]*/gi, '')
     .replace(/\[TRACK\][^\n]*/gi, '')
     .replace(/\[THREAD\][^\n]*/gi, '')
+    .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -155,6 +172,7 @@ function stripMemoryTags(text) {
     .replace(/\[SENSATION\][^\n]*/gi, '')
     .replace(/\[TRACK\][^\n]*/gi, '')
     .replace(/\[THREAD\][^\n]*/gi, '')
+    .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .trim();
 }
 

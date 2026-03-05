@@ -430,6 +430,18 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _applySideScroller() {
+    const effect = PackageRegistry.getEffect('sideScroller');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('sideScroller')
+                   && _isModuleEnabled('sideScroller');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
   function _applyArcadeAmbient() {
     const effect = PackageRegistry.getEffect('arcadeAmbient');
     if (!effect) return;
@@ -501,6 +513,9 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('pong')) {
       PackageRegistry.getEffect('pong')?.stop();
     }
+    if (!_isModuleEnabled('sideScroller')) {
+      PackageRegistry.getEffect('sideScroller')?.stop();
+    }
     if (!_isModuleEnabled('tvGlass')) {
       PackageRegistry.getEffect('tvGlass')?.stop();
     }
@@ -541,6 +556,7 @@ const BackgroundSettings = (() => {
     _applySpaceInvaders();
     _applyAsteroids();
     _applyPong();
+    _applySideScroller();
     _applyArcadeAmbient();
     _applyTvGlass();
     _applyArcadeBorder();
@@ -557,11 +573,11 @@ const BackgroundSettings = (() => {
   }
 
   // All arcade event IDs — adding a new event here auto-gates all spawn buttons
-  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong'];
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller'];
 
   function _syncEventSpawnBtns() {
     const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
-    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn']) {
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn']) {
       const btn = document.getElementById(id);
       if (!btn) continue;
       btn.disabled = anyBusy;
@@ -905,6 +921,7 @@ const BackgroundSettings = (() => {
     document.getElementById('si-spawn-btn')?.addEventListener('click',   () => _spawnEvent('spaceInvaders'));
     document.getElementById('ast-spawn-btn')?.addEventListener('click',  () => _spawnEvent('asteroids'));
     document.getElementById('pong-spawn-btn')?.addEventListener('click', () => _spawnEvent('pong'));
+    document.getElementById('ss-spawn-btn')?.addEventListener('click',   () => _spawnEvent('sideScroller'));
 
     // ── Idle auto-spawn ───────────────────────────────────────────────────────
     // After 2–3 min of user inactivity, fire a random arcade event (if arcade

@@ -20,9 +20,24 @@ class RpgDB {
     const dir = path.dirname(this.dbPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    this.db = new Database(this.dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
+    try {
+      this.db = new Database(this.dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
+    } catch (err) {
+      // WAL/SHM files from a crashed session can cause disk I/O errors.
+      // Delete them and retry with a fresh open.
+      console.warn('[RpgDB] Open failed, attempting WAL recovery:', err.message);
+      for (const suffix of ['-shm', '-wal']) {
+        const f = this.dbPath + suffix;
+        if (fs.existsSync(f)) { try { fs.unlinkSync(f); } catch (_) {} }
+      }
+      this.db = new Database(this.dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
+      console.log('[RpgDB] Recovered from WAL error.');
+    }
+
     this._migrate();
     console.log('[RpgDB] Opened:', this.dbPath);
     return this;

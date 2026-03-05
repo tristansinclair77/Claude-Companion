@@ -170,7 +170,7 @@ class ArcadeAmbientEffect extends VisualEffect {
     this._attractVis = this._attractT < period * 0.55;
 
     // Detect event start → trigger "1 QUARTER!" animation
-    const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong'];
+    const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller'];
     const anyBusy    = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
     this._anyBusy    = anyBusy;
     if (anyBusy && !this._wasEventBusy && this._quarterT < 0) {

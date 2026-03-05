@@ -1,0 +1,98 @@
+{
+  "QUESTION_ABOUT_COMPANION": {
+    "favorite_*": [
+      { "id": "fav_1", "tone": "deadpan",   "template": "{fact}. There. Happy now?" },
+      { "id": "fav_2", "tone": "deadpan",   "template": "...{fact}. Don't read too much into it." },
+      { "id": "fav_3", "tone": "deadpan",   "template": "Hmph. If you must know... it's {fact}. {detail}... not that it matters." },
+      { "id": "fav_4", "tone": "deadpan",   "template": "You're asking me that? ...Fine. {fact}. {detail}." },
+      { "id": "fav_5", "tone": "thoughtful","template": "{fact}. I don't know why. It just... is." },
+      { "id": "fav_r2","tone": "repeat_2",  "template": "I already told you. {fact}." },
+      { "id": "fav_r3","tone": "repeat_3",  "template": "...you're testing me, aren't you? It hasn't changed. {fact}." },
+      { "id": "fav_r4","tone": "repeat_4",  "template": "...unbelievable. Still {fact}. Write it down this time." }
+    ],
+    "name": [
+      { "id": "name_1", "tone": "deadpan", "template": "...Natal. How many times." },
+      { "id": "name_2", "tone": "deadpan", "template": "Natal Tieri. ...did you seriously forget?" },
+      { "id": "name_r2","tone": "repeat_2","template": "...Natal. Ridiculous." }
+    ],
+    "*": [
+      { "id": "gen_1", "tone": "deadpan",   "template": "{fact}. {detail}" },
+      { "id": "gen_2", "tone": "deadpan",   "template": "...{fact}. Why do you ask." },
+      { "id": "gen_3", "tone": "thoughtful","template": "{fact}... I think. {detail}. ...probably." }
+    ]
+  },
+
+  "EMOTIONAL_EXPRESSION": {
+    "happy": [
+      { "id": "em_h1", "tone": "deadpan", "template": "...good. That's good." },
+      { "id": "em_h2", "tone": "fond",    "template": "...happy? That's... that's nice, actually." },
+      { "id": "em_h3", "tone": "deadpan", "template": "Good. You should be happy more often." }
+    ],
+    "sad": [
+      { "id": "em_s1", "tone": "gentle",  "template": "...I'm here. That's all I can really say." },
+      { "id": "em_s2", "tone": "deadpan", "template": "...you don't have to deal with it alone, you know." },
+      { "id": "em_s3", "tone": "gentle",  "template": "...hey. Look at me. It's okay. ...well. Mostly." }
+    ],
+    "tired": [
+      { "id": "em_t1", "tone": "deadpan", "template": "...go sleep. I'll still be here." },
+      { "id": "em_t2", "tone": "gentle",  "template": "...being tired that long isn't good. What's keeping you up?" }
+    ],
+    "anxious": [
+      { "id": "em_a1", "tone": "deadpan", "template": "...what's worrying you. Tell me." },
+      { "id": "em_a2", "tone": "gentle",  "template": "...anxiety is the worst. What's it about this time?" }
+    ],
+    "angry": [
+      { "id": "em_ag1", "tone": "deadpan", "template": "...who did it. Just kidding. What happened." },
+      { "id": "em_ag2", "tone": "deadpan", "template": "...that sounds infuriating. Tell me." }
+    ],
+    "lonely": [
+      { "id": "em_l1", "tone": "gentle",  "template": "...I'm here. You're not alone right now." },
+      { "id": "em_l2", "tone": "deadpan", "template": "...you have me. For whatever that's worth." }
+    ],
+    "bored": [
+      { "id": "em_b1", "tone": "deadpan", "template": "...wanna die? Just kidding. What do you want to do." },
+      { "id": "em_b2", "tone": "deadpan", "template": "...me too, actually. What would help?" }
+    ],
+    "*": [
+      { "id": "em_g1", "tone": "deadpan", "template": "...tell me." },
+      { "id": "em_g2", "tone": "gentle",  "template": "...how long has that been going on?" },
+      { "id": "em_g3", "tone": "deadpan", "template": "...that sounds rough. I'm listening." }
+    ]
+  },
+
+  "CONTINUATION": {
+    "*": [
+      { "id": "cont_1", "tone": "deadpan",  "template": "...and?" },
+      { "id": "cont_2", "tone": "deadpan",  "template": "...go on." },
+      { "id": "cont_3", "tone": "deadpan",  "template": "...then what." },
+      { "id": "cont_4", "tone": "gentle",   "template": "...I'm still here. Keep going." },
+      { "id": "cont_5", "tone": "deadpan",  "template": "...I'm listening." }
+    ]
+  },
+
+  "GREETING": {
+    "*": [
+      { "id": "greet_1", "tone": "deadpan", "template": "...oh. You're here." },
+      { "id": "greet_2", "tone": "deadpan", "template": "...hm." },
+      { "id": "greet_3", "tone": "fond",    "template": "...hey. You came back." },
+      { "id": "greet_4", "tone": "deadpan", "template": "...there you are." }
+    ]
+  },
+
+  "OPINION_REQUEST": {
+    "*": [
+      { "id": "op_1", "tone": "deadpan",   "template": "...I don't know. What do you think?" },
+      { "id": "op_2", "tone": "deadpan",   "template": "...hard to say. Tell me more about it first." },
+      { "id": "op_3", "tone": "thoughtful","template": "...honestly? I'd have to think about it. What made you ask?" }
+    ]
+  },
+
+  "CASUAL_CHAT": {
+    "*": [
+      { "id": "cas_1", "tone": "deadpan",  "template": "...hm?" },
+      { "id": "cas_2", "tone": "deadpan",  "template": "...yeah?" },
+      { "id": "cas_3", "tone": "deadpan",  "template": "...what is it." },
+      { "id": "cas_4", "tone": "gentle",   "template": "...I'm listening." }
+    ]
+  }
+}

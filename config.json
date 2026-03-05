@@ -1,5 +1,5 @@
 {
-  "activeCharacter": "nataltieri",
+  "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
     "pitchShift": 6,
@@ -31,6 +31,10 @@
     "seasonMode": "sunbeams",
     "vuAmp": 5,
     "vuSpeed": 22,
+    "arcadeRasterBeam": true,
+    "arcadePixelDust": true,
+    "arcadeAttract": true,
+    "arcadeGlitches": true,
     "moduleEnabled": {
       "arcadeBorder": true,
       "scanlines": true,
@@ -213,14 +217,19 @@
           "--axis-aro-hi": "#ff4400",
           "--axis-soc-lo": "#002211",
           "--axis-soc-hi": "#00dd44",
-          "--axis-phy-lo": "#221100",
-          "--axis-phy-hi": "#ffee00",
+          "--axis-phy-lo": "#001133",
+          "--axis-phy-hi": "#4488ff",
           "--badge-filler": "#00bb44",
           "--thoughts-color": "#886600"
         },
         "effectModules": [
           "tvGlass",
           "arcadeBorder",
+          "spaceInvaders",
+          "asteroids",
+          "pong",
+          "sideScroller",
+          "arcadeAmbient",
           "scanlines",
           "filmGrain"
         ],
@@ -241,6 +250,10 @@
           "seasonMode": "sunbeams",
           "vuAmp": 5,
           "vuSpeed": 22,
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true,
           "moduleEnabled": {
             "arcadeBorder": true,
             "scanlines": true,
