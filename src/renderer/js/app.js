@@ -29,6 +29,7 @@
   ChatController.init();
   BackgroundSettings.init();
   RvcSettings.init();
+  HelpPanel.init();
 
   // Emotional axis monitor pop-out
   document.getElementById('btn-axis').addEventListener('click', () => {

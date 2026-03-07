@@ -63,6 +63,10 @@ var ChatController = (() => {
     const message = inputEl.value.trim();
     if (!message) return;
 
+    // Dismiss any running arcade event — it crumbles to pixels immediately.
+    const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn'];
+    for (const id of _EVENT_IDS) PackageRegistry?.getEffect(id)?.dismiss?.();
+
     isSending = true;
     sendBtn.disabled = true;
     inputEl.value = '';

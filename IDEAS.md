@@ -45,19 +45,12 @@ are triggered on a random timer or manually via the Spawn button in settings. On
 - **Space Invaders** — 3-row enemy formation marches and fires, player ship slides in and shoots back.
   Enemies explode into firework sparks. Ends with a blink-and-crumble outro.
 
+- **Pac-Man Chase** — Pac-Man chomps his way around a simplified maze while four coloured ghosts give
+  chase. Power pellets flip the hunt for 6 seconds. At ~50 s the ghosts force a final catch; Pac-Man
+  plays his classic shrink-spin death, dots wink off one by one, and the maze walls crumble into
+  falling pixel rain.
+
 **User ideas:**
-
-- **Pixel Side-Scroller Fantasy** — A little pixel hero walks right across a parallax background (white clouds,
-  green rolling mountains, trees and bushes scrolling at different speeds). Encounters random pixel enemies
-  along the way — slashes with a sword, gains gold and XP counter ticks up. Partway through, a boss
-  enters from the right and the hero fights it — but the boss wins. "GAME OVER" screen flashes, then
-  everything crumbles into falling pixels and drops out of frame.
-
-- **Asteroids** — A pixel triangle ship enters from off-screen, zips around the game area and fires at
-  drifting asteroids. Hit asteroids break into 2–3 smaller chunks (authentic Asteroids behavior).
-  If the ship touches an asteroid it explodes; a new ship flies in from off-screen blinking white
-  (invincibility frames). Continues for the event duration, then the ship's final explosion sends
-  shrapnel that shatters the asteroids — all pixels rain down out of frame.
 
 - **Megaman Boss Fight** — A pixel spaceman character stands on a four-platform arena (platforms you can
   jump up through from below, drop through from above). Character moves around semi-randomly, arm always

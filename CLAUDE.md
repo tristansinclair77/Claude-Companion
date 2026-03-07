@@ -31,6 +31,21 @@ that file and immediately know:
   - `docs/VISUAL_PACKAGE_SYSTEM.md` — how Visual Packages work; read this before
     adding or modifying any package, effect, or package-related settings code
 
+### Keep the Help Panel Current
+`src/renderer/js/help-panel.js` is the in-app reference manual. It **must always
+be kept up-to-date** with every feature in the app.
+
+Rules:
+- When adding a new feature, button, setting, or effect → add a corresponding
+  article (or update an existing one) in `help-panel.js` in the same PR/batch.
+- When removing or renaming a feature → remove or update its article.
+- Articles live in the `ARTICLES` array. Each entry needs: `catId`, `id`, `title`,
+  `tags[]` (generous with keywords), and `content` (HTML via the `p/kv/ex/sc/chips`
+  helpers defined at the top of the file).
+- The `tags[]` array is the searchable keyword store — include every synonym,
+  abbreviation, and related concept a user might search for.
+- If a new category of features is added, add a new entry to `CATEGORIES` as well.
+
 ## Project: Claude Companion
 
 ### What it is

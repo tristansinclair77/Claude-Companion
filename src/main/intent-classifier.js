@@ -122,6 +122,13 @@ function classifyIntent(message) {
     /\b(what|which|how|do|does|are|is|can|would|will|have|did|were|was)\b/.test(lower) &&
     /\b(you|your|yours|yourself)\b/.test(lower)
   ) {
+    // Self-correction guard: "your X, wait MY X" or "your X, actually MY X" — the user
+    // mid-sentence flipped the subject from the companion to themselves. Treat as ambiguous.
+    if (/\b(wait|actually|no|i mean|correction)\b.*\bm(y|ine)\b/.test(lower) ||
+        /\bm(y|ine)\b.*\b(wait|actually|no|i mean)\b.*\b(your?|yours)\b/.test(lower)) {
+      return { intent: INTENTS.UNKNOWN, confidence: CONFIDENCE.LOW };
+    }
+
     // Higher confidence if it ends with "?" or has a clear preference/self keyword
     const hasPreferenceWord = /\b(favorite|favourite|prefer|like|love|hate|feel|think|believe|want|dream|wish|opinion|view|enjoy|dislike|fear|scared|afraid|do you)\b/.test(lower);
     const confidence = (lower.endsWith('?') || hasPreferenceWord) ? CONFIDENCE.HIGH : CONFIDENCE.MEDIUM;

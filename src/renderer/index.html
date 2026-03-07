@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="styles/animations.css" />
   <link rel="stylesheet" href="styles/bg-effects.css" />
   <link rel="stylesheet" href="styles/settings.css" />
+  <link rel="stylesheet" href="styles/help-panel.css" />
   <link rel="stylesheet" href="../../addons/rpg_adventure/ui/rpg.css" />
 </head>
 <body>
@@ -29,6 +30,7 @@
   <canvas id="bg-pong"            aria-hidden="true"></canvas>
   <canvas id="bg-side-scroller"   aria-hidden="true"></canvas>
   <canvas id="bg-pacman"          aria-hidden="true"></canvas>
+  <canvas id="bg-dating-vn"       aria-hidden="true"></canvas>
   <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
@@ -53,6 +55,7 @@
       <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
     </div>
     <div id="window-controls">
+      <button id="btn-help" title="Help &amp; feature reference">?</button>
       <button id="btn-settings" title="Background &amp; display settings">⚙</button>
       <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
       <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
@@ -174,6 +177,29 @@
 
   <!-- RPG Adventure panel (slides in from right) -->
   <div id="rpg-panel"></div>
+
+  <!-- Help / Reference panel -->
+  <div id="help-panel" class="hidden">
+    <div class="help-toolbar">
+      <span class="help-toolbar-title">// HELP &amp; REFERENCE</span>
+      <button id="btn-help-close" title="Close help">✕</button>
+    </div>
+    <div class="help-body">
+      <!-- Left: search + category nav -->
+      <div class="help-left">
+        <div class="help-search-wrap">
+          <input type="text" id="help-search" placeholder="Search features…" maxlength="80" spellcheck="false" />
+        </div>
+        <nav class="help-nav" id="help-nav"></nav>
+        <div class="help-search-results" id="help-search-results"></div>
+      </div>
+      <!-- Right: article content -->
+      <div class="help-right">
+        <div class="help-content-title" id="help-content-title">// HELP &amp; REFERENCE</div>
+        <div class="help-content-body" id="help-content-body"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Settings panel (slides in from right) -->
   <div id="settings-panel">
@@ -321,6 +347,19 @@
         <div class="settings-row">
           <span class="settings-label">SPAWN</span>
           <button class="settings-toggle active" id="pm-spawn-btn">SPAWN</button>
+        </div>
+      </div>
+
+      <!-- Dating VN random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="datingVn">
+        <div class="settings-section-title">DATING VN</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">Retro visual novel — anime girl types dialogue</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="dvn-spawn-btn">SPAWN</button>
         </div>
       </div>
 
@@ -532,6 +571,7 @@
   <script src="js/effects/PongEffect.js"></script>
   <script src="js/effects/SideScrollerEffect.js"></script>
   <script src="js/effects/PacManEffect.js"></script>
+  <script src="js/effects/DatingVnEffect.js"></script>
   <script src="js/effects/ArcadeAmbientEffect.js"></script>
   <script src="js/packages/CyberneticPackage.js"></script>
   <script src="js/packages/FantasyRpgPackage.js"></script>
@@ -539,6 +579,7 @@
   <script src="js/settings.js"></script>
   <script src="js/requests-panel.js"></script>
   <script src="js/persona-popup.js"></script>
+  <script src="js/help-panel.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-inventory.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-panel.js"></script>
   <script src="js/app.js"></script>

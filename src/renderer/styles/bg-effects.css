@@ -182,35 +182,53 @@
 }
 
 /* ── Space Invaders random event canvas ─────────────────────────────────────── */
-/* z-index: 2 — above arcade bezel (z:1), below tv glass (z:15)                 */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.    */
 #bg-space-invaders {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 /* ── Asteroids random event canvas ──────────────────────────────────────────── */
-/* Same z-index:2 as space invaders — events never run simultaneously.          */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.    */
 #bg-asteroids {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 /* ── Pong random event canvas ────────────────────────────────────────────────── */
-/* Same z-index:2 — events never run simultaneously.                             */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.    */
 #bg-pong {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 /* ── Side Scroller random event canvas ───────────────────────────────────────── */
 /* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.     */
 #bg-side-scroller {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Pac-Man Chase random event canvas ──────────────────────────────────────── */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.    */
+#bg-pacman {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Dating VN random event canvas ──────────────────────────────────────────── */
+/* z-index: 0 — below arcade bezel (z:1) so the bezel border renders on top.    */
+#bg-dating-vn {
   position: fixed;
   inset: 0;
   pointer-events: none;

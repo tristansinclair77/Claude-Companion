@@ -573,11 +573,11 @@ const BackgroundSettings = (() => {
   }
 
   // All arcade event IDs — adding a new event here auto-gates all spawn buttons
-  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman'];
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn'];
 
   function _syncEventSpawnBtns() {
     const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
-    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn', 'pm-spawn-btn']) {
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn', 'pm-spawn-btn', 'dvn-spawn-btn']) {
       const btn = document.getElementById(id);
       if (!btn) continue;
       btn.disabled = anyBusy;
@@ -930,6 +930,7 @@ const BackgroundSettings = (() => {
     document.getElementById('pong-spawn-btn')?.addEventListener('click', () => _spawnEvent('pong'));
     document.getElementById('ss-spawn-btn')?.addEventListener('click',   () => _spawnEvent('sideScroller'));
     document.getElementById('pm-spawn-btn')?.addEventListener('click',   () => _spawnEvent('pacman'));
+    document.getElementById('dvn-spawn-btn')?.addEventListener('click',  () => _spawnEvent('datingVn'));
 
     // ── Idle auto-spawn ───────────────────────────────────────────────────────
     // After 2–3 min of user inactivity, fire a random arcade event (if arcade

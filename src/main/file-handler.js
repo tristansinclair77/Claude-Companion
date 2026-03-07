@@ -5,6 +5,13 @@ const fs = require('fs');
 const path = require('path');
 
 const MAX_TOTAL_CHARS = 50000;
+const IMAGE_EXTENSIONS = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.webp', 'image/webp'],
+]);
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.md', '.js', '.ts', '.jsx', '.tsx', '.json', '.yaml', '.yml',
   '.html', '.css', '.scss', '.py', '.rb', '.go', '.rs', '.java', '.c', '.cpp',
@@ -21,6 +28,7 @@ async function openFilePicker(win) {
   const result = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
     filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] },
       { name: 'Text Files', extensions: ['txt', 'md', 'js', 'ts', 'json', 'py', 'html', 'css', 'yaml', 'yml', 'toml', 'xml', 'csv', 'log'] },
       { name: 'All Files', extensions: ['*'] },
     ],
@@ -29,6 +37,17 @@ async function openFilePicker(win) {
   if (result.canceled || result.filePaths.length === 0) return null;
 
   const filePath = result.filePaths[0];
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return {
+      type: 'image',
+      name: path.basename(filePath),
+      path: filePath,
+      mediaType: IMAGE_EXTENSIONS.get(ext),
+    };
+  }
+
   const content = readFileContent(filePath);
 
   return {

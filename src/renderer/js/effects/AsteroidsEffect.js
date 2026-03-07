@@ -82,6 +82,18 @@ class AsteroidsEffect extends VisualEffect {
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
   }
 
+  /**
+   * dismiss() — called when the user sends a message mid-event.
+   * Immediately skips to the pixel-crumble outro, bypassing the blink phase.
+   * Rule: every event effect MUST implement this and jump straight to crumble.
+   */
+  dismiss() {
+    if (this._state === 'idle') return;
+    this._state          = 'outro';
+    this._t              = 2.5 + 1;   // past BLINK_DUR — skip straight to crumble
+    this._crumbleStarted = false;
+  }
+
   // ── Canvas ────────────────────────────────────────────────────────────────
 
   _initCanvas() {

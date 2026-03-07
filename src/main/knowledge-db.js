@@ -166,6 +166,18 @@ class KnowledgeDB {
       );
       CREATE INDEX IF NOT EXISTS idx_ck_intent ON companion_knowledge(intent);
       CREATE INDEX IF NOT EXISTS idx_ck_topic  ON companion_knowledge(topic);
+
+      -- topic_response_pool — varied pre-generated responses for known self-knowledge topics.
+      -- Once 100+ entries exist for a topic, that topic is answered locally with random variety.
+      CREATE TABLE IF NOT EXISTS topic_response_pool (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        topic      TEXT    NOT NULL,
+        dialogue   TEXT    NOT NULL,
+        thoughts   TEXT    DEFAULT '',
+        emotion    TEXT    DEFAULT 'neutral',
+        created_at TEXT    DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_pool_topic ON topic_response_pool(topic);
     `);
 
     // Schema migration: add messages_json column to conversation_sessions if not yet present
@@ -287,7 +299,7 @@ class KnowledgeDB {
    * @param {number}    [threshold=0.12] - minimum fraction of topic_words that must match
    * @returns {object|null} - best matching row or null
    */
-  findKnowledge(intent, queryWordSet, threshold = 0.12) {
+  findKnowledge(intent, queryWordSet, rawQueryWords = null, threshold = 0.12) {
     if (!queryWordSet || !queryWordSet.size) return null;
 
     const entries = this.db.prepare(
@@ -312,13 +324,55 @@ class KnowledgeDB {
       // in the topic_words. Without this, "favorite ice cream" matches "favorite_color"
       // because the "favorite/prefer/like/enjoy" synonym cluster is shared by all
       // "favorite X" entries and inflates the score to 0.6+ even for wrong topics.
-      if (score > bestScore && score >= threshold && _hasSpecificTopicMatch(queryWordSet, topicWords)) {
+      if (!_hasSpecificTopicMatch(queryWordSet, topicWords)) continue;
+
+      // Guard against compound-noun false positives (e.g. "favorite COLOR ice cream"
+      // should NOT match the favorite_color topic). If the raw (unexpanded) query has
+      // multiple specific words and more of them fall OUTSIDE the topic than inside,
+      // the match is likely about a different subject — skip it.
+      if (rawQueryWords && rawQueryWords.size) {
+        const specificRaw = [...rawQueryWords].filter(w => !GENERIC_QUALIFIERS.has(w));
+        if (specificRaw.length > 1) {
+          const matchedRaw   = specificRaw.filter(w => topicWords.has(w)).length;
+          const unmatchedRaw = specificRaw.length - matchedRaw;
+          if (unmatchedRaw > matchedRaw) continue;
+        }
+      }
+
+      if (score > bestScore && score >= threshold) {
         bestScore = score;
         best = entry;
       }
     }
 
     return best;
+  }
+
+  // ── Topic Response Pool ────────────────────────────────────────────────────
+
+  /** How many responses are in the pool for this topic. */
+  getPoolSize(topic) {
+    return this.db.prepare('SELECT COUNT(*) as n FROM topic_response_pool WHERE topic = ?').get(topic)?.n || 0;
+  }
+
+  /** Returns one random pool entry for this topic, or null if empty. */
+  getRandomPoolResponse(topic) {
+    return this.db.prepare(
+      'SELECT * FROM topic_response_pool WHERE topic = ? ORDER BY RANDOM() LIMIT 1'
+    ).get(topic) || null;
+  }
+
+  /** Bulk-inserts an array of {dialogue, thoughts, emotion} into the pool for a topic. */
+  insertPoolResponses(topic, responses) {
+    const stmt = this.db.prepare(
+      'INSERT INTO topic_response_pool (topic, dialogue, thoughts, emotion) VALUES (?, ?, ?, ?)'
+    );
+    const tx = this.db.transaction((rs) => {
+      for (const r of rs) {
+        stmt.run(topic, r.dialogue || '', r.thoughts || '', r.emotion || 'neutral');
+      }
+    });
+    tx(responses);
   }
 
   /**
@@ -363,6 +417,11 @@ class KnowledgeDB {
     const pattern = normalizeText(query);
     if (!pattern) return [];
 
+    // FTS5 defaults to AND (all terms must match). Use OR so partial-overlap entries
+    // (e.g. "what your favorite ice cream" matching "remind me your favorite ice cream flavor")
+    // are returned as candidates — the Jaccard scorer will rank them properly.
+    const ftsQuery = escapeFTS(pattern).split(/\s+/).filter(Boolean).join(' OR ');
+
     try {
       return this.db.prepare(`
         SELECT lr.*, rank
@@ -372,7 +431,7 @@ class KnowledgeDB {
           AND lr.confidence >= 0.3
         ORDER BY confidence DESC, use_count DESC
         LIMIT ?
-      `).all(escapeFTS(pattern), limit);
+      `).all(ftsQuery, limit);
     } catch {
       // FTS query can fail with special chars — fall back to LIKE
       return this.db.prepare(`

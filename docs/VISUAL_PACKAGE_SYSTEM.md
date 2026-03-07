@@ -195,3 +195,45 @@ logic are needed for a new package that uses only existing effect modules.
 - **Canvas effects**: `ArcadeEffect` — pixel-art bezel frame around the content area,
   scrolling "INSERT COIN / PLAYER 1 READY / …" marquee in the bottom strip,
   pixel-bracket corner decorations, occasional spark bursts at the corners
+
+---
+
+## Event Effect Rules
+
+Event effects are transient sequences that play over the main UI (games, cinematic
+scenes, etc.). They must follow these mandatory rules:
+
+### `dismiss()` — Message-Interrupt Rule
+**Every event effect MUST implement a `dismiss()` method.**
+
+When the user sends a message to Aria, `sendMessage()` in `chat-controller.js` calls
+`PackageRegistry.getEffect(id)?.dismiss?.()` on every registered event ID. The effect
+must immediately skip to its pixel-crumble outro, bypassing any remaining intro / blink /
+game-play / intermediate phases.
+
+```js
+dismiss() {
+  if (this._state === 'idle') return;
+  // Jump straight to crumble (skip blink phase by setting _t past its threshold)
+  this._state          = 'outro';
+  this._t              = BLINK_PHASE_DURATION + 1;
+  this._crumbleStarted = false;
+}
+```
+
+For effects whose outro calls `_buildCrumble()` with game-state objects (e.g. PacMan),
+call `_buildCrumble()` manually in `dismiss()` before switching state:
+
+```js
+dismiss() {
+  if (this._state === 'idle') return;
+  if (this._state !== 'outro') { this._particles = []; this._buildCrumble(); }
+  this._state = 'outro';
+}
+```
+
+**Registered event effect IDs** (the list `sendMessage` iterates):
+`spaceInvaders`, `asteroids`, `pong`, `sideScroller`, `pacman`
+
+When adding a new event effect, add its ID to the `_EVENT_IDS` array in
+`chat-controller.js` `sendMessage()` and implement `dismiss()`.

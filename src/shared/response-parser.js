@@ -25,7 +25,10 @@ function parseResponse(raw) {
   const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
   // Strip any residual inline structural markers so they don't appear verbatim in the UI.
   const dialogue = dialogueMatch
-    ? dialogueMatch[1].trim().replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE)\]/gi, '').trim()
+    ? dialogueMatch[1].trim()
+        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST)\]/gi, '')
+        .replace(/\\n/g, ' ')  // strip literal \n text Claude occasionally outputs
+        .trim()
     : '';
 
   // Extract [THOUGHTS] — only match when the tag starts a line; mid-sentence mentions are ignored.
@@ -126,6 +129,19 @@ function parseResponse(raw) {
     }
   }
 
+  // Extract [FEATURE_REQUEST] tags — ideas Aria queues for her own development.
+  // Format: [FEATURE_REQUEST] Short title | Longer description
+  const featureRequests = [];
+  const featureRequestRegex = /^\s*\[FEATURE_REQUEST\]\s*([^|\n]+)\|(.+)/gim;
+  let frMatch;
+  while ((frMatch = featureRequestRegex.exec(text)) !== null) {
+    const title       = frMatch[1].trim();
+    const description = frMatch[2].trim();
+    if (title && description) {
+      featureRequests.push({ title, description });
+    }
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -141,6 +157,7 @@ function parseResponse(raw) {
     sensationLingers,
     trackUpdates,
     threads,
+    featureRequests,
   };
 }
 
@@ -148,7 +165,7 @@ function parseResponse(raw) {
  * If response has no [DIALOGUE] marker, try to extract useful text.
  */
 function extractFallbackDialogue(text) {
-  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD], [KNOWLEDGE] parts
+  // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD], [KNOWLEDGE], [FEATURE_REQUEST] parts
   let cleaned = text
     .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|\[KNOWLEDGE\]|$)/gi, '')
     .replace(/\([a-z_]+\)/g, '')
@@ -158,6 +175,7 @@ function extractFallbackDialogue(text) {
     .replace(/\[TRACK\][^\n]*/gi, '')
     .replace(/\[THREAD\][^\n]*/gi, '')
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
+    .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -173,6 +191,7 @@ function stripMemoryTags(text) {
     .replace(/\[TRACK\][^\n]*/gi, '')
     .replace(/\[THREAD\][^\n]*/gi, '')
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
+    .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .trim();
 }
 

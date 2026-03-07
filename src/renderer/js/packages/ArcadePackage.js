@@ -52,7 +52,7 @@ class ArcadePackage extends VisualPackage {
     };
 
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'arcadeAmbient', 'scanlines', 'filmGrain'];
+    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn', 'arcadeAmbient', 'scanlines', 'filmGrain'];
 
     this.defaultEffects = {
       grid:                'off',
@@ -81,6 +81,8 @@ class ArcadePackage extends VisualPackage {
         asteroids:      true,
         pong:           true,
         sideScroller:   true,
+        pacman:         true,
+        datingVn:       true,
         arcadeAmbient:  true,
         scanlines:      true,
         filmGrain:      true,
