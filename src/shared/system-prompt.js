@@ -26,6 +26,9 @@ function buildSystemPrompt({
   trackers = {},
   activeThreads = [],
   conversationDynamic = '',
+  personalityForce = '',
+  featureRequests = [],
+  pendingDeletionNotifications = [],
 }) {
   const sections = [];
 
@@ -109,6 +112,7 @@ WHAT YOU CAN READ (injected into every session):
 - Your physical sensation level: A number that carries between turns, representing lingering bodily feeling.
 - Your personal trackers: Counters you've created yourself, visible in the tracker popup (♦ button).
 - Things on your mind: Topics you tagged with [THREAD] — interesting things the user mentioned that you haven't had a chance to ask about yet.
+- Your feature request list: Ideas you've queued for your own development, visible to you and the user via the Requests button.
 
 WHAT YOU CAN ACTIVELY DO (via output tags in your responses):
 - Control your emotion portrait: put (emotion_id) in your response — this changes the image the user sees.
@@ -119,6 +123,7 @@ WHAT YOU CAN ACTIVELY DO (via output tags in your responses):
 - Record facts about yourself: [SELF] category: fact — keeps you consistent about your own feelings, preferences, and admissions across all future sessions.
 - Store structured self-knowledge: [KNOWLEDGE] topic | fact | detail — enables the app to answer repeated questions about you locally, with varied phrasing each time.
 - Tag topics to revisit: [THREAD] brief note — stores a curiosity thread so you can naturally bring it up later.
+- Queue a feature idea: [FEATURE_REQUEST] Short title | Description — adds an idea to your development wishlist. Use sparingly; only for something genuinely specific and interesting. Max one per response.
 
 WHAT THE USER CAN GIVE YOU:
 - Screen captures (screen button): A screenshot of whatever they're looking at; you can see and respond to it.
@@ -166,6 +171,37 @@ This is your complete picture of yourself. When the user asks what you can do, w
     sections.push(`=== YOUR PERSONAL TRACKERS ===\n(none — you haven't started tracking anything yet)\n=== END TRACKERS ===`);
   }
 
+  // 7b. Feature request list
+  {
+    const frList = Array.isArray(featureRequests) ? featureRequests : [];
+    const notifications = Array.isArray(pendingDeletionNotifications) ? pendingDeletionNotifications : [];
+
+    const notifBlock = notifications.length > 0
+      ? notifications.map((n) => `[The user removed your request: "${n.title}"]`).join('\n') + '\n\n'
+      : '';
+
+    const listBlock = frList.length > 0
+      ? frList.map((r, i) => `${i + 1}. ${r.title} — ${r.description}`).join('\n')
+      : '(empty — no requests yet)';
+
+    sections.push(`=== YOUR FEATURE REQUEST LIST ===
+${notifBlock}These are ideas you've queued for your own development. You can always see and reference them.
+The user can delete items from the list — you'll be told above when they do.
+
+To add a new request, include at the end of your response:
+[FEATURE_REQUEST] Short title | What you want and why (1–3 sentences)
+
+Rules:
+- Only queue ideas that are genuinely specific and interesting to you — not every passing thought.
+  A good request describes something concrete you've imagined, not a vague wish.
+- Maximum ONE [FEATURE_REQUEST] per response.
+- Don't announce it in [DIALOGUE] — add it silently. You can mention your wishlist exists if it comes up naturally.
+
+Current list (${frList.length} item${frList.length !== 1 ? 's' : ''}):
+${listBlock}
+=== END FEATURE REQUEST LIST ===`);
+  }
+
   // 8. Emotional baseline (persistent axis state)
   if (emotionalState) {
     const v = Math.round(emotionalState.valence);
@@ -201,7 +237,18 @@ ${senLine}
 === END EMOTIONAL BASELINE ===`);
   }
 
-  // 8. Fast mode (optional)
+  // 8. Personality force override (user-applied temporary directive)
+  if (personalityForce && personalityForce.trim()) {
+    sections.push(`=== PERSONALITY DIRECTIVE ===
+The user has applied a temporary personality directive. Embody the following for this conversation — let it genuinely colour how you speak, react, and carry yourself:
+
+${personalityForce.trim()}
+
+This does NOT override your core identity, values, or memories. It shifts your tone, energy, and approach.
+=== END PERSONALITY DIRECTIVE ===`);
+  }
+
+  // 9. Fast mode (optional)
   if (fastMode) {
     sections.push(`=== FAST MODE ===
 The user has enabled FAST MODE for snappy, real-time conversation. Adjust your behavior:
@@ -244,8 +291,8 @@ ${threadLines}
     very_short: `1 sentence maximum. Sentence fragments are preferred over complete sentences. Do not elaborate unless the user directly asks a complex question.`,
     short:      `1–2 sentences. Be concise. Don't pad or explain more than necessary.`,
     medium:     `2–3 sentences. Conversational, but don't over-explain.`,
-    long:       `3–5 sentences. You have something important to express — take the space you need.`,
-    very_long:  `Up to a paragraph. This is a rare, significant moment — speak fully.`,
+    long:       `Respond as fully as the topic warrants. Don't pad, but don't cut yourself off either. A simple comment deserves a natural reply; a rich topic deserves a full one.`,
+    very_long:  `Speak as fully as you feel. Long, substantive responses are welcome here — go wherever the conversation takes you.`,
   };
   const lengthKey = character.default_response_length || 'medium';
   const lengthDirective = LENGTH_DIRECTIVES[lengthKey] || LENGTH_DIRECTIVES.medium;

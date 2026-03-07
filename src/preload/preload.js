@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('claudeAPI', {
   // Window controls
@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Open the emotional axis monitor pop-out
   openEmotionalState: () => ipcRenderer.send('emotional-state:open'),
 
+  // Feature Requests
+  getFeatureRequests:    ()   => ipcRenderer.invoke('feature-requests:get'),
+  deleteFeatureRequest:  (id) => ipcRenderer.invoke('feature-requests:delete', id),
+
   // Character management
   listCharacters:  ()       => ipcRenderer.invoke('character:list'),
   switchCharacter: (charId) => ipcRenderer.invoke('character:switch', charId),
@@ -42,6 +46,17 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Fast mode
   getFastMode: ()      => ipcRenderer.invoke('settings:get-fast-mode'),
   setFastMode: (val)   => ipcRenderer.invoke('settings:set-fast-mode', val),
+
+  // Get native file path from a File object (Electron 32+ replacement for file.path)
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+
+  // Response length
+  getResponseLength: ()    => ipcRenderer.invoke('settings:get-response-length'),
+  setResponseLength: (val) => ipcRenderer.invoke('settings:set-response-length', val),
+
+  // Personality force override
+  getPersona: ()     => ipcRenderer.invoke('persona:get'),
+  setPersona: (text) => ipcRenderer.invoke('persona:set', text),
 
   // Background / display settings
   getBgSettings: ()    => ipcRenderer.invoke('settings:get-bg'),
@@ -74,7 +89,7 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'claude:stream-chunk',
       'companion:sensation',
       'companion:trackers',
-      'companion:interject',
+      'feature-requests:updated',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));

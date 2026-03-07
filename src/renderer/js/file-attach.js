@@ -7,8 +7,52 @@ var FileAttach = (() => {
 
   let attachments = []; // Array of {type, name, path?, content?, url?}
 
+  const IMAGE_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
+
   function init() {
     document.getElementById('btn-folder').addEventListener('click', openAttachDialog);
+    initDragDrop();
+  }
+
+  function initDragDrop() {
+    const inputArea = document.getElementById('input-area');
+
+    // Prevent Electron from navigating the window when files are dropped anywhere
+    document.addEventListener('dragover',  (e) => e.preventDefault());
+    document.addEventListener('drop',      (e) => e.preventDefault());
+
+    inputArea.addEventListener('dragover', (e) => {
+      if (e.dataTransfer.types.includes('Files')) {
+        e.preventDefault();
+        e.stopPropagation();
+        inputArea.classList.add('drag-over');
+      }
+    });
+
+    inputArea.addEventListener('dragleave', (e) => {
+      if (!inputArea.contains(e.relatedTarget)) {
+        inputArea.classList.remove('drag-over');
+      }
+    });
+
+    inputArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      inputArea.classList.remove('drag-over');
+
+      const files = Array.from(e.dataTransfer.files);
+      for (const file of files) {
+        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        const mediaType = IMAGE_EXTS[ext];
+        if (mediaType) {
+          // Electron 32+: use webUtils.getPathForFile via preload (file.path was removed)
+          const filePath = window.claudeAPI.getPathForFile(file);
+          if (filePath) {
+            addAttachment({ type: 'image', name: file.name, path: filePath, mediaType });
+          }
+        }
+      }
+    });
   }
 
   async function openAttachDialog() {
@@ -19,7 +63,7 @@ var FileAttach = (() => {
       // Try file if folder cancelled
       const fileResult = await window.claudeAPI.openFile();
       if (fileResult && fileResult.success) {
-        addAttachment({ type: fileResult.type, name: fileResult.name, path: fileResult.path, content: fileResult.content });
+        addAttachment({ type: fileResult.type, name: fileResult.name, path: fileResult.path, content: fileResult.content, mediaType: fileResult.mediaType });
       }
     }
   }
@@ -61,8 +105,17 @@ var FileAttach = (() => {
       chip.className = 'attachment-chip';
       chip.title = att.path || att.url || att.name;
 
+      if (att.type === 'image') {
+        const thumb = document.createElement('img');
+        thumb.src = 'file://' + att.path.replace(/\\/g, '/');
+        thumb.style.cssText = 'height:28px;width:28px;object-fit:cover;border-radius:2px;margin-right:4px;flex-shrink:0;';
+        thumb.onerror = () => { thumb.style.display = 'none'; };
+        chip.insertBefore(thumb, chip.firstChild);
+      }
+
       const nameSpan = document.createElement('span');
-      nameSpan.textContent = att.name;
+      const typePrefix = att.type === 'image' ? 'Image: ' : att.type === 'screenshot' ? '' : '';
+      nameSpan.textContent = typePrefix + att.name;
       nameSpan.style.overflow = 'hidden';
       nameSpan.style.textOverflow = 'ellipsis';
 

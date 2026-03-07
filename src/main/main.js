@@ -12,9 +12,10 @@ const { openFilePicker, openFolderPicker } = require('./file-handler');
 const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
-const { summarizeConversation, generateCuriosityInterject } = require('./claude-bridge');
+const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
 const ttsEngine = require('./tts-engine');
+const featureRequestsStore = require('./feature-requests');
 
 const CHARACTERS_BASE = path.join(__dirname, '../../characters');
 const ADDONS_BASE     = path.join(__dirname, '../../addons');
@@ -47,59 +48,12 @@ let character;
 let characterRules;
 let fillerResponses;
 let _fastMode = false;
+let _responseLength = null;   // null = use character default
+let _personalityForce = '';   // empty = no override
 let _addonContexts = []; // merged context blobs from loaded addons
 let _currentSensation = 0; // Session-only pleasure/pain accumulator; resets on app restart
 let _trackers = {};         // Persistent named counters (loaded from DB per character)
 
-// ── Curiosity / Dead-Topics System ────────────────────────────────────────────
-// After each user exchange, a lull timer starts. If the user goes quiet for
-// LULL_THRESHOLD_MS, Aria picks a stored "dead topic" thread and asks about it.
-
-const LULL_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes of inactivity
-let _lullTimer = null;
-
-function resetLullTimer() {
-  if (_lullTimer) { clearTimeout(_lullTimer); _lullTimer = null; }
-  _lullTimer = setTimeout(tryInterject, LULL_THRESHOLD_MS);
-}
-
-async function tryInterject() {
-  _lullTimer = null;
-  if (!db || !mainWindow || mainWindow.isDestroyed()) return;
-
-  db.pruneOldThreads();
-  const threads = db.getActiveThreads(8);
-  if (!threads.length) return;
-
-  // Pick a random unused thread
-  const thread = threads[Math.floor(Math.random() * threads.length)];
-  db.markThreadUsed(thread.id);
-
-  console.log('[Curiosity] Interjecting with thread:', thread.content);
-  try {
-    const response = await generateCuriosityInterject({
-      thread: thread.content,
-      character,
-      characterRules,
-      masterSummary: sessionManager.masterSummary,
-      permanentMemories: sessionManager.permanentMemories,
-      conversationWindow: sessionManager.getRecentMessages(8),
-    });
-
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-
-    sessionManager.addMessage('companion', response.dialogue, response.emotion);
-    db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion });
-
-    mainWindow.webContents.send('companion:interject', {
-      dialogue: response.dialogue,
-      emotion: response.emotion,
-      thoughts: response.thoughts,
-    });
-  } catch (err) {
-    console.error('[Curiosity] Interjection failed:', err.message);
-  }
-}
 
 // ── App Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -157,8 +111,6 @@ function initBrain() {
     characterDir: CHARACTER_DIR,
   });
 
-  // Prune dead topic threads left over from the previous session
-  try { db.pruneOldThreads(); } catch {}
 }
 
 function loadAddons() {
@@ -278,6 +230,9 @@ app.whenReady().then(() => {
   _fastMode = readConfig().fastMode || false;
   console.log('[App] Fast mode:', _fastMode ? 'ON' : 'OFF');
 
+  // Restore response length override
+  _responseLength = readConfig().responseLength || null;
+
   const win = createWindow();
 
   hotkeyManager = new HotkeyManager(win);
@@ -349,9 +304,8 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     const onStreamChunk = (partialDialogue) => {
       mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
     };
-    // Fetch active dead-topic threads to inject as conversation hints
-    const activeThreads = db ? db.getActiveThreads(5) : [];
-    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, activeThreads });
+    if (_responseLength) character.default_response_length = _responseLength;
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, personalityForce: _personalityForce });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
@@ -450,13 +404,10 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       });
     }
 
-    // Store dead-topic threads extracted from this response and reset the lull timer
-    if (response.threads && response.threads.length > 0) {
-      for (const thread of response.threads) {
-        try { db.insertThread(thread); } catch {}
-      }
+    // Notify renderer if Aria added feature requests this turn
+    if (response.featureRequests && response.featureRequests.length > 0) {
+      mainWindow?.webContents.send('feature-requests:updated');
     }
-    resetLullTimer();
 
     const sumCheck = sessionManager.checkForSummarization();
     if (sumCheck) {
@@ -603,7 +554,14 @@ ipcMain.handle('msgs:list', () => {
 
 ipcMain.handle('msgs:delete-one', (_event, id) => {
   if (!db) return false;
+  // Get the message before deleting so we can cross-purge learned_responses
+  const msg = db.db.prepare('SELECT role, content FROM conversation_messages WHERE id = ?').get(id);
   db.db.prepare('DELETE FROM conversation_messages WHERE id = ?').run(id);
+  // If this is a companion message, also remove the matching learned response so
+  // bad/test responses don't persist in the local brain after an exchange is deleted.
+  if (msg && msg.role === 'companion' && msg.content) {
+    db.db.prepare('DELETE FROM learned_responses WHERE response_dialogue = ?').run(msg.content);
+  }
   return true;
 });
 
@@ -703,6 +661,28 @@ ipcMain.handle('settings:set-fast-mode', (_event, val) => {
   return _fastMode;
 });
 
+// ── Response length IPC ────────────────────────────────────────────────────────
+
+ipcMain.handle('settings:get-response-length', () => _responseLength || (character && character.default_response_length) || 'long');
+
+ipcMain.handle('settings:set-response-length', (_event, val) => {
+  const valid = ['very_short', 'short', 'medium', 'long', 'very_long'];
+  if (!valid.includes(val)) return;
+  _responseLength = val;
+  writeConfig({ responseLength: val });
+  if (character) character.default_response_length = val;
+  return val;
+});
+
+// ── Personality force IPC ──────────────────────────────────────────────────────
+
+ipcMain.handle('persona:get', () => _personalityForce);
+
+ipcMain.handle('persona:set', (_event, text) => {
+  _personalityForce = (typeof text === 'string') ? text.trim() : '';
+  return _personalityForce;
+});
+
 // ── UI zoom IPC ────────────────────────────────────────────────────────────
 
 ipcMain.handle('settings:get-zoom', () => readConfig().zoom || 100);
@@ -769,6 +749,18 @@ ipcMain.handle('character:switch', (_event, charId) => {
     console.error('[Character] switch error:', e.message);
     return { success: false, error: e.message };
   }
+});
+
+// ── Feature Requests IPC ──────────────────────────────────────────────────────
+
+ipcMain.handle('feature-requests:get', () => {
+  return featureRequestsStore.loadRequests(CHARACTER_DIR);
+});
+
+ipcMain.handle('feature-requests:delete', (_event, id) => {
+  const result = featureRequestsStore.deleteRequest(CHARACTER_DIR, id);
+  mainWindow?.webContents.send('feature-requests:updated');
+  return result;
 });
 
 // ── Push live updates to the emotional state window after each response ───────

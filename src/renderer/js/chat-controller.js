@@ -32,18 +32,6 @@ var ChatController = (() => {
       }
     });
 
-    // Unsolicited interjection from Aria (curiosity / dead-topics system).
-    // Fires when the lull timer detects inactivity and Aria picks a stored thread.
-    window.claudeAPI.on('companion:interject', (data) => {
-      if (isSending) return; // Don't interrupt an in-flight response
-      CompanionDisplay.showResponse({
-        dialogue: data.dialogue,
-        emotion: data.emotion,
-        thoughts: data.thoughts,
-        source: 'claude',
-      });
-      SourceIndicator.update('claude');
-    });
   }
 
   async function saveChat() {

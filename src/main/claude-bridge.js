@@ -94,6 +94,9 @@ async function sendToClaude({
   activeThreads = [],
   characterDir = null,
   conversationDynamic = '',
+  personalityForce = '',
+  featureRequests = [],
+  pendingDeletionNotifications = [],
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -107,6 +110,9 @@ async function sendToClaude({
     trackers,
     activeThreads,
     conversationDynamic,
+    personalityForce,
+    featureRequests,
+    pendingDeletionNotifications,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -136,11 +142,14 @@ async function sendToClaude({
     fullPrompt += `=== RECALLED RELEVANT PAST EXCHANGES ===\n${snippets}\n=== END RECALLED CONTEXT ===\n\n`;
   }
 
-  // Collect screenshot attachments separately — sent as image data via stdin
+  // Collect image attachments (screenshots + user-picked images) — sent as image data via stdin
   const screenshotAtts = attachments.filter(
     (a) => a.type === 'screenshot' && a.path && fs.existsSync(a.path)
   );
-  const hasScreenshot = screenshotAtts.length > 0;
+  const imageAtts = attachments.filter(
+    (a) => a.type === 'image' && a.path && fs.existsSync(a.path)
+  );
+  const hasScreenshot = screenshotAtts.length > 0 || imageAtts.length > 0;
 
   // Attachment content limits — fast mode uses tight caps to keep context small
   const FILE_LIMIT   = fastMode ?  2000 : 10000;
@@ -155,8 +164,9 @@ async function sendToClaude({
       fullPrompt += `[Attached file: ${att.name}]\n\`\`\`\n${excerpt}${truncNote}\n\`\`\`\n\n`;
     } else if (att.type === 'folder' && att.content) {
       fullPrompt += `[Attached folder: ${att.path}]\n${att.content.slice(0, FOLDER_LIMIT)}\n\n`;
-    } else if (att.type === 'screenshot') {
-      // Actual image data is injected via stream-json stdin below — skip text placeholder
+    } else if (att.type === 'screenshot' || att.type === 'image') {
+      // Actual image data is injected via stream-json stdin below — add a text label only
+      if (att.type === 'image') fullPrompt += `[Attached image: ${att.name}]\n\n`;
     } else if (att.type === 'url' && att.content) {
       fullPrompt += `[Web page content from ${att.url}]\n${att.content.slice(0, URL_LIMIT)}\n\n`;
     }
@@ -218,18 +228,19 @@ async function sendToClaude({
       console.warn('[ClaudeBridge] stdin error (suppressed):', err.code || err.message);
     });
 
-    // Write user message via stdin — text prompt always included, screenshots appended if present
+    // Write user message via stdin — text prompt always included, images appended if present
     const content = [{ type: 'text', text: fullPrompt }];
-    for (const att of screenshotAtts) {
+    for (const att of [...screenshotAtts, ...imageAtts]) {
       try {
         const imgBase64 = fs.readFileSync(att.path).toString('base64');
+        const mediaType = att.mediaType || 'image/png';
         content.push({
           type: 'image',
-          source: { type: 'base64', media_type: 'image/png', data: imgBase64 },
+          source: { type: 'base64', media_type: mediaType, data: imgBase64 },
         });
-        console.log('[ClaudeBridge] Screenshot attached, base64 length:', imgBase64.length);
+        console.log(`[ClaudeBridge] Image attached (${att.type}), base64 length:`, imgBase64.length);
       } catch (err) {
-        console.warn('[ClaudeBridge] Could not read screenshot:', err.message);
+        console.warn('[ClaudeBridge] Could not read image:', err.message);
       }
     }
     const msg = JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n';
@@ -614,4 +625,112 @@ async function generateCuriosityInterject({ thread, character, characterRules, m
   });
 }
 
-module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories, generateCuriosityInterject };
+/**
+ * Generates a pool of varied responses for a single self-knowledge topic.
+ * Called in the background after Claude answers a [KNOWLEDGE]-tagged question.
+ *
+ * @param {object} opts
+ * @param {string} opts.topic       - snake_case topic name e.g. "favorite_ice_cream"
+ * @param {string} opts.factKey     - The core answer e.g. "honey vanilla"
+ * @param {string} [opts.factDetail]- Optional elaboration e.g. "warm, sweet, golden feeling"
+ * @param {object} opts.character   - character.json object (for name + speech style)
+ * @param {number} [opts.count=50]  - How many responses to generate
+ * @returns {Promise<Array<{dialogue,thoughts,emotion}>>}
+ */
+async function generateResponsePool({ topic, factKey, factDetail, character, count = 50 }) {
+  const name = character.name;
+  const VALID_EMOTIONS =
+    'neutral, happy, soft_smile, laughing, confident, smug, surprised, shocked, ' +
+    'confused, thinking, concerned, sad, angry, determined, embarrassed, exhausted, pout';
+
+  const systemPrompt =
+    `You generate varied in-character responses for ${name}, an AI companion.\n` +
+    `Personality: ${character.personality_summary}\n` +
+    `Speech style: ${character.speech_style}\n\n` +
+    `Task: Given a TOPIC and ANSWER, generate exactly ${count} different ways ${name} might answer that question.\n` +
+    `Rules:\n` +
+    `- Every response must reflect the answer accurately. Never contradict it.\n` +
+    `- Vary phrasing, length, emotional tone, and level of detail across responses.\n` +
+    `- Include a mix of brief (1 sentence) and longer (2-3 sentence) responses.\n` +
+    `- Vary emotions using only: ${VALID_EMOTIONS}\n` +
+    `- thoughts is ${name}'s brief internal monologue (1 sentence).\n` +
+    `Return ONLY a valid JSON array with no extra text:\n` +
+    `[{"dialogue":"...","thoughts":"...","emotion":"emotion_id"}, ...]`;
+
+  const topicDisplay = topic.replace(/_/g, ' ');
+  const userPrompt =
+    `TOPIC: ${topicDisplay}\n` +
+    `ANSWER: ${factKey}${factDetail ? ` — ${factDetail}` : ''}\n` +
+    `Generate ${count} responses.`;
+
+  const { cmd, prefix, shell } = resolveClaudeSpawn();
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.ELECTRON_RUN_AS_NODE;
+  delete cleanEnv.ELECTRON_NO_ASAR;
+  delete cleanEnv.ELECTRON_RESOURCES_PATH;
+  delete cleanEnv.VSCODE_PID;
+  delete cleanEnv.VSCODE_IPC_HOOK;
+  delete cleanEnv.VSCODE_HANDLES_UNCAUGHT_ERRORS;
+  delete cleanEnv.VSCODE_NLS_CONFIG;
+
+  const sysTmp = path.join(require('os').tmpdir(), `cc_pool_${Date.now()}.txt`);
+  fs.writeFileSync(sysTmp, systemPrompt, 'utf8');
+
+  return new Promise((resolve, reject) => {
+    const _cleanup = () => { try { fs.unlinkSync(sysTmp); } catch {} };
+
+    const args = [
+      ...prefix,
+      '-p', userPrompt,
+      '--output-format', 'json',
+      '--model', 'claude-haiku-4-5-20251001',
+      '--system-prompt-file', sysTmp,
+      '--dangerously-skip-permissions',
+    ];
+
+    const proc = spawn(cmd, args, {
+      env: cleanEnv,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...(shell ? { shell: true } : {}),
+    });
+
+    proc.stdin.on('error', () => {});
+    proc.stdin.end();
+
+    let stdout = '';
+    proc.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    proc.stderr.on('data', () => {});
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error('Pool generation timed out after 90s'));
+    }, 90000);
+
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      _cleanup();
+      if (code !== 0 && !stdout) {
+        reject(new Error(`Pool generation failed (code ${code})`));
+        return;
+      }
+      const raw = extractRawText(stdout) || stdout.trim();
+      try {
+        const jsonMatch = raw.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('No JSON array in response');
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (!Array.isArray(parsed)) throw new Error('Response is not an array');
+        resolve(parsed.filter(r => r && typeof r.dialogue === 'string' && r.dialogue.trim()));
+      } catch (err) {
+        reject(new Error(`Pool gen parse failed: ${err.message}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      _cleanup();
+      reject(new Error(`Failed to spawn Claude for pool generation: ${err.message}`));
+    });
+  });
+}
+
+module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories, generateCuriosityInterject, generateResponsePool };

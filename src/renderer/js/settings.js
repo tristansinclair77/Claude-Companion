@@ -573,11 +573,11 @@ const BackgroundSettings = (() => {
   }
 
   // All arcade event IDs — adding a new event here auto-gates all spawn buttons
-  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller'];
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman'];
 
   function _syncEventSpawnBtns() {
     const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
-    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn']) {
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn', 'pm-spawn-btn']) {
       const btn = document.getElementById(id);
       if (!btn) continue;
       btn.disabled = anyBusy;
@@ -715,6 +715,13 @@ const BackgroundSettings = (() => {
       const btn   = document.getElementById('btn-settings');
       if (!panel?.classList.contains('open')) return;
       if (!panel.contains(e.target) && !btn?.contains(e.target)) _closePanel();
+    });
+
+    // ── Response length ──
+    document.getElementById('response-length-group')?.addEventListener('change', (e) => {
+      if (e.target.name === 'response-length') {
+        window.claudeAPI.setResponseLength(e.target.value).catch(() => {});
+      }
     });
 
     // ── Zoom ──
@@ -922,6 +929,7 @@ const BackgroundSettings = (() => {
     document.getElementById('ast-spawn-btn')?.addEventListener('click',  () => _spawnEvent('asteroids'));
     document.getElementById('pong-spawn-btn')?.addEventListener('click', () => _spawnEvent('pong'));
     document.getElementById('ss-spawn-btn')?.addEventListener('click',   () => _spawnEvent('sideScroller'));
+    document.getElementById('pm-spawn-btn')?.addEventListener('click',   () => _spawnEvent('pacman'));
 
     // ── Idle auto-spawn ───────────────────────────────────────────────────────
     // After 2–3 min of user inactivity, fire a random arcade event (if arcade
@@ -1007,6 +1015,13 @@ const BackgroundSettings = (() => {
       _zoom = await window.claudeAPI.getZoom();
     } catch { _zoom = 100; }
     _syncZoomUI();
+
+    // Load saved response length
+    try {
+      const len = await window.claudeAPI.getResponseLength();
+      const radio = document.querySelector(`input[name="response-length"][value="${len}"]`);
+      if (radio) radio.checked = true;
+    } catch {}
 
     _syncUI();
     _wire();

@@ -295,6 +295,72 @@ html { background: var(--bg-dark); }
 #sensation-readout.pain      { color: #ff2233; }
 #sensation-readout.neutral-sen { color: #00ff8844; }
 
+/* Persona force popup */
+#persona-popup {
+  position: absolute;
+  bottom: calc(var(--input-h) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 4px 20px #000a, 0 0 16px #cc88ff22;
+  z-index: 200;
+  width: 320px;
+  padding: 10px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.persona-popup-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #cc88ff88;
+  text-transform: uppercase;
+  border-bottom: 1px solid #cc88ff18;
+  padding-bottom: 6px;
+}
+#persona-input {
+  width: 100%;
+  background: #0a0a1288;
+  border: 1px solid #cc88ff33;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+#persona-input:focus { border-color: #cc88ffaa; }
+#persona-input::placeholder { color: #cc88ff33; }
+.persona-popup-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.persona-popup-actions button {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--cyan-dim);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.persona-apply-btn {
+  border-color: #cc88ff88 !important;
+  color: #cc88ffcc !important;
+}
+.persona-apply-btn:hover { background: #cc88ff18 !important; }
+#btn-persona.active {
+  color: #cc88ff !important;
+  border-color: #cc88ff88 !important;
+  box-shadow: 0 0 8px #cc88ff44 !important;
+}
+
 /* Tracker popup — Aria's self-chosen counters, floats above TRACK button */
 #tracker-popup {
   position: absolute;
@@ -370,6 +436,13 @@ html { background: var(--bg-dark); }
   flex-direction: column;
   padding: 6px 10px 4px;
   position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+#input-area.drag-over {
+  border-top-color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--bg-input) 85%, var(--accent-cyan) 15%);
+  outline: 2px dashed var(--accent-cyan);
+  outline-offset: -3px;
 }
 
 #input-row {
@@ -789,4 +862,130 @@ html { background: var(--bg-dark); }
 [data-package="fantasy_rpg"][data-season="leaves"] {
   --border-glow: #ff771a22;   /* ember orange haze */
   --cyan-dim:    #995522;     /* dark rust */
+}
+
+/* ── Requests Panel ──────────────────────────────────────────────────────────── */
+
+#btn-requests {
+  position: relative;
+}
+
+#requests-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--red, #ff3366);
+  color: #fff;
+  font-size: 8px;
+  font-family: var(--font-mono);
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 7px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+#requests-panel {
+  position: absolute;
+  bottom: calc(var(--input-h) + 4px);
+  right: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 4px 24px #000b, 0 0 14px #00ffcc1a;
+  z-index: 200;
+  width: 340px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.requests-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #00ffcc55;
+  border-bottom: 1px solid #00ffcc18;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.requests-header button {
+  background: none;
+  border: none;
+  color: #00ffcc44;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.requests-header button:hover { color: var(--cyan); }
+
+.requests-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0 6px;
+}
+
+.requests-empty {
+  padding: 16px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #00ffcc33;
+  text-align: center;
+}
+
+.requests-item {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid #00ff8808;
+}
+.requests-item:last-child { border-bottom: none; }
+
+.requests-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.requests-item-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--cyan);
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.requests-item-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  color: #ffffff33;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.requests-item-delete:hover { color: var(--red, #ff3366); }
+
+.requests-item-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #cccccc88;
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+
+.requests-item-meta {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #00ffcc33;
+  letter-spacing: 0.08em;
 }

@@ -6,11 +6,12 @@ const path = require('path');
 const fs   = require('fs');
 const { CONFIDENCE_THRESHOLD, SOURCES } = require('../shared/constants');
 const { normalizeText } = require('./knowledge-db');
-const { sendToClaude } = require('./claude-bridge');
+const { sendToClaude, generateResponsePool } = require('./claude-bridge');
 const { ConversationDynamics } = require('./conversation-dynamics');
 const logger = require('./debug-logger');
-const { classifyIntent, extractEmotionalTopic, INTENTS, CONFIDENCE } = require('./intent-classifier');
+const { extractEmotionalTopic, INTENTS } = require('./intent-classifier');
 const TemplateEngine = require('./template-engine');
+const featureRequestsStore = require('./feature-requests');
 
 const VISUAL_INTENT_EXPLICIT = new Set([
   'look at this', 'see this', 'check this out', 'what do you think of this',
@@ -47,6 +48,9 @@ class LocalBrain {
     // Track last response for feedback monitoring
     this._lastResponse = null;
 
+    // Topics currently being pool-generated in the background (prevents duplicate jobs)
+    this._pendingPoolTopUps = new Set();
+
     // ── Knowledge Brain components ──────────────────────────────────────────
     // Synonym expansion map: word → Set(all synonyms in the same group)
     this._synonymExpansionMap = buildSynonymExpansionMap();
@@ -75,7 +79,7 @@ class LocalBrain {
    * @param {Array}  [opts.attachments]
    * @returns {Promise<{dialogue, thoughts, emotion, source, id: number|null}>}
    */
-  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false, sensation = 0, addonContexts = [], trackers = {}, activeThreads = [] } = {}) {
+  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false, sensation = 0, addonContexts = [], trackers = {}, activeThreads = [], personalityForce = '' } = {}) {
     const normalized = normalizeText(userMessage);
     const lower = userMessage.toLowerCase().trim();
 
@@ -86,51 +90,17 @@ class LocalBrain {
       normalizedPattern: normalized,
     });
 
-    // ── Tier 1: Filler check ────────────────────────────────────────────────
-    const filler = this._checkFiller(lower);
-    if (filler) {
-      logger.log('route_filler', { trigger: lower, dialogue: filler.dialogue, emotion: filler.emotion });
-      this._lastResponse = { source: SOURCES.FILLER, id: null };
-      return { ...filler, source: SOURCES.FILLER, id: null };
-    }
+    // ── Tiers 1-3 disabled: always route to Claude ──────────────────────────
+    // Filler, Knowledge Brain, and local Jaccard matching are bypassed.
+    // Memories and DB writes still happen after Claude responds (below).
 
-    // ── Visual trigger check ────────────────────────────────────────────────
+    // ── Visual trigger check (kept for screen-capture signalling only) ───────
     const needsScreen = this._checkVisualTrigger(lower);
     if (needsScreen && attachments.findIndex((a) => a.type === 'screenshot') === -1) {
-      // Signal the UI to auto-capture (we mark the message with a flag)
-      // The actual capture happens in the renderer before calling this
-      // We record the trigger phrase for learning
       this._learnVisualTrigger(userMessage);
     }
 
-    // ── Tier 2: Knowledge Brain (intent + template) ─────────────────────────
-    if (!attachments.length) {
-      const { intent, confidence } = classifyIntent(userMessage);
-
-      logger.log('intent_classified', { intent, confidence, message: userMessage.slice(0, 80) });
-
-      if (confidence !== CONFIDENCE.LOW && intent !== INTENTS.UNKNOWN) {
-        const knowledgeResult = this._checkKnowledgeBrain(userMessage, normalized, intent);
-        if (knowledgeResult) {
-          logger.log('route_knowledge_hit', { intent, dialogue: knowledgeResult.dialogue, emotion: knowledgeResult.emotion });
-          this._lastResponse = { source: SOURCES.LOCAL, id: null, knowledgeBrain: true };
-          return { ...knowledgeResult, source: SOURCES.LOCAL };
-        }
-      }
-    }
-
-    // ── Tier 3: Learned-response match (synonym-aware Jaccard) ──────────────
-    if (!attachments.length) {
-      const localResult = this._checkLocalBrain(normalized, userEmotion);
-      if (localResult) {
-        logger.log('route_local_hit', { dialogue: localResult.dialogue, emotion: localResult.emotion, id: localResult.id });
-        this.db.recordUsage(localResult.id, 0, 'neutral');
-        this._lastResponse = { source: SOURCES.LOCAL, id: localResult.id };
-        return { ...localResult, source: SOURCES.LOCAL };
-      }
-    }
-
-    // ── Tier 4: Claude ──────────────────────────────────────────────────────
+    // ── Claude ───────────────────────────────────────────────────────────────
     const context = this.sessionManager.getContextForPrompt();
 
     // Retrieve past Q&A on related topics to boost response quality (RAG)
@@ -141,6 +111,14 @@ class LocalBrain {
     let claudeResult;
     const _rawState = this.db.getEmotionalState ? this.db.getEmotionalState() : null;
     const emotionalState = _rawState ? { ..._rawState, sensation } : null;
+
+    // Load feature requests and pending deletion notifications for system prompt injection
+    const featureRequests = this.characterDir
+      ? featureRequestsStore.loadRequests(this.characterDir)
+      : [];
+    const pendingDeletionNotifications = this.characterDir
+      ? featureRequestsStore.loadPendingDeletionNotifications(this.characterDir)
+      : [];
 
     try {
       // Update conversation state from user message FIRST, then get directive so
@@ -167,7 +145,15 @@ class LocalBrain {
         activeThreads,
         characterDir: this.characterDir,
         conversationDynamic,
+        personalityForce,
+        featureRequests,
+        pendingDeletionNotifications,
       });
+
+      // Clear deletion notifications now that they've been injected into this prompt
+      if (pendingDeletionNotifications.length > 0 && this.characterDir) {
+        featureRequestsStore.clearDeletionNotifications(this.characterDir);
+      }
     } catch (err) {
       throw err;
     }
@@ -221,8 +207,26 @@ class LocalBrain {
             originalResponse: claudeResult.dialogue,
           });
           logger.log('knowledge_captured', { topic: k.topic, fact: k.factKey });
+
+          // Kick off background pool generation for this newly learned topic
+          const poolSize = this.db.getPoolSize(k.topic);
+          if (poolSize < 100) {
+            this._topUpPoolAsync({ topic: k.topic, fact_key: k.factKey, fact_detail: k.factDetail || '' });
+          }
         } catch (err) {
           console.error('[LocalBrain] Knowledge capture error:', err.message);
+        }
+      }
+
+      // Save [FEATURE_REQUEST] tags to persistent file
+      if (this.characterDir && claudeResult.featureRequests && claudeResult.featureRequests.length > 0) {
+        for (const fr of claudeResult.featureRequests) {
+          try {
+            featureRequestsStore.addRequest(this.characterDir, fr);
+            logger.log('feature_request_added', { title: fr.title });
+          } catch (err) {
+            console.error('[LocalBrain] Feature request save error:', err.message);
+          }
         }
       }
 
@@ -317,7 +321,7 @@ class LocalBrain {
       // of how it was asked — FACTUAL_RECALL ("do you remember your fav color?") should
       // still find entries stored as QUESTION_ABOUT_COMPANION.
       const searchIntent = INTENTS.QUESTION_ABOUT_COMPANION;
-      knowledge = this.db.findKnowledge(searchIntent, expanded);
+      knowledge = this.db.findKnowledge(searchIntent, expanded, rawWords);
       if (!knowledge) {
         logger.log('knowledge_miss', { intent, normalized: normalized.slice(0, 60) });
         return null; // no fact stored yet — go to Claude
@@ -339,7 +343,25 @@ class LocalBrain {
       return null; // unhandled intent
     }
 
-    // Check we actually have templates for this intent before trying
+    // ── Pool check: serve a random pre-generated response if the pool is ready ──
+    if (knowledge) {
+      const poolSize = this.db.getPoolSize(knowledge.topic);
+      if (poolSize >= 10) {
+        const poolRow = this.db.getRandomPoolResponse(knowledge.topic);
+        if (poolRow) {
+          this.db.bumpKnowledgeAsked(knowledge.id);
+          // Trigger background top-up if pool is getting low
+          if (poolSize < 100) this._topUpPoolAsync(knowledge);
+          logger.log('route_pool_hit', { topic: knowledge.topic, poolSize, dialogue: poolRow.dialogue.slice(0, 60) });
+          return { dialogue: poolRow.dialogue, thoughts: poolRow.thoughts || '', emotion: poolRow.emotion || 'neutral' };
+        }
+      } else {
+        // Pool not ready yet — trigger background generation (won't block this response)
+        this._topUpPoolAsync(knowledge);
+      }
+    }
+
+    // ── Template engine fallback ──────────────────────────────────────────────
     if (!this.templateEngine.hasTemplatesFor(intent)) return null;
 
     const emotionalState = this.db.getEmotionalState ? this.db.getEmotionalState() : null;
@@ -365,6 +387,38 @@ class LocalBrain {
   }
 
   /**
+   * Background pool top-up: generates N more responses for a knowledge topic and
+   * stores them in topic_response_pool. Silently swallows errors — never blocks the UI.
+   */
+  async _topUpPoolAsync(knowledge) {
+    const topic = knowledge.topic;
+    if (this._pendingPoolTopUps.has(topic)) return;
+    this._pendingPoolTopUps.add(topic);
+    try {
+      const current = this.db.getPoolSize(topic);
+      const needed  = Math.max(0, 100 - current);
+      if (needed <= 0) return;
+      const count = Math.min(needed, 50); // one batch at a time
+      console.log(`[LocalBrain] Pool top-up: generating ${count} responses for '${topic}' (have ${current})`);
+      const responses = await generateResponsePool({
+        topic,
+        factKey:    knowledge.fact_key    || knowledge.factKey    || '',
+        factDetail: knowledge.fact_detail || knowledge.factDetail || '',
+        character:  this.character,
+        count,
+      });
+      if (responses && responses.length) {
+        this.db.insertPoolResponses(topic, responses);
+        console.log(`[LocalBrain] Pool '${topic}': ${current} → ${this.db.getPoolSize(topic)} responses`);
+      }
+    } catch (err) {
+      console.error(`[LocalBrain] Pool top-up failed for '${topic}':`, err.message);
+    } finally {
+      this._pendingPoolTopUps.delete(topic);
+    }
+  }
+
+  /**
    * Fallback local path: FTS5 candidate retrieval + synonym-aware Jaccard scoring.
    * Still useful for remembered Q&A that doesn't yet have a knowledge entry.
    */
@@ -385,6 +439,14 @@ class LocalBrain {
       const storedWords = new Set((c.input_pattern || '').split(' ').filter(Boolean));
       // Synonym-aware: expand stored words too
       const expandedStored = expandWithSynonyms(storedWords, this._synonymExpansionMap);
+
+      // Require at least one specific (non-generic) content word to be shared between
+      // query and stored pattern (in either direction, synonym-aware). Prevents
+      // "favorite skyscraper" matching "favorite color" on the generic word alone.
+      const hasContentMatch =
+        [...queryWords].some(w => !LOCAL_GENERIC_WORDS.has(w) && expandedStored.has(w)) ||
+        [...storedWords].some(w => !LOCAL_GENERIC_WORDS.has(w) && expandedQuery.has(w));
+      if (!hasContentMatch) continue;
 
       const similarity = synonymAwareJaccard(queryWords, expandedQuery, storedWords, expandedStored);
 
@@ -537,6 +599,17 @@ function buildTopicWords(topic, expansionMap) {
   }
   return Array.from(words).join(' ');
 }
+
+// Generic/qualifier words that appear in virtually every "favorite X" or preference query.
+// A learned-response match is only valid if at least one word NOT in this set overlaps
+// between the query and the stored pattern — i.e. they share actual content, not just
+// question scaffolding like "favorite", "what", "your", etc.
+const LOCAL_GENERIC_WORDS = new Set([
+  'favorite', 'favourite', 'prefer', 'like', 'love', 'hate', 'feel', 'think',
+  'believe', 'want', 'dream', 'wish', 'opinion', 'view', 'enjoy', 'dislike',
+  'fear', 'fav', 'best', 'top', 'choice', 'pick',
+  'what', 'your', 'you', 'do', 'does', 'is', 'are', 'how', 'tell', 'me',
+]);
 
 // ── Filler & misc helpers ─────────────────────────────────────────────────────
 

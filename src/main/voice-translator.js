@@ -189,32 +189,6 @@ function applyQuirks(sentences, quirks, vocabulary) {
       s = s + ' ' + pick(quirks.parenthetical_phrases);
     }
 
-    // Interjection at sentence start (Aria)
-    if (
-      quirks.interjection_chance &&
-      quirks.interjection_phrases &&
-      quirks.interjection_phrases.length > 0 &&
-      chance(quirks.interjection_chance) &&
-      i === 0
-    ) {
-      s = pick(quirks.interjection_phrases) + ' ' + s;
-    }
-
-    // Injection words from vocabulary rules
-    if (vocabulary && vocabulary.injection_words) {
-      if (i === 0 && vocabulary.injection_words.sentence_start) {
-        // Only prepend if sentence doesn't already start with "..."
-        if (!s.startsWith('...') && chance(0.20)) {
-          s = pick(vocabulary.injection_words.sentence_start) + ' ' + s;
-        }
-      }
-      if (i === sentences.length - 1 && vocabulary.injection_words.sentence_end) {
-        if (chance(0.15)) {
-          s = s.replace(/[.!?~]$/, '') + ' ' + pick(vocabulary.injection_words.sentence_end);
-        }
-      }
-    }
-
     return s.trim();
   });
 }

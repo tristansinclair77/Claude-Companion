@@ -28,6 +28,7 @@
   <canvas id="bg-asteroids"       aria-hidden="true"></canvas>
   <canvas id="bg-pong"            aria-hidden="true"></canvas>
   <canvas id="bg-side-scroller"   aria-hidden="true"></canvas>
+  <canvas id="bg-pacman"          aria-hidden="true"></canvas>
   <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
@@ -127,12 +128,24 @@
       <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
       </div>
+      <button class="action-btn" id="btn-persona" title="Force a temporary personality directive">🎭 PERSONA</button>
       <button class="action-btn" id="btn-fast" title="Fast mode: brief responses, Haiku model, limited file reading">⚡ FAST</button>
       <button class="action-btn" id="btn-adventure" title="Open RPG Adventure panel">⚔ ADVENTURE</button>
+      <button class="action-btn" id="btn-requests" title="Aria's feature request wishlist">✦ REQUESTS<span id="requests-badge" class="hidden"></span></button>
     </div>
 
     <!-- Voice picker popup -->
     <div id="voice-picker" class="hidden"></div>
+
+    <!-- Persona force popup -->
+    <div id="persona-popup" class="hidden">
+      <div class="persona-popup-label">// PERSONALITY DIRECTIVE</div>
+      <textarea id="persona-input" placeholder="Describe a temporary personality shift&#10;e.g. &quot;be more cold and aloof today&quot;&#10;or &quot;you're in an extremely playful mood&quot;&#10;&#10;Leave empty to use default." maxlength="500" spellcheck="false" rows="5"></textarea>
+      <div class="persona-popup-actions">
+        <button id="btn-persona-clear">CLEAR</button>
+        <button id="btn-persona-apply" class="persona-apply-btn">APPLY</button>
+      </div>
+    </div>
 
     <!-- Tracker popup -->
     <div id="tracker-popup" class="hidden"></div>
@@ -145,6 +158,17 @@
     <!-- Emotion picker popup -->
     <div id="emotion-picker" class="hidden">
       <div id="emotion-grid"></div>
+    </div>
+  </div>
+
+  <!-- Feature Requests panel -->
+  <div id="requests-panel" class="hidden">
+    <div class="requests-header">
+      <span>// ARIA_REQUESTS</span>
+      <button id="btn-requests-close" title="Close">✕</button>
+    </div>
+    <div class="requests-body">
+      <div id="requests-list"></div>
     </div>
   </div>
 
@@ -176,6 +200,20 @@
             <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
             <span class="zoom-val" id="zoom-val">100%</span>
             <button class="zoom-btn" id="btn-zoom-in"  title="Zoom in">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Length -->
+      <div class="settings-section">
+        <div class="settings-section-title">RESPONSE LENGTH</div>
+        <div class="settings-row">
+          <div class="settings-radio-group" id="response-length-group">
+            <label><input type="radio" name="response-length" value="very_short"> XS</label>
+            <label><input type="radio" name="response-length" value="short">      S</label>
+            <label><input type="radio" name="response-length" value="medium">     M</label>
+            <label><input type="radio" name="response-length" value="long">       L</label>
+            <label><input type="radio" name="response-length" value="very_long">  XL</label>
           </div>
         </div>
       </div>
@@ -270,6 +308,19 @@
         <div class="settings-row">
           <span class="settings-label">SPAWN</span>
           <button class="settings-toggle active" id="ss-spawn-btn">SPAWN</button>
+        </div>
+      </div>
+
+      <!-- Pac-Man Chase random event (Arcade Cabinet package) -->
+      <div class="settings-section" data-effect-module="pacman">
+        <div class="settings-section-title">PAC-MAN CHASE</div>
+        <div class="settings-row">
+          <span class="settings-label">RANDOM EVENT</span>
+          <span class="settings-hint">Pac-Man chomps dots — ghosts close in</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SPAWN</span>
+          <button class="settings-toggle active" id="pm-spawn-btn">SPAWN</button>
         </div>
       </div>
 
@@ -480,11 +531,14 @@
   <script src="js/effects/AsteroidsEffect.js"></script>
   <script src="js/effects/PongEffect.js"></script>
   <script src="js/effects/SideScrollerEffect.js"></script>
+  <script src="js/effects/PacManEffect.js"></script>
   <script src="js/effects/ArcadeAmbientEffect.js"></script>
   <script src="js/packages/CyberneticPackage.js"></script>
   <script src="js/packages/FantasyRpgPackage.js"></script>
   <script src="js/packages/ArcadePackage.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/requests-panel.js"></script>
+  <script src="js/persona-popup.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-inventory.js"></script>
   <script src="../../addons/rpg_adventure/ui/rpg-panel.js"></script>
   <script src="js/app.js"></script>

@@ -15,6 +15,7 @@
   });
 
   FileAttach.init();
+  PersonaPopup.init();
   ScreenCaptureUI.init();
   MicController.init((transcript) => {
     // When Whisper transcription is ready, auto-fill input

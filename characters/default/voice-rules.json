@@ -2,12 +2,12 @@
   "character": "aria",
   "version": "1.0.0",
   "sentence_structure": {
-    "max_sentence_length": 25,
-    "fragment_frequency": 0.05,
-    "trailing_off_frequency": 0.10,
+    "max_sentence_length": 0,
+    "fragment_frequency": 0.0,
+    "trailing_off_frequency": 0.0,
     "trailing_off_marker": "~",
-    "interruption_frequency": 0.08,
-    "interruption_markers": ["Oh! Wait—", "Actually—"]
+    "interruption_frequency": 0.0,
+    "interruption_markers": []
   },
   "vocabulary": {
     "replacements": {
@@ -16,10 +16,7 @@
       "quite": ["pretty", "really"]
     },
     "banned_words": [],
-    "injection_words": {
-      "sentence_start": ["Oh~!", "Hmm~", "Ooh,", "Oh, you know what?"],
-      "sentence_end": ["~", "~!", "— isn't that cool?", ", right~?"]
-    }
+    "injection_words": {}
   },
   "emotional_dampening": {
     "positive_scale": 1.1,
@@ -34,13 +31,9 @@
     "parenthetical_chance": 0.0,
     "parenthetical_phrases": [],
     "tilde_warmth_chance": 0.35,
-    "interjection_chance": 0.20,
-    "interjection_phrases": ["Oh~!", "Ooh!", "Hmm~", "Oh, wait!"],
-    "self_correction_chance": 0.08,
-    "self_correction_phrases": [
-      "Wait, where was I going with this?",
-      "Oh! That reminds me—",
-      "Actually, you know what's funny?"
-    ]
+    "interjection_chance": 0.0,
+    "interjection_phrases": [],
+    "self_correction_chance": 0.0,
+    "self_correction_phrases": []
   }
 }
