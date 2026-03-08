@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Drawing Overlay</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Courier New', monospace;
+      user-select: none;
+    }
+
+    /* ── Toolbar ── */
+    /* NO -webkit-app-region:drag on toolbar — it swallows all child clicks on Windows.
+       Dragging is handled by #drag-handle only. */
+    #toolbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 38px;
+      background: rgba(8, 16, 30, 0.93);
+      border-bottom: 1px solid rgba(0, 200, 255, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 4px 0 8px;
+      z-index: 200;
+    }
+
+    #toolbar.hidden { display: none; }
+
+    /* dedicated drag strip — flex-grows to fill middle space */
+    #drag-handle {
+      flex: 1;
+      height: 100%;
+      -webkit-app-region: drag;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      min-width: 20px;
+    }
+    #drag-handle span {
+      color: rgba(0, 200, 255, 0.2);
+      font-size: 10px;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* ── Buttons ── */
+    button {
+      -webkit-app-region: no-drag;
+      background: rgba(0, 200, 255, 0.1);
+      border: 1px solid rgba(0, 200, 255, 0.35);
+      color: #7ee8ff;
+      padding: 0 9px;
+      height: 24px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      white-space: nowrap;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    button:hover { background: rgba(0, 200, 255, 0.25); }
+
+    #trace-btn.active {
+      background: rgba(0, 255, 120, 0.15);
+      border-color: rgba(0, 255, 120, 0.55);
+      color: #00ff88;
+    }
+
+    #close-btn {
+      border-color: rgba(255, 80, 80, 0.4);
+      color: rgba(255, 100, 100, 0.8);
+    }
+    #close-btn:hover { background: rgba(255, 60, 60, 0.2); }
+
+    /* ── Opacity row ── */
+    .sep {
+      width: 1px;
+      height: 20px;
+      background: rgba(0, 200, 255, 0.2);
+      flex-shrink: 0;
+    }
+
+    label {
+      -webkit-app-region: no-drag;
+      color: rgba(0, 200, 255, 0.55);
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #opacity-slider {
+      -webkit-app-region: no-drag;
+      width: 80px;
+      accent-color: #00c8ff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    #opacity-value {
+      -webkit-app-region: no-drag;
+      color: #7ee8ff;
+      font-size: 11px;
+      min-width: 34px;
+      flex-shrink: 0;
+    }
+
+    /* ── Image area ── */
+    #canvas-area {
+      position: fixed;
+      top: 38px; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* canvas-area intentionally stays at top:38px in all modes — prevents image jump when toolbar hides */
+
+    /* Drop zone */
+    #drop-zone {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: rgba(0, 200, 255, 0.35);
+      font-size: 13px;
+      border: 2px dashed rgba(0, 200, 255, 0.15);
+      background: rgba(0, 10, 20, 0.55);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #drop-zone.drag-over {
+      border-color: rgba(0, 200, 255, 0.5);
+      background: rgba(0, 30, 60, 0.7);
+    }
+    #drop-zone.hidden { display: none; }
+
+    .drop-icon { font-size: 52px; opacity: 0.25; line-height: 1; }
+    .drop-sub  { font-size: 10px; opacity: 0.5; }
+
+    /* Image */
+    #overlay-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+      image-rendering: pixelated; /* keep crisp for pixel art / tracing */
+    }
+    #overlay-img.loaded { display: block; }
+
+    /* trace-mode overlay label */
+    #trace-label {
+      position: fixed;
+      bottom: 6px;
+      right: 8px;
+      background: rgba(0, 255, 120, 0.12);
+      border: 1px solid rgba(0, 255, 120, 0.4);
+      color: #00ff88;
+      font-size: 10px;
+      padding: 2px 7px;
+      pointer-events: none;
+      display: none;
+      z-index: 999;
+    }
+    #trace-label.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- hidden file picker — no IPC needed -->
+  <input type="file" id="file-input" accept="image/*" style="display:none">
+
+  <div id="toolbar">
+    <button id="open-btn">Open Image</button>
+    <button id="fit-btn" disabled title="Resize window to image natural size">1:1</button>
+    <div class="sep"></div>
+    <button id="trace-btn">⬡ Trace  Ctrl+Shift+T</button>
+    <div class="sep"></div>
+    <label for="opacity-slider">Opacity</label>
+    <input type="range" id="opacity-slider" min="0.05" max="0.95" step="0.05" value="0.5">
+    <span id="opacity-value">50%</span>
+    <!-- drag handle fills remaining space — only this region moves the window -->
+    <div id="drag-handle"><span>⠿ drag</span></div>
+    <button id="close-btn">✕</button>
+  </div>
+
+  <div id="canvas-area">
+    <div id="drop-zone">
+      <div class="drop-icon">⊞</div>
+      <div>Drop an image here</div>
+      <div>or click <strong>Open Image</strong></div>
+      <div class="drop-sub">PNG · JPG · GIF · BMP · WebP</div>
+    </div>
+    <img id="overlay-img" alt="reference">
+  </div>
+
+  <div id="trace-label">TRACING — Ctrl+Shift+T to exit</div>
+
+<script>
+(function () {
+  const api = window.api; // IIFE scope — avoids conflict with contextBridge global 'api'
+
+  const toolbar       = document.getElementById('toolbar');
+  const canvasArea    = document.getElementById('canvas-area');
+  const openBtn       = document.getElementById('open-btn');
+  const fitBtn        = document.getElementById('fit-btn');
+  const traceBtn      = document.getElementById('trace-btn');
+  const opacitySlider = document.getElementById('opacity-slider');
+  const opacityVal    = document.getElementById('opacity-value');
+  const dropZone      = document.getElementById('drop-zone');
+  const overlayImg    = document.getElementById('overlay-img');
+  const traceLabel    = document.getElementById('trace-label');
+  const closeBtn      = document.getElementById('close-btn');
+  const fileInput     = document.getElementById('file-input');
+
+  let isTraceMode = false;
+
+  // ── Helpers ──────────────────────────────────────────────────
+
+  function fmtOpacity(v) { return Math.round(v * 100) + '%'; }
+
+  function loadImage(src) {
+    overlayImg.onload = () => {
+      overlayImg.classList.add('loaded');
+      dropZone.classList.add('hidden');
+      fitBtn.disabled = false;
+    };
+    overlayImg.src = src;
+  }
+
+  function applyTraceUI(active) {
+    isTraceMode = active;
+    if (active) {
+      toolbar.classList.add('hidden');
+      traceLabel.classList.add('visible');
+      traceBtn.classList.add('active');
+      traceBtn.textContent = '● Tracing…  Ctrl+Shift+T';
+    } else {
+      toolbar.classList.remove('hidden');
+      traceLabel.classList.remove('visible');
+      traceBtn.classList.remove('active');
+      traceBtn.textContent = '⬡ Trace  Ctrl+Shift+T';
+    }
+  }
+
+  function setOpacityUI(v) {
+    opacitySlider.value = v;
+    opacityVal.textContent = fmtOpacity(v);
+  }
+
+  // ── Open Image — uses native <input type=file>, no IPC needed ─
+
+  openBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (file) loadImage(URL.createObjectURL(file));
+    fileInput.value = ''; // reset so same file can be reopened
+  });
+
+  // ── Close — window.close() works without IPC ─────────────────
+
+  closeBtn.addEventListener('click', () => window.close());
+
+  // ── Fit to image — IPC optional ──────────────────────────────
+
+  fitBtn.addEventListener('click', () => {
+    if (api) api.resizeToImage(overlayImg.naturalWidth, overlayImg.naturalHeight);
+  });
+
+  // ── Trace toggle — IPC ────────────────────────────────────────
+
+  traceBtn.addEventListener('click', async () => {
+    if (!api) return;
+    const active = await api.toggleClickThrough();
+    applyTraceUI(active);
+  });
+
+  // ── Opacity slider — IPC ──────────────────────────────────────
+
+  opacitySlider.addEventListener('input', () => {
+    const v = parseFloat(opacitySlider.value);
+    opacityVal.textContent = fmtOpacity(v);
+    if (api) api.setOpacity(v);
+  });
+
+  // ── Main-process push events ──────────────────────────────────
+
+  if (api) {
+    api.onClickThroughChanged((active) => applyTraceUI(active));
+    api.onOpacityChanged((v) => setOpacityUI(v));
+    api.getState().then(({ isClickThrough, opacity }) => {
+      applyTraceUI(isClickThrough);
+      setOpacityUI(opacity);
+    });
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────────────
+
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+
+  document.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImage(URL.createObjectURL(file));
+    }
+  });
+})();
+</script>
+</body>
+</html>

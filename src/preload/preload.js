@@ -89,6 +89,7 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'claude:stream-chunk',
       'companion:sensation',
       'companion:trackers',
+      'companion:affection',
       'feature-requests:updated',
     ];
     if (allowed.includes(channel)) {

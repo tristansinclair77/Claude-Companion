@@ -105,6 +105,10 @@ function parseResponse(raw) {
     }
   }
 
+  // Extract [AFFECTION] tag — companion sets her current felt affection toward this user (0–100)
+  const affectionMatch = text.match(/\[AFFECTION\]\s*(\d+)/i);
+  const affectionTarget = affectionMatch ? Math.min(100, Math.max(0, parseInt(affectionMatch[1], 10))) : null;
+
   // Extract [THREAD] tags (dead topics / curiosity queue).
   // Only match at the START of a line so Aria mentioning "[THREAD]" in prose doesn't get captured.
   const threads = [];
@@ -158,6 +162,7 @@ function parseResponse(raw) {
     trackUpdates,
     threads,
     featureRequests,
+    affectionTarget,
   };
 }
 
@@ -176,6 +181,7 @@ function extractFallbackDialogue(text) {
     .replace(/\[THREAD\][^\n]*/gi, '')
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
+    .replace(/\[AFFECTION\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -192,6 +198,7 @@ function stripMemoryTags(text) {
     .replace(/\[THREAD\][^\n]*/gi, '')
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
+    .replace(/\[AFFECTION\][^\n]*/gi, '')
     .trim();
 }
 

@@ -253,6 +253,7 @@ app.whenReady().then(() => {
       masterSummary: sessionManager.masterSummary,
       permanentMemories: sessionManager.permanentMemories,
       emotionalState: db.getEmotionalState(),
+      affection: db.getAffection(),
       fastMode: _fastMode,
       trackers: _trackers,
     });
@@ -348,6 +349,26 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
         next: { V: Math.round(newState.valence), A: Math.round(newState.arousal), S: Math.round(newState.social), P: Math.round(newState.physical) },
         target: { V: target.V, A: target.A, S: target.S, P: target.P },
       });
+    }
+
+    // Apply affection target from character (±40 points cap per message)
+    if (response.affectionTarget !== null && response.affectionTarget !== undefined) {
+      const curAff = db.getAffection();
+      const AFFECTION_CAP = 40;
+      const clamped = Math.min(100, Math.max(0,
+        Math.min(curAff + AFFECTION_CAP, Math.max(curAff - AFFECTION_CAP, response.affectionTarget))
+      ));
+      db.setAffection(clamped);
+      mainWindow?.webContents.send('companion:affection', { value: clamped });
+      // Push affection into the axis monitor window if open
+      if (emotionalStateWindow && !emotionalStateWindow.isDestroyed()) {
+        const curState = db.getEmotionalState();
+        emotionalStateWindow.webContents.send('state:update', {
+          state: { ...curState, affection: clamped },
+          emotion: _EMOTION_INFO_MAP[_lastEmotionId] || _EMOTION_INFO_MAP['neutral'],
+        });
+      }
+      logger.log('affection_update', { target: response.affectionTarget, clamped, prev: curAff });
     }
 
     // Update session sensation state (decay existing, accumulate if lingering)
@@ -616,8 +637,9 @@ ipcMain.on('emotional-state:close',    () => emotionalStateWindow?.destroy());
 
 ipcMain.handle('emotional-state:get', () => {
   const state = db ? db.getEmotionalState() : { valence: 50, arousal: 40, social: 50, physical: 70 };
+  const affection = db ? db.getAffection() : 75;
   const emotion = _EMOTION_INFO_MAP[_lastEmotionId] || _EMOTION_INFO_MAP['neutral'];
-  return { state, emotion };
+  return { state: { ...state, affection }, emotion };
 });
 
 ipcMain.handle('emotional-state:reset', () => {

@@ -121,11 +121,19 @@
     if (data && data.trackers) {
       CompanionDisplay.updateTrackers(data.trackers);
     }
+    if (data && typeof data.affection === 'number') {
+      CompanionDisplay.updateAffectionHeart(data.affection);
+    }
   });
 
   // Tracker update — Aria decided to record something
   window.claudeAPI.on('companion:trackers', (data) => {
     CompanionDisplay?.updateTrackers?.(data.trackers);
+  });
+
+  // Affection heart — Aria sets her felt connection level each response
+  window.claudeAPI.on('companion:affection', (data) => {
+    CompanionDisplay?.updateAffectionHeart?.(data.value);
   });
 
   // Sensation pulse — flash indicator near portrait on physical sensation events

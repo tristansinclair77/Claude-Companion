@@ -357,6 +357,22 @@
       <div class="axis-desc" id="desc-physical">HEALTHY</div>
     </div>
 
+    <!-- Affection -->
+    <div class="axis-card" id="card-affection" style="--axis-color: #ff6699;">
+      <div class="axis-header">
+        <span class="axis-name">♥ AFFECTION</span>
+        <span class="axis-value" id="val-affection">75<span>/100</span></span>
+      </div>
+      <div class="axis-bar-row">
+        <span class="pole-label">COLD</span>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-affection" style="width:75%;background:#ff6699;"></div>
+        </div>
+        <span class="pole-label right">LOVE</span>
+      </div>
+      <div class="axis-desc" id="desc-affection">WARM</div>
+    </div>
+
     <!-- Last emitted emotion -->
     <div class="section-label" style="margin-top:2px;">// LAST_EMOTION</div>
     <div id="last-emotion-panel">
@@ -427,6 +443,25 @@
         // Update the left accent bar color
         const card = document.getElementById(`card-${axis.id}`);
         if (card) card.style.setProperty('--axis-color', color);
+      }
+
+      // Affection card
+      if (state.affection != null) {
+        const aff = Math.max(0, Math.min(100, state.affection));
+        const affColor = aff >= 90 ? '#ff6699'
+                       : aff >= 50 ? lerpHex('#8800ff', '#cc0033', (aff - 50) / 40)
+                       : aff >= 25 ? lerpHex('#0044ff', '#8800ff', (aff - 25) / 25)
+                       : lerpHex('#111111', '#0044ff', aff / 25);
+        const affDesc = aff >= 90 ? 'DEEPLY IN LOVE' : aff >= 70 ? 'VERY FOND' : aff >= 50 ? 'WARM' : aff >= 30 ? 'GUARDED' : aff >= 10 ? 'DISTANT' : 'COLD';
+        document.getElementById('bar-affection').style.width = `${aff}%`;
+        document.getElementById('bar-affection').style.background = affColor;
+        document.getElementById('bar-affection').style.boxShadow = `2px 0 8px ${affColor}`;
+        document.getElementById('val-affection').innerHTML = `${Math.round(aff)}<span>/100</span>`;
+        document.getElementById('val-affection').style.color = affColor;
+        document.getElementById('val-affection').style.textShadow = `0 0 10px ${affColor}`;
+        document.getElementById('desc-affection').textContent = affDesc;
+        document.getElementById('desc-affection').style.color = affColor;
+        document.getElementById('card-affection').style.setProperty('--axis-color', affColor);
       }
 
       // Pulse the update flash

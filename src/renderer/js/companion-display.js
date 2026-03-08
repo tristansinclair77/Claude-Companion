@@ -607,6 +607,78 @@ var CompanionDisplay = (() => {
     el.className = cls;
   }
 
+  // ── Affection heart renderer ───────────────────────────────────────────────
+  // Pixel art heart from pixelHeart.json — 12×12 grid, rendered at 3× scale.
+  // Most pixels are the heart body (#ff6699 at full affection, dark at 0).
+  // Two highlight pixels (#ffffff at full affection) sit at col2/row3 and col3/row2.
+
+  const _HEART_BODY_PIXELS = [
+    [5,3],[6,3],[9,3],[10,3],[7,4],[8,4],[4,4],[3,5],[3,6],[4,7],[5,8],[7,7],[6,7],
+    [5,7],[5,6],[4,6],[5,5],[6,4],[6,5],[7,5],[7,6],[6,6],[8,5],[8,6],[9,5],[9,4],
+    [10,4],[5,2],[6,2],[4,1],[3,1],[7,1],[8,1],[2,2],[1,3],[1,4],[2,5],[9,2],[6,8],
+    [2,4],[3,4],[3,3],[4,3],[4,2],[3,2],[7,3],[7,2],[8,2],[8,3],[4,5],[5,4],
+  ];
+  const _HEART_HIGHLIGHT_PIXELS = [[2,3],[3,2]];
+
+  function _lerpHeartColor(lo, hi, t) {
+    const p = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+    const [r1,g1,b1] = p(lo), [r2,g2,b2] = p(hi);
+    const r = Math.round(r1+(r2-r1)*t).toString(16).padStart(2,'0');
+    const g = Math.round(g1+(g2-g1)*t).toString(16).padStart(2,'0');
+    const b = Math.round(b1+(b2-b1)*t).toString(16).padStart(2,'0');
+    return `#${r}${g}${b}`;
+  }
+
+  // Multi-stop color gradient: black(0) → blue(25) → purple(50) → red(90) → pink(100)
+  function _heartBodyColor(v) {
+    if (v >= 90) return _lerpHeartColor('#cc0033', '#ff6699', (v - 90) / 10);
+    if (v >= 50) return _lerpHeartColor('#8800ff', '#cc0033', (v - 50) / 40);
+    if (v >= 25) return _lerpHeartColor('#0044ff', '#8800ff', (v - 25) / 25);
+    return _lerpHeartColor('#080808', '#0044ff', v / 25);
+  }
+
+  function _heartHighlightColor(v) {
+    if (v >= 90) return _lerpHeartColor('#cc6688', '#ffffff', (v - 90) / 10);
+    if (v >= 50) return _lerpHeartColor('#442266', '#cc6688', (v - 50) / 40);
+    if (v >= 25) return _lerpHeartColor('#001166', '#442266', (v - 25) / 25);
+    return _lerpHeartColor('#050505', '#001166', v / 25);
+  }
+
+  function updateAffectionHeart(value) {
+    const canvas = document.getElementById('affection-heart');
+    if (!canvas) return;
+    const v = Math.max(0, Math.min(100, value ?? 75));
+
+    const ctx = canvas.getContext('2d');
+    const SCALE = 3;
+    ctx.clearRect(0, 0, 36, 36);
+
+    const bodyColor = _heartBodyColor(v);
+    const highlightColor = _heartHighlightColor(v);
+
+    for (const [col, row] of _HEART_BODY_PIXELS) {
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(col * SCALE, row * SCALE, SCALE, SCALE);
+    }
+    for (const [col, row] of _HEART_HIGHLIGHT_PIXELS) {
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(col * SCALE, row * SCALE, SCALE, SCALE);
+    }
+
+    // Glow: only kicks in at 90+ and ramps up sharply to 100
+    if (v >= 90) {
+      const glowT = (v - 90) / 10;
+      const glowPx = Math.round(glowT * 8);
+      const glowAlpha = Math.round(glowT * 0xcc).toString(16).padStart(2, '0');
+      canvas.style.filter = `drop-shadow(0 0 ${glowPx}px #ff6699${glowAlpha})`;
+    } else {
+      canvas.style.filter = 'none';
+    }
+
+    // Hover tooltip: "♥ N / 100"
+    canvas.title = `♥ ${Math.round(v)} / 100`;
+  }
+
   function setGreeting(character, emotionalState) {
     // Preload all emotion PNGs into browser memory cache — portrait swaps become near-instant.
     _preloadEmotionImages();
@@ -628,5 +700,5 @@ var CompanionDisplay = (() => {
     updateMeters(emotionalState || null);
   }
 
-  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers };
+  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
 })();

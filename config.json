@@ -94,15 +94,19 @@
           "chromaticAberration": true,
           "scanlinesIntensity": "heavy",
           "parchmentOpacity": 0,
+          "seasonMode": "sunbeams",
           "vuAmp": 5,
           "vuSpeed": 22,
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true,
           "moduleEnabled": {
             "grid": true,
             "filmGrain": true,
             "overlayEffects": true,
             "scanlines": true
-          },
-          "seasonMode": "sunbeams"
+          }
         },
         "background": {
           "type": "none",
@@ -171,6 +175,10 @@
           "seasonMode": "sunbeams",
           "vuAmp": 5,
           "vuSpeed": 22,
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true,
           "moduleEnabled": {
             "parchment": true,
             "seasons": true
@@ -229,6 +237,8 @@
           "asteroids",
           "pong",
           "sideScroller",
+          "pacman",
+          "datingVn",
           "arcadeAmbient",
           "scanlines",
           "filmGrain"

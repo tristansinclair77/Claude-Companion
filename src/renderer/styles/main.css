@@ -252,6 +252,18 @@ html { background: var(--bg-dark); }
   box-shadow: inset 0 0 20px #00ffcc18;
 }
 
+#affection-heart {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 29px;
+  height: 29px;
+  image-rendering: pixelated;
+  cursor: default;
+  z-index: 10;
+  pointer-events: auto;
+}
+
 /* ── Sensation pulse indicator ───────────────────────────────────────────── */
 .sensation-pulse {
   position: absolute;

@@ -148,6 +148,14 @@ class KnowledgeDB {
       INSERT OR IGNORE INTO emotional_state (id) VALUES (1);
     `);
 
+    // Migrate: add affection column if it doesn't exist yet (older DBs)
+    try {
+      this.db.exec('ALTER TABLE emotional_state ADD COLUMN affection REAL DEFAULT 75');
+    } catch { /* column already exists */ }
+
+    this.db.exec(`
+    `);
+
     // ── companion_knowledge — structured facts about the companion herself ──
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS companion_knowledge (
@@ -646,6 +654,34 @@ class KnowledgeDB {
       Math.max(0, Math.min(100, social)),
       Math.max(0, Math.min(100, physical))
     );
+  }
+
+  // ── Affection meter (companion-set, ±40 cap per message) ─────────────────
+
+  getAffection() {
+    try {
+      const row = this.db.prepare('SELECT affection FROM emotional_state WHERE id = 1').get();
+      return (row && row.affection != null) ? row.affection : 75;
+    } catch {
+      return 75;
+    }
+  }
+
+  setAffection(value) {
+    const v = Math.max(0, Math.min(100, value));
+    try {
+      this.db.prepare("UPDATE emotional_state SET affection = ? WHERE id = 1").run(v);
+    } catch {
+      // Column may not exist on older DBs — run migration then retry
+      this._migrateAffectionColumn();
+      this.db.prepare("UPDATE emotional_state SET affection = ? WHERE id = 1").run(v);
+    }
+  }
+
+  _migrateAffectionColumn() {
+    try {
+      this.db.exec('ALTER TABLE emotional_state ADD COLUMN affection REAL DEFAULT 75');
+    } catch { /* already exists */ }
   }
 
   // ── Saved Conversations ───────────────────────────────────────────────────
