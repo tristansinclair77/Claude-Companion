@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pixel Art Editor — Claude Companion</title>
+<style>
+:root {
+  --bg:        #080810;
+  --surface:   #0f0f1c;
+  --surface2:  #16162a;
+  --surface3:  #1e1e35;
+  --border:    #252540;
+  --border2:   #323255;
+  --accent:    #00d4ff;
+  --accent-dim:#006688;
+  --accent2:   #ff6b9d;
+  --text:      #b8c8d8;
+  --text-dim:  #5a6a7a;
+  --text-bright:#e0eaf4;
+  --green:     #39ff14;
+  --orange:    #ff8c00;
+  --red:       #ff3355;
+  --yellow:    #ffe600;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  user-select: none;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────────── */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.app-title {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.sep { width: 1px; height: 18px; background: var(--border2); flex-shrink: 0; }
+.topbar-group { display: flex; align-items: center; gap: 3px; }
+
+input[type="text"] {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text-bright);
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 11px;
+}
+input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+button {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 3px 7px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 1px;
+  transition: border-color .1s, color .1s;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+button.danger { border-color: var(--red); color: var(--red); }
+button.danger:hover { background: var(--red); color: var(--bg); }
+button.accent-btn { border-color: var(--accent2); color: var(--accent2); }
+button.accent-btn:hover { background: var(--accent2); color: var(--bg); }
+
+#filename-input { width: 130px; }
+
+/* ── MAIN AREA ───────────────────────────────────────────── */
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── PANELS ─────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.panel.left { border-right: 1px solid var(--border); width: 130px; }
+.panel.right { border-left: 1px solid var(--border); width: 184px; }
+.panel-label {
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  font-size: 9px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+.panel::-webkit-scrollbar { width: 4px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── TOOLS ───────────────────────────────────────────────── */
+#tool-buttons { display: flex; flex-direction: column; gap: 1px; }
+.tool-btn { padding: 5px 4px; font-size: 10px; text-align: left; }
+.tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--surface3); }
+
+/* ── TOOL CATEGORIES ─────────────────────────────────────── */
+.tool-cat { margin-bottom: 3px; }
+.tool-cat-header {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--text-dim); font-size: 9px; letter-spacing: 2px;
+  padding: 3px 2px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--border);
+}
+.tool-cat-header:hover { color: var(--text-bright); }
+.tool-cat-header .cat-arrow { font-size: 8px; transition: transform .15s; }
+.tool-cat.collapsed .cat-arrow { transform: rotate(-90deg); }
+.tool-cat-body { display: flex; flex-direction: column; gap: 2px; padding: 3px 0 0 4px; }
+.tool-cat.collapsed .tool-cat-body { display: none; }
+.tool-cat-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ── COLOR ───────────────────────────────────────────────── */
+input[type="color"] {
+  width: 100%; height: 28px;
+  border: 1px solid var(--border2);
+  background: none; cursor: pointer; padding: 1px;
+}
+#color-hex { text-align: center; color: var(--accent); font-size: 10px; margin-top: 1px; }
+
+/* ── PALETTE ─────────────────────────────────────────────── */
+#palette-grid, #recent-colors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+.swatch {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform .1s;
+}
+.swatch:hover { transform: scale(1.15); border-color: var(--accent); z-index: 5; position: relative; }
+
+/* ── CANVAS AREA ─────────────────────────────────────────── */
+#canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #06060e;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+#pixel-canvas {
+  cursor: crosshair;
+  image-rendering: pixelated;
+  display: block;
+  flex-shrink: 0;
+}
+#canvas-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+#canvas-wrap::-webkit-scrollbar-track { background: var(--surface); }
+#canvas-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+#canvas-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+/* ── IMAGE IMPORT MODE ───────────────────────────────────── */
+#pixel-canvas.img-mode { cursor: grab; }
+#pixel-canvas.img-mode.dragging { cursor: grabbing; }
+
+#img-controls {
+  background: var(--surface);
+  border-top: 2px solid var(--yellow);
+  padding: 7px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#img-controls .ctrl-label {
+  color: var(--yellow);
+  letter-spacing: 2px;
+  font-size: 9px;
+}
+#img-controls .ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#img-controls .ctrl-group label {
+  color: var(--text-dim);
+  font-size: 10px;
+  min-width: 70px;
+}
+#img-controls input[type="range"] {
+  width: 90px;
+}
+#btn-solidify {
+  border-color: var(--green);
+  color: var(--green);
+}
+#btn-solidify:hover { background: var(--green); color: var(--bg); }
+#btn-img-cancel {
+  border-color: var(--red);
+  color: var(--red);
+}
+#btn-img-cancel:hover { background: var(--red); color: var(--bg); }
+
+#canvas-wrap.drag-over { outline: 2px dashed var(--yellow); outline-offset: -4px; }
+
+/* ── RIGHT PANEL ─────────────────────────────────────────── */
+.dim-row { margin-bottom: 6px; }
+.dim-row label { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.dim-row label span { color: var(--accent); }
+input[type="range"] {
+  width: 100%; -webkit-appearance: none;
+  height: 4px; background: var(--border2);
+  outline: none; border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  background: var(--accent); border-radius: 2px; cursor: pointer;
+}
+.toggle-row { display: flex; align-items: center; gap: 5px; cursor: pointer; margin-bottom: 3px; }
+#ratio-display {
+  color: var(--accent); font-size: 12px; text-align: center;
+  border: 1px solid var(--border); padding: 3px; margin: 3px 0;
+}
+#ratio-presets { display: flex; flex-direction: column; gap: 2px; }
+.ratio-btn { text-align: left; padding: 3px 5px; font-size: 10px; }
+.ratio-btn.active { border-color: var(--accent); color: var(--accent); }
+#canvas-info { color: var(--text-dim); font-size: 10px; line-height: 1.7; }
+#canvas-info span { color: var(--accent); }
+.key-hints { color: var(--text-dim); font-size: 9px; line-height: 1.6; margin-top: 4px; }
+
+/* ── TIMELINE AREA ───────────────────────────────────────── */
+#timeline-area {
+  background: var(--surface);
+  border-top: 1px solid var(--border2);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+#timeline-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tl-label { color: var(--accent); letter-spacing: 1px; font-size: 10px; font-weight: bold; }
+#playback-controls { display: flex; gap: 3px; }
+.play-btn { padding: 2px 8px; }
+#fps-label { color: var(--text-dim); font-size: 10px; }
+#fps-input {
+  width: 38px; padding: 2px 4px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--accent); font-family: inherit; font-size: 10px; text-align: center;
+}
+#fps-input:focus { outline: none; border-color: var(--accent); }
+#loop-toggle.active { border-color: var(--green); color: var(--green); }
+#frame-counter { color: var(--text-dim); font-size: 10px; margin-left: auto; }
+#onion-toggle.active { border-color: var(--orange); color: var(--orange); }
+
+#frames-scroll {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  align-items: flex-end;
+  min-height: 76px;
+}
+#frames-scroll::-webkit-scrollbar { height: 4px; }
+#frames-scroll::-webkit-scrollbar-track { background: transparent; }
+#frames-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.frame-thumb {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  transition: border-color .1s;
+  position: relative;
+}
+.frame-thumb:hover { border-color: var(--border2); }
+.frame-thumb.active { border-color: var(--accent); }
+.frame-thumb canvas { display: block; image-rendering: pixelated; }
+.frame-label {
+  font-size: 9px; color: var(--text-dim); text-align: center;
+  white-space: nowrap;
+}
+.frame-thumb.active .frame-label { color: var(--accent); }
+.frame-del {
+  position: absolute; top: 1px; right: 1px;
+  background: var(--red); color: white;
+  border: none; width: 12px; height: 12px;
+  font-size: 8px; padding: 0; display: none;
+  align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 1px;
+  line-height: 1;
+}
+.frame-thumb:hover .frame-del { display: flex; }
+.frame-thumb.drag-src  { opacity: 0.35; border-style: dashed; }
+.frame-thumb.drag-over-frame { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+
+#saves-dir-name {
+  color: var(--text-dim);
+  font-size: 10px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* ── COLOR REMOVAL ───────────────────────────────────────── */
+.cr-row { display: flex; align-items: center; gap: 5px; }
+.cr-dim { color: var(--text-dim); font-size: 9px; letter-spacing: 1px; flex-shrink: 0; }
+#cr-target-swatch {
+  width: 16px; height: 16px;
+  border: 1px solid var(--border2);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+#cr-target-swatch:hover { border-color: var(--accent); }
+#cr-target-hex { color: var(--accent); font-size: 10px; flex: 1; }
+#cr-use-current {
+  padding: 1px 4px; font-size: 11px;
+  border-color: var(--border2); color: var(--text-dim);
+}
+#cr-use-current:hover { border-color: var(--accent); color: var(--accent); }
+#cr-preview { min-height: 14px; }
+#cr-preview.has-match { color: var(--orange); }
+#cr-preview.no-match  { color: var(--text-dim); }
+
+#btn-add-frame { flex-shrink: 0; height: 60px; width: 48px; font-size: 18px; padding: 0; }
+#btn-dup-frame { flex-shrink: 0; height: 60px; width: 48px; font-size: 10px; padding: 0; }
+
+/* ── STATUSBAR ───────────────────────────────────────────── */
+#statusbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 3px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+#status-coords { color: var(--accent); min-width: 80px; }
+#status-tool { color: var(--green); text-transform: uppercase; }
+.status-swatch { width: 11px; height: 11px; border: 1px solid var(--border2); display: inline-block; vertical-align: middle; }
+#status-hex { color: var(--text); }
+#status-drawn { }
+
+/* ── MODAL OVERLAY ───────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-overlay.hidden { display: none; }
+
+/* ── WELCOME POPUP ───────────────────────────────────────── */
+#welcome-popup {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 28px 32px;
+  max-width: 480px;
+  width: 92%;
+}
+#welcome-popup .wp-title {
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 3px;
+  margin-bottom: 4px;
+}
+#welcome-popup .wp-sub {
+  color: var(--text-dim);
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+#welcome-popup p {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.75;
+  margin-bottom: 10px;
+}
+#welcome-popup .wp-features {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent-dim);
+  padding: 8px 12px;
+  margin: 12px 0 18px;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+#welcome-popup .wp-features span { color: var(--accent); }
+#welcome-popup .wp-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px;
+}
+#welcome-popup .wp-check {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text-dim); font-size: 10px;
+  margin-left: auto; cursor: pointer; flex-shrink: 0;
+}
+#welcome-popup .wp-check input { cursor: pointer; accent-color: var(--accent); }
+
+/* ── HELP MODAL ──────────────────────────────────────────── */
+#help-modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  width: 90vw; height: 86vh;
+  max-width: 1060px;
+  display: flex;
+  flex-direction: column;
+}
+#help-modal-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border2);
+  flex-shrink: 0;
+  background: var(--surface2);
+}
+#help-modal-header .hm-title {
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 3px;
+  flex: 1;
+}
+#help-modal-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+#help-nav {
+  width: 188px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 6px 0 14px;
+  background: var(--surface);
+}
+#help-nav::-webkit-scrollbar { width: 4px; }
+#help-nav::-webkit-scrollbar-track { background: transparent; }
+#help-nav::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.help-nav-cat {
+  color: var(--text-dim);
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 10px 12px 3px;
+  text-transform: uppercase;
+}
+.help-nav-item {
+  display: block; width: 100%;
+  padding: 5px 12px 5px 20px;
+  font-size: 10px; font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  background: none; border: none;
+  text-align: left;
+  letter-spacing: 0.5px;
+  transition: color .1s, background .1s;
+}
+.help-nav-item:hover { color: var(--accent); background: var(--surface2); border: none; }
+.help-nav-item.active {
+  color: var(--accent);
+  background: var(--surface3);
+  border-left: 2px solid var(--accent) !important;
+  padding-left: 18px;
+}
+#help-content {
+  flex: 1; overflow-y: auto;
+  padding: 22px 30px 30px;
+  font-size: 11px; line-height: 1.8;
+  color: var(--text);
+}
+#help-content::-webkit-scrollbar { width: 6px; }
+#help-content::-webkit-scrollbar-track { background: transparent; }
+#help-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+#help-content h2 {
+  color: var(--accent);
+  font-size: 13px; letter-spacing: 2px;
+  margin-bottom: 14px; padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+}
+#help-content h3 {
+  color: var(--accent2);
+  font-size: 11px; letter-spacing: 1px;
+  margin: 20px 0 6px;
+}
+#help-content p { margin-bottom: 10px; }
+#help-content ul { margin: 4px 0 10px 18px; }
+#help-content li { margin-bottom: 5px; }
+.hc-kv { display: flex; gap: 12px; margin-bottom: 5px; align-items: baseline; }
+.hc-k { color: var(--accent); min-width: 110px; flex-shrink: 0; font-size: 10px; }
+.hc-v { color: var(--text); }
+.hc-note {
+  background: var(--surface2); border-left: 3px solid var(--accent-dim);
+  padding: 8px 13px; margin: 12px 0;
+  color: var(--text-dim); font-size: 10px; line-height: 1.7;
+}
+.hc-warn {
+  background: var(--surface2); border-left: 3px solid var(--orange);
+  padding: 8px 13px; margin: 12px 0;
+  color: var(--orange); font-size: 10px; line-height: 1.7;
+}
+.hc-tip {
+  background: var(--surface2); border-left: 3px solid var(--green);
+  padding: 8px 13px; margin: 12px 0;
+  color: var(--text-dim); font-size: 10px; line-height: 1.7;
+}
+.hc-kbd {
+  display: inline-block;
+  background: var(--surface3); border: 1px solid var(--border2);
+  color: var(--accent); padding: 1px 6px;
+  font-size: 10px; border-radius: 2px;
+  font-family: inherit;
+}
+.hc-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin: 8px 0 14px; }
+.hc-sc { display: flex; gap: 10px; align-items: baseline; }
+.hc-sc .hc-kbd { min-width: 90px; text-align: center; }
+.hc-sc .hc-desc { font-size: 10px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div id="app" style="display:flex;flex-direction:column;height:100vh;">
+
+<!-- ── TOPBAR ─────────────────────────────────────────────── -->
+<div id="topbar">
+  <span class="app-title">▸ PIXEL ART EDITOR</span>
+  <div class="sep"></div>
+  <div class="topbar-group">
+    <button id="btn-new">NEW</button>
+    <button id="btn-load">LOAD</button>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group">
+    <input type="text" id="filename-input" value="untitled" spellcheck="false">
+    <button id="btn-set-dir" title="Set default saves folder">📁</button>
+    <span id="saves-dir-name" title="Current saves folder">no folder set</span>
+    <button id="btn-save">SAVE JSON</button>
+    <button id="btn-export-png">EXPORT PNG</button>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group">
+    <button id="btn-import-img" style="border-color:var(--yellow);color:var(--yellow);">⬆ IMPORT IMG</button>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group">
+    <button id="btn-flip-h" title="Flip all frames horizontally">⇄ FLIP H</button>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group" style="gap:2px;align-items:center">
+    <span style="color:var(--text-dim);font-size:9px;letter-spacing:1px;margin-right:2px">NUDGE</span>
+    <button id="btn-nudge-left"  title="Shift pixels left">←</button>
+    <button id="btn-nudge-up"    title="Shift pixels up">↑</button>
+    <button id="btn-nudge-down"  title="Shift pixels down">↓</button>
+    <button id="btn-nudge-right" title="Shift pixels right">→</button>
+    <input type="number" id="nudge-amount" value="1" min="1" max="128"
+      style="width:38px;text-align:center;padding:2px 4px;font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--accent);font-family:inherit"
+      title="Pixels to shift">
+    <label style="display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text-dim);cursor:pointer;margin-left:2px">
+      <input type="checkbox" id="nudge-all-frames" style="accent-color:var(--accent);cursor:pointer">
+      ALL
+    </label>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group">
+    <button id="btn-grid" class="active" title="Toggle grid [G]">GRID</button>
+    <button id="btn-zoom-out">−</button>
+    <span id="zoom-display" style="min-width:34px;text-align:center;color:var(--accent);font-size:11px;">FIT</span>
+    <button id="btn-zoom-in">+</button>
+    <button id="btn-zoom-fit">FIT</button>
+  </div>
+  <div class="sep"></div>
+  <div class="topbar-group" style="margin-left:auto">
+    <button id="btn-help" title="Help & Documentation [?]" style="border-color:var(--accent2);color:var(--accent2);">? HELP</button>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- LEFT: Tools -->
+  <div class="panel left">
+    <div id="tool-buttons">
+
+      <!-- DRAW category -->
+      <div class="tool-cat" id="cat-draw">
+        <div class="tool-cat-header">
+          <span class="cat-arrow">▾</span> DRAW
+        </div>
+        <div class="tool-cat-body">
+          <button class="tool-btn active" data-tool="pencil"     title="Pencil [P]">✏ PEN</button>
+          <button class="tool-btn"        data-tool="fill"       title="Fill [F]">▓ FILL</button>
+          <button class="tool-btn"        data-tool="eyedropper" title="Pick [I]">◎ PICK</button>
+        </div>
+      </div>
+
+      <!-- ERASE category -->
+      <div class="tool-cat" id="cat-erase">
+        <div class="tool-cat-header">
+          <span class="cat-arrow">▾</span> ERASE
+        </div>
+        <div class="tool-cat-body">
+          <button class="tool-btn" data-tool="eraser"     title="Eraser [E]">◻ BRUSH</button>
+          <button class="tool-btn" data-tool="rect-erase" title="Rect Erase [R]">▣ AREA</button>
+          <div class="tool-cat-divider"></div>
+          <div id="color-removal-section">
+            <div class="cr-row">
+              <div id="cr-target-swatch" title="Click to pick color"></div>
+              <span id="cr-target-hex">#00d4ff</span>
+              <button id="cr-use-current" title="Use drawing color">↺</button>
+            </div>
+            <div class="cr-row" style="margin-top:4px">
+              <span class="cr-dim">TOL</span>
+              <span id="cr-tol-val" style="color:var(--accent)">0%</span>
+            </div>
+            <input type="range" id="cr-tolerance" min="0" max="100" value="0" step="1" style="width:100%;margin:3px 0;">
+            <div id="cr-preview" style="color:var(--text-dim);font-size:9px;margin-bottom:4px;">— pick a color</div>
+            <label class="toggle-row" style="margin-bottom:2px;">
+              <input type="checkbox" id="cr-contiguous">
+              <span style="font-size:10px">Contiguous</span>
+            </label>
+            <label class="toggle-row" id="cr-all-frames-row" style="margin-bottom:4px;">
+              <input type="checkbox" id="cr-all-frames">
+              <span style="font-size:10px">All frames</span>
+            </label>
+            <button id="cr-remove-btn" class="danger" style="width:100%">REMOVE</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="panel-label" style="margin-top:6px">COLOR</div>
+    <input type="color" id="color-picker" value="#00d4ff">
+    <div id="color-hex">#00d4ff</div>
+
+    <div class="panel-label" style="margin-top:6px">PALETTE</div>
+    <div id="palette-grid"></div>
+
+    <div class="panel-label" style="margin-top:6px">RECENT</div>
+    <div id="recent-colors"></div>
+
+    <div style="margin-top:auto;padding-top:6px;">
+      <button class="danger" id="btn-clear" style="width:100%;margin-bottom:4px;">CLEAR</button>
+      <div class="key-hints">P/E/F/I/R tool<br>Ctrl+Z undo<br>Ctrl+Y redo<br>G grid<br>Ctrl+S save</div>
+    </div>
+  </div>
+
+  <!-- CENTER: Canvas -->
+  <div id="canvas-wrap">
+    <canvas id="pixel-canvas"></canvas>
+  </div>
+
+  <!-- RIGHT: Settings -->
+  <div class="panel right">
+    <div class="panel-label">CANVAS SIZE</div>
+    <div class="dim-row">
+      <label>WIDTH <span id="width-val">16</span>px</label>
+      <input type="range" id="width-slider" min="0" max="12" value="3">
+    </div>
+    <div class="dim-row">
+      <label>HEIGHT <span id="height-val">16</span>px</label>
+      <input type="range" id="height-slider" min="0" max="12" value="3">
+    </div>
+
+    <div class="panel-label">RATIO LOCK</div>
+    <label class="toggle-row">
+      <input type="checkbox" id="ratio-lock">
+      <span>Lock Aspect Ratio</span>
+    </label>
+    <div id="ratio-display">1 : 1</div>
+
+    <div class="panel-label">RATIO PRESETS</div>
+    <div id="ratio-presets">
+      <button class="ratio-btn" data-w="1" data-h="1">1:1  Square</button>
+      <button class="ratio-btn" data-w="2" data-h="1">2:1  Landscape</button>
+      <button class="ratio-btn" data-w="1" data-h="2">1:2  Portrait</button>
+      <button class="ratio-btn" data-w="4" data-h="3">4:3  Classic</button>
+      <button class="ratio-btn" data-w="3" data-h="4">3:4  Classic P</button>
+      <button class="ratio-btn" data-w="16" data-h="9">16:9 Widescreen</button>
+      <button class="ratio-btn" data-w="9" data-h="16">9:16 Story</button>
+      <button class="ratio-btn" data-w="3" data-h="2">3:2  Photo</button>
+      <button class="ratio-btn" data-w="2" data-h="3">2:3  Photo P</button>
+      <button class="ratio-btn" data-w="8" data-h="5">8:5  Wide+</button>
+    </div>
+
+    <div class="panel-label" style="margin-top:6px">INFO</div>
+    <div id="canvas-info">
+      <div>Size: <span id="info-size">16×16</span></div>
+      <div>Drawn: <span id="info-drawn">0</span> px</div>
+      <div>Fill: <span id="info-fill">0%</span></div>
+      <div>Frames: <span id="info-frames">1</span></div>
+    </div>
+  </div>
+
+</div><!-- #main -->
+
+<!-- ── IMAGE IMPORT BAR (shown below canvas when active) ──── -->
+<div id="img-controls" style="display:none">
+  <span class="ctrl-label">⬆ IMAGE IMPORT MODE — DRAG TO POSITION</span>
+  <div class="ctrl-group">
+    <label>SCALE <span id="img-scale-val">1.0×</span></label>
+    <input type="range" id="img-scale-slider" min="5" max="800" value="100" step="5">
+  </div>
+  <div class="ctrl-group">
+    <label>OPACITY <span id="img-opacity-val">60%</span></label>
+    <input type="range" id="img-opacity-slider" min="10" max="100" value="60" step="5">
+  </div>
+  <button id="btn-solidify">✔ SOLIDIFY</button>
+  <button id="btn-img-cancel">✕ CANCEL</button>
+</div>
+
+<!-- ── TIMELINE ───────────────────────────────────────────── -->
+<div id="timeline-area">
+  <div id="timeline-bar">
+    <span class="tl-label">TIMELINE</span>
+    <div id="playback-controls">
+      <button class="play-btn" id="btn-prev-frame" title="Prev frame [,]">◀</button>
+      <button class="play-btn accent-btn" id="btn-play" title="Play/Pause [Space]">▶ PLAY</button>
+      <button class="play-btn" id="btn-next-frame" title="Next frame [.]">▶</button>
+    </div>
+    <span id="fps-label">FPS:</span>
+    <input type="number" id="fps-input" value="8" min="1" max="60">
+    <button id="loop-toggle" class="active" title="Toggle loop">LOOP</button>
+    <button id="onion-toggle" title="Onion skin [O]">ONION</button>
+    <span id="frame-counter">Frame 1 / 1</span>
+  </div>
+  <div id="frames-scroll">
+    <button id="btn-add-frame" title="Add blank frame">+</button>
+    <button id="btn-dup-frame" title="Duplicate current frame">DUP</button>
+    <!-- frame thumbs injected here -->
+  </div>
+</div>
+
+<!-- ── STATUSBAR ─────────────────────────────────────────── -->
+<div id="statusbar">
+  <span id="status-coords">—</span>
+  <span id="status-drawn">0 pixels</span>
+  <span style="margin-left:auto"></span>
+  <span id="status-tool">PENCIL</span>
+  <span class="status-swatch" id="status-swatch"></span>
+  <span id="status-hex">#00d4ff</span>
+</div>
+
+</div><!-- #app -->
+
+<!-- ── WELCOME POPUP ─────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="welcome-overlay">
+  <div id="welcome-popup">
+    <div class="wp-title">▸ PIXEL ART EDITOR</div>
+    <div class="wp-sub">CLAUDE COMPANION TOOLS</div>
+    <p>Welcome! This is a standalone pixel art editor designed for creating sprites, tiles, characters, and animations — all saved as JSON files that Claude can read and understand.</p>
+    <div class="wp-features">
+      <span>DRAW</span> Pen, Flood Fill, Eyedropper &nbsp;·&nbsp; <span>ERASE</span> Brush, Area Selector, Color Removal<br>
+      <span>ANIMATE</span> Multi-frame timeline with onion skin &nbsp;·&nbsp; <span>IMPORT</span> Drop or paste any image<br>
+      <span>SAVE</span> JSON with folder pinning &nbsp;·&nbsp; <span>EXPORT</span> PNG per frame &nbsp;·&nbsp; <span>UNDO</span> Full history
+    </div>
+    <p style="color:var(--text-dim);font-size:10px;">Best experienced in Chrome or Edge (required for the folder save feature).</p>
+    <div class="wp-row">
+      <button id="wp-btn-help" style="border-color:var(--accent2);color:var(--accent2);">VIEW HELP</button>
+      <button id="wp-btn-close">GOT IT — START DRAWING</button>
+      <label class="wp-check">
+        <input type="checkbox" id="wp-no-show">
+        <span>Don't show again</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- ── HELP MODAL ─────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="help-overlay">
+  <div id="help-modal">
+    <div id="help-modal-header">
+      <span class="hm-title">▸ HELP &amp; DOCUMENTATION</span>
+      <button id="btn-help-close" style="border-color:var(--red);color:var(--red);">✕ CLOSE</button>
+    </div>
+    <div id="help-modal-body">
+      <div id="help-nav"><!-- populated by JS --></div>
+      <div id="help-content"><!-- populated by JS --></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".json" style="display:none">
+<input type="file" id="img-file-input" accept="image/*" style="display:none">
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const SNAP_VALUES = [4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128];
+const ZOOM_LEVELS = [0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32]; // 0 = auto-fit
+
+const DEFAULT_PALETTE = [
+  '#000000','#ffffff','#ff0000','#00ff00',
+  '#0000ff','#ffff00','#ff00ff','#00ffff',
+  '#ff8800','#8800ff','#0088ff','#ff0088',
+  '#884400','#004488','#448800','#aaaaaa',
+  '#cc4444','#44cc44','#4444cc','#cccc44',
+  '#cc44cc','#44cccc','#ff9966','#9966ff',
+  '#66ff99','#ff6699','#663300','#003366',
+  '#336600','#666666','#333333','#eeeeee',
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  // Frames: array of pixel maps ("x,y" -> "#rrggbb")
+  frames: [{}],
+  currentFrame: 0,
+
+  width: 16,
+  height: 16,
+  tool: 'pencil',
+  color: '#00d4ff',
+  gridVisible: true,
+  zoomLevel: 0,
+  undoStack: [],   // { frameIdx, snapshot }
+  redoStack: [],
+  drawing: false,
+  lastCell: null,
+  filename: 'untitled',
+  ratioLock: false,
+  ratioW: 1,
+  ratioH: 1,
+  recentColors: [],
+
+  // Playback
+  playing: false,
+  looping: true,
+  fps: 8,
+  onionSkin: false,
+  playTimer: null,
+
+  // Image import
+  importImg:    null,   // HTMLImageElement
+  imgX:         0,      // canvas-pixel offset (top-left of image)
+  imgY:         0,
+  imgScale:     1.0,    // scale multiplier
+  imgOpacity:   60,     // %
+  imgMode:      false,
+  imgDragging:  false,
+  imgDragMX:    0,      // mouse position at drag start
+  imgDragMY:    0,
+  imgDragIX:    0,      // imgX at drag start
+  imgDragIY:    0,
+
+  // Rect erase
+  rectStart:     null,  // {x, y} grid cell
+  rectEnd:       null,
+  rectSelecting: false,
+};
+
+let cellSize = 16;
+
+// Convenience: current frame's pixels
+function pixels() { return state.frames[state.currentFrame]; }
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const canvas      = document.getElementById('pixel-canvas');
+const ctx         = canvas.getContext('2d');
+const canvasWrap  = document.getElementById('canvas-wrap');
+const widthSlider = document.getElementById('width-slider');
+const heightSlider= document.getElementById('height-slider');
+const widthVal    = document.getElementById('width-val');
+const heightVal   = document.getElementById('height-val');
+const colorPicker = document.getElementById('color-picker');
+const ratioLockCb = document.getElementById('ratio-lock');
+const fileInput   = document.getElementById('file-input');
+const zoomDisplay = document.getElementById('zoom-display');
+const framesScroll= document.getElementById('frames-scroll');
+
+// ============================================================
+// CELL SIZE / ZOOM
+// ============================================================
+function recalcCellSize() {
+  const cw = canvasWrap.clientWidth  - 4;
+  const ch = canvasWrap.clientHeight - 4;
+  const fitW = Math.floor(cw / state.width);
+  const fitH = Math.floor(ch / state.height);
+  const fit  = Math.max(2, Math.min(fitW, fitH));
+  cellSize   = state.zoomLevel === 0 ? fit : ZOOM_LEVELS[state.zoomLevel];
+  canvas.width  = cellSize * state.width;
+  canvas.height = cellSize * state.height;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  recalcCellSize();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Checkerboard (transparent bg indicator)
+  for (let y = 0; y < state.height; y++) {
+    for (let x = 0; x < state.width; x++) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? '#1a1a2e' : '#14142a';
+      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+    }
+  }
+
+  // Onion skin: previous frame at 30% opacity
+  if (state.onionSkin && state.currentFrame > 0) {
+    ctx.globalAlpha = 0.3;
+    const prevPixels = state.frames[state.currentFrame - 1];
+    for (const [key, color] of Object.entries(prevPixels)) {
+      const [px, py] = key.split(',').map(Number);
+      if (px < state.width && py < state.height) {
+        ctx.fillStyle = color;
+        ctx.fillRect(px * cellSize, py * cellSize, cellSize, cellSize);
+      }
+    }
+    ctx.globalAlpha = 1.0;
+  }
+
+  // Draw current frame pixels
+  const pix = pixels();
+  for (const [key, color] of Object.entries(pix)) {
+    const [px, py] = key.split(',').map(Number);
+    if (px < state.width && py < state.height) {
+      ctx.fillStyle = color;
+      ctx.fillRect(px * cellSize, py * cellSize, cellSize, cellSize);
+    }
+  }
+
+  // Image import overlay
+  if (state.importImg && state.imgMode) {
+    const iw = state.importImg.naturalWidth  * state.imgScale;
+    const ih = state.importImg.naturalHeight * state.imgScale;
+    ctx.globalAlpha = state.imgOpacity / 100;
+    ctx.drawImage(state.importImg, state.imgX, state.imgY, iw, ih);
+    ctx.globalAlpha = 1.0;
+    // Dashed bounding box
+    ctx.save();
+    ctx.strokeStyle = '#ffe600';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(state.imgX + 0.5, state.imgY + 0.5, iw, ih);
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Rect erase selection overlay
+  if (state.tool === 'rect-erase' && state.rectStart && state.rectEnd) {
+    const rx0 = Math.min(state.rectStart.x, state.rectEnd.x);
+    const ry0 = Math.min(state.rectStart.y, state.rectEnd.y);
+    const rx1 = Math.max(state.rectStart.x, state.rectEnd.x) + 1;
+    const ry1 = Math.max(state.rectStart.y, state.rectEnd.y) + 1;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,51,85,0.08)';
+    ctx.fillRect(rx0 * cellSize, ry0 * cellSize, (rx1 - rx0) * cellSize, (ry1 - ry0) * cellSize);
+    ctx.strokeStyle = '#ff3355';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(rx0 * cellSize + 0.5, ry0 * cellSize + 0.5, (rx1 - rx0) * cellSize - 1, (ry1 - ry0) * cellSize - 1);
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Grid lines
+  if (state.gridVisible && cellSize >= 4) {
+    ctx.strokeStyle = 'rgba(80,80,130,0.45)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let x = 0; x <= state.width; x++) {
+      ctx.moveTo(x * cellSize, 0);
+      ctx.lineTo(x * cellSize, canvas.height);
+    }
+    for (let y = 0; y <= state.height; y++) {
+      ctx.moveTo(0, y * cellSize);
+      ctx.lineTo(canvas.width, y * cellSize);
+    }
+    ctx.stroke();
+
+    // Bold border around canvas
+    ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  }
+
+  updateInfo();
+}
+
+// ============================================================
+// FRAME THUMBNAILS
+// ============================================================
+const THUMB_W = 48;
+
+function renderThumb(frameIdx) {
+  const thumbEl = document.querySelector(`.frame-thumb[data-idx="${frameIdx}"] canvas`);
+  if (!thumbEl) return;
+  const tc  = thumbEl.getContext('2d');
+  const tw  = thumbEl.width;
+  const th  = thumbEl.height;
+  const cs  = Math.max(1, Math.floor(Math.min(tw / state.width, th / state.height)));
+  tc.clearRect(0, 0, tw, th);
+  // bg
+  for (let y = 0; y < state.height; y++) {
+    for (let x = 0; x < state.width; x++) {
+      tc.fillStyle = (x + y) % 2 === 0 ? '#1a1a2e' : '#14142a';
+      tc.fillRect(x * cs, y * cs, cs, cs);
+    }
+  }
+  const pix = state.frames[frameIdx];
+  for (const [key, color] of Object.entries(pix)) {
+    const [px, py] = key.split(',').map(Number);
+    if (px < state.width && py < state.height) {
+      tc.fillStyle = color;
+      tc.fillRect(px * cs, py * cs, cs, cs);
+    }
+  }
+}
+
+function buildFramesPanel() {
+  document.querySelectorAll('.frame-thumb').forEach(el => el.remove());
+  const insertBefore = document.getElementById('btn-add-frame');
+
+  for (let i = 0; i < state.frames.length; i++) {
+    const thumb = document.createElement('div');
+    thumb.className = 'frame-thumb' + (i === state.currentFrame ? ' active' : '');
+    thumb.dataset.idx = i;
+    thumb.draggable = true;
+
+    const aspect = state.height / state.width;
+    const tw = THUMB_W;
+    const th = Math.max(24, Math.round(tw * aspect));
+
+    const tc = document.createElement('canvas');
+    tc.width = tw; tc.height = th;
+    thumb.appendChild(tc);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'frame-label';
+    lbl.textContent = `F${i + 1}`;
+    thumb.appendChild(lbl);
+
+    // Delete button
+    const del = document.createElement('button');
+    del.className = 'frame-del';
+    del.textContent = '×';
+    del.title = 'Delete frame';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      if (state.frames.length <= 1) return;
+      state.frames.splice(i, 1);
+      if (state.currentFrame >= state.frames.length) state.currentFrame = state.frames.length - 1;
+      buildFramesPanel(); render();
+    });
+    thumb.appendChild(del);
+
+    // Select on click
+    thumb.addEventListener('click', () => {
+      state.currentFrame = i;
+      buildFramesPanel(); render(); updateFrameCounter();
+    });
+
+    // ── Drag+drop reorder ──────────────────────────────────
+    thumb.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+      // Defer adding class so the drag image captures the normal look
+      setTimeout(() => thumb.classList.add('drag-src'), 0);
+    });
+    thumb.addEventListener('dragend', () => {
+      thumb.classList.remove('drag-src');
+      document.querySelectorAll('.drag-over-frame').forEach(el => el.classList.remove('drag-over-frame'));
+    });
+    thumb.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.drag-over-frame').forEach(el => el.classList.remove('drag-over-frame'));
+      thumb.classList.add('drag-over-frame');
+    });
+    thumb.addEventListener('dragleave', () => thumb.classList.remove('drag-over-frame'));
+    thumb.addEventListener('drop', e => {
+      e.preventDefault();
+      thumb.classList.remove('drag-over-frame');
+      const from = parseInt(e.dataTransfer.getData('text/plain'));
+      const to   = i;
+      if (from === to || isNaN(from)) return;
+
+      const [moved] = state.frames.splice(from, 1);
+      state.frames.splice(to, 0, moved);
+
+      // Track active frame through the move
+      if (state.currentFrame === from) {
+        state.currentFrame = to;
+      } else if (from < state.currentFrame && to >= state.currentFrame) {
+        state.currentFrame--;
+      } else if (from > state.currentFrame && to <= state.currentFrame) {
+        state.currentFrame++;
+      }
+
+      buildFramesPanel(); render();
+    });
+
+    framesScroll.insertBefore(thumb, insertBefore);
+    renderThumb(i);
+  }
+
+  updateFrameCounter();
+  document.getElementById('info-frames').textContent = state.frames.length;
+}
+
+function refreshAllThumbs() {
+  for (let i = 0; i < state.frames.length; i++) renderThumb(i);
+}
+
+function updateFrameCounter() {
+  document.getElementById('frame-counter').textContent =
+    `Frame ${state.currentFrame + 1} / ${state.frames.length}`;
+}
+
+// ============================================================
+// FRAME CONTROLS
+// ============================================================
+document.getElementById('btn-add-frame').addEventListener('click', () => {
+  state.frames.splice(state.currentFrame + 1, 0, {});
+  state.currentFrame++;
+  buildFramesPanel();
+  render();
+});
+
+document.getElementById('btn-dup-frame').addEventListener('click', () => {
+  const copy = { ...state.frames[state.currentFrame] };
+  state.frames.splice(state.currentFrame + 1, 0, copy);
+  state.currentFrame++;
+  buildFramesPanel();
+  render();
+});
+
+document.getElementById('btn-prev-frame').addEventListener('click', () => {
+  if (state.currentFrame > 0) {
+    state.currentFrame--;
+    buildFramesPanel();
+    render();
+  }
+});
+
+document.getElementById('btn-next-frame').addEventListener('click', () => {
+  if (state.currentFrame < state.frames.length - 1) {
+    state.currentFrame++;
+    buildFramesPanel();
+    render();
+  }
+});
+
+// ============================================================
+// PLAYBACK
+// ============================================================
+function startPlayback() {
+  if (state.playing) return;
+  state.playing = true;
+  document.getElementById('btn-play').textContent = '⏸ PAUSE';
+  document.getElementById('btn-play').classList.add('active');
+
+  function tick() {
+    let next = state.currentFrame + 1;
+    if (next >= state.frames.length) {
+      if (state.looping) next = 0;
+      else { stopPlayback(); return; }
+    }
+    state.currentFrame = next;
+    buildFramesPanel();
+    render();
+    state.playTimer = setTimeout(tick, 1000 / state.fps);
+  }
+  state.playTimer = setTimeout(tick, 1000 / state.fps);
+}
+
+function stopPlayback() {
+  clearTimeout(state.playTimer);
+  state.playing = false;
+  document.getElementById('btn-play').textContent = '▶ PLAY';
+  document.getElementById('btn-play').classList.remove('active');
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  state.playing ? stopPlayback() : startPlayback();
+});
+
+document.getElementById('loop-toggle').addEventListener('click', () => {
+  state.looping = !state.looping;
+  document.getElementById('loop-toggle').classList.toggle('active', state.looping);
+});
+
+document.getElementById('onion-toggle').addEventListener('click', () => {
+  state.onionSkin = !state.onionSkin;
+  document.getElementById('onion-toggle').classList.toggle('active', state.onionSkin);
+  render();
+});
+
+document.getElementById('fps-input').addEventListener('change', e => {
+  state.fps = Math.max(1, Math.min(60, parseInt(e.target.value) || 8));
+  e.target.value = state.fps;
+  if (state.playing) { stopPlayback(); startPlayback(); }
+});
+
+// ============================================================
+// HIT TEST
+// ============================================================
+function getCell(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / cellSize);
+  const y = Math.floor((e.clientY - rect.top)  / cellSize);
+  if (x < 0 || x >= state.width || y < 0 || y >= state.height) return null;
+  return { x, y };
+}
+
+// ============================================================
+// BRESENHAM LINE
+// ============================================================
+function linePixels(x0, y0, x1, y1) {
+  const pts = [];
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  while (true) {
+    pts.push({ x: x0, y: y0 });
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x0 += sx; }
+    if (e2 <  dx) { err += dx; y0 += sy; }
+  }
+  return pts;
+}
+
+// ============================================================
+// TOOLS
+// ============================================================
+function applyPencil(x, y) { pixels()[`${x},${y}`] = state.color; }
+function applyEraser(x, y) { delete pixels()[`${x},${y}`]; }
+
+function applyFill(sx, sy) {
+  const target = pixels()[`${sx},${sy}`] || null;
+  if (target === state.color) return;
+  const queue   = [[sx, sy]];
+  const visited = new Set([`${sx},${sy}`]);
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    if ((pixels()[`${x},${y}`] || null) !== target) continue;
+    if (state.color === null) delete pixels()[`${x},${y}`];
+    else pixels()[`${x},${y}`] = state.color;
+    for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
+      if (nx < 0 || nx >= state.width || ny < 0 || ny >= state.height) continue;
+      const key = `${nx},${ny}`;
+      if (!visited.has(key)) { visited.add(key); queue.push([nx, ny]); }
+    }
+  }
+}
+
+// ============================================================
+// UNDO / REDO
+// ============================================================
+function pushUndo() {
+  state.undoStack.push({ frameIdx: state.currentFrame, snap: JSON.stringify(pixels()) });
+  if (state.undoStack.length > 80) state.undoStack.shift();
+  state.redoStack = [];
+}
+function undo() {
+  if (!state.undoStack.length) return;
+  const entry = state.undoStack.pop();
+  state.redoStack.push({ frameIdx: state.currentFrame, snap: JSON.stringify(pixels()) });
+  state.currentFrame = entry.frameIdx;
+  state.frames[entry.frameIdx] = JSON.parse(entry.snap);
+  buildFramesPanel();
+  render();
+}
+function redo() {
+  if (!state.redoStack.length) return;
+  const entry = state.redoStack.pop();
+  state.undoStack.push({ frameIdx: state.currentFrame, snap: JSON.stringify(pixels()) });
+  state.currentFrame = entry.frameIdx;
+  state.frames[entry.frameIdx] = JSON.parse(entry.snap);
+  buildFramesPanel();
+  render();
+}
+
+// ============================================================
+// DRAW EVENTS
+// ============================================================
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+
+  // ── Image import drag ──────────────────────────────────────
+  if (state.imgMode) {
+    state.imgDragging = true;
+    state.imgDragMX   = e.clientX;
+    state.imgDragMY   = e.clientY;
+    state.imgDragIX   = state.imgX;
+    state.imgDragIY   = state.imgY;
+    canvas.classList.add('dragging');
+    return;
+  }
+
+  stopPlayback();
+  const cell = getCell(e);
+  if (!cell) return;
+
+  // ── Rect erase selection ───────────────────────────────────
+  if (state.tool === 'rect-erase') {
+    state.rectStart     = cell;
+    state.rectEnd       = cell;
+    state.rectSelecting = true;
+    render();
+    return;
+  }
+
+  pushUndo();
+  if (state.tool === 'fill')       { applyFill(cell.x, cell.y); render(); renderThumb(state.currentFrame); return; }
+  if (state.tool === 'eyedropper') { const c = pixels()[`${cell.x},${cell.y}`]; if (c) { setColor(c); state.tool = 'pencil'; updateToolButtons(); } return; }
+  state.drawing  = true;
+  state.lastCell = cell;
+  if (state.tool === 'pencil') applyPencil(cell.x, cell.y);
+  else if (state.tool === 'eraser') applyEraser(cell.x, cell.y);
+  render();
+});
+
+canvas.addEventListener('mousemove', e => {
+  // ── Image import drag ──────────────────────────────────────
+  if (state.imgMode && state.imgDragging) {
+    state.imgX = state.imgDragIX + (e.clientX - state.imgDragMX);
+    state.imgY = state.imgDragIY + (e.clientY - state.imgDragMY);
+    render();
+    return;
+  }
+
+  const cell = getCell(e);
+  document.getElementById('status-coords').textContent = cell ? `${cell.x}, ${cell.y}` : '—';
+
+  // ── Rect erase drag ────────────────────────────────────────
+  if (state.rectSelecting && cell) {
+    state.rectEnd = cell;
+    render();
+    return;
+  }
+
+  if (!state.drawing || !cell) return;
+  if (state.lastCell && cell.x === state.lastCell.x && cell.y === state.lastCell.y) return;
+  if (state.lastCell) {
+    for (const p of linePixels(state.lastCell.x, state.lastCell.y, cell.x, cell.y)) {
+      if (state.tool === 'pencil') applyPencil(p.x, p.y);
+      else if (state.tool === 'eraser') applyEraser(p.x, p.y);
+    }
+  }
+  state.lastCell = cell;
+  render();
+});
+
+window.addEventListener('mouseup', () => {
+  if (state.imgDragging) {
+    state.imgDragging = false;
+    canvas.classList.remove('dragging');
+    return;
+  }
+  if (state.rectSelecting) {
+    state.rectSelecting = false;
+    applyRectErase();
+    return;
+  }
+  if (state.drawing) {
+    state.drawing  = false;
+    state.lastCell = null;
+    addRecentColor(state.color);
+    renderThumb(state.currentFrame);
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('status-coords').textContent = '—';
+});
+
+// Right-click = quick erase
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const cell = getCell(e);
+  if (!cell) return;
+  pushUndo();
+  applyEraser(cell.x, cell.y);
+  render();
+  renderThumb(state.currentFrame);
+});
+
+// ============================================================
+// COLOR
+// ============================================================
+function setColor(hex) {
+  state.color = hex;
+  colorPicker.value = hex;
+  document.getElementById('color-hex').textContent = hex;
+  document.getElementById('status-swatch').style.background = hex;
+  document.getElementById('status-hex').textContent = hex;
+}
+function addRecentColor(hex) {
+  state.recentColors = [hex, ...state.recentColors.filter(c => c !== hex)].slice(0, 8);
+  renderRecentColors();
+}
+function renderRecentColors() {
+  const el = document.getElementById('recent-colors');
+  el.innerHTML = '';
+  for (const c of state.recentColors) {
+    const s = document.createElement('div');
+    s.className = 'swatch'; s.style.background = c; s.title = c;
+    s.addEventListener('click', () => setColor(c));
+    el.appendChild(s);
+  }
+}
+colorPicker.addEventListener('input', e => setColor(e.target.value));
+
+// ============================================================
+// PALETTE
+// ============================================================
+function buildPalette() {
+  const grid = document.getElementById('palette-grid');
+  for (const color of DEFAULT_PALETTE) {
+    const s = document.createElement('div');
+    s.className = 'swatch'; s.style.background = color; s.title = color;
+    s.addEventListener('click', () => { setColor(color); addRecentColor(color); });
+    grid.appendChild(s);
+  }
+}
+
+// ============================================================
+// TOOL BUTTONS
+// ============================================================
+function updateToolButtons() {
+  document.querySelectorAll('.tool-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tool === state.tool));
+  document.getElementById('status-tool').textContent = state.tool.toUpperCase();
+}
+document.getElementById('tool-buttons').addEventListener('click', e => {
+  const btn = e.target.closest('.tool-btn');
+  if (!btn) return;
+  state.tool = btn.dataset.tool;
+  updateToolButtons();
+});
+
+// ============================================================
+// GRID + ZOOM
+// ============================================================
+document.getElementById('btn-grid').addEventListener('click', () => {
+  state.gridVisible = !state.gridVisible;
+  document.getElementById('btn-grid').classList.toggle('active', state.gridVisible);
+  render();
+});
+
+function updateZoom() {
+  zoomDisplay.textContent = state.zoomLevel === 0 ? 'FIT' : `${ZOOM_LEVELS[state.zoomLevel]}px`;
+}
+document.getElementById('btn-zoom-in').addEventListener('click',  () => { if (state.zoomLevel < ZOOM_LEVELS.length - 1) state.zoomLevel++; updateZoom(); render(); });
+document.getElementById('btn-zoom-out').addEventListener('click', () => { if (state.zoomLevel > 1) state.zoomLevel--; else state.zoomLevel = 0; updateZoom(); render(); });
+document.getElementById('btn-zoom-fit').addEventListener('click', () => { state.zoomLevel = 0; updateZoom(); render(); });
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.deltaY < 0 && state.zoomLevel < ZOOM_LEVELS.length - 1) state.zoomLevel++;
+  else if (e.deltaY > 0) { if (state.zoomLevel > 1) state.zoomLevel--; else state.zoomLevel = 0; }
+  updateZoom(); render();
+}, { passive: false });
+
+// ============================================================
+// SLIDERS
+// ============================================================
+function valueToSlider(v) {
+  let best = 0, bestDist = Infinity;
+  for (let i = 0; i < SNAP_VALUES.length; i++) {
+    const d = Math.abs(SNAP_VALUES[i] - v);
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return best;
+}
+
+function applyRatioToHeight(newW) {
+  if (!state.ratioLock) return;
+  const idx  = valueToSlider(newW * (state.ratioH / state.ratioW));
+  state.height = SNAP_VALUES[idx];
+  heightSlider.value = idx;
+  heightVal.textContent = state.height;
+}
+function applyRatioToWidth(newH) {
+  if (!state.ratioLock) return;
+  const idx  = valueToSlider(newH * (state.ratioW / state.ratioH));
+  state.width = SNAP_VALUES[idx];
+  widthSlider.value = idx;
+  widthVal.textContent = state.width;
+}
+
+widthSlider.addEventListener('input', () => {
+  state.width = SNAP_VALUES[+widthSlider.value];
+  widthVal.textContent = state.width;
+  applyRatioToHeight(state.width);
+  updateRatioDisplay(); buildFramesPanel(); render();
+});
+heightSlider.addEventListener('input', () => {
+  state.height = SNAP_VALUES[+heightSlider.value];
+  heightVal.textContent = state.height;
+  applyRatioToWidth(state.height);
+  updateRatioDisplay(); buildFramesPanel(); render();
+});
+
+// ============================================================
+// RATIO
+// ============================================================
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+function updateRatioDisplay() {
+  const g  = gcd(state.width, state.height);
+  const rw = state.width / g, rh = state.height / g;
+  document.getElementById('ratio-display').textContent = `${rw} : ${rh}`;
+  document.querySelectorAll('.ratio-btn').forEach(b => {
+    const bw = +b.dataset.w, bh = +b.dataset.h, bg = gcd(bw, bh);
+    b.classList.toggle('active', bw/bg === rw && bh/bg === rh);
+  });
+}
+
+ratioLockCb.addEventListener('change', () => {
+  state.ratioLock = ratioLockCb.checked;
+  if (state.ratioLock) {
+    const g = gcd(state.width, state.height);
+    state.ratioW = state.width / g; state.ratioH = state.height / g;
+  }
+});
+
+document.getElementById('ratio-presets').addEventListener('click', e => {
+  const btn = e.target.closest('.ratio-btn');
+  if (!btn) return;
+  state.ratioW = +btn.dataset.w; state.ratioH = +btn.dataset.h;
+  state.ratioLock = true; ratioLockCb.checked = true;
+  const idx = valueToSlider(state.width * (state.ratioH / state.ratioW));
+  state.height = SNAP_VALUES[idx];
+  heightSlider.value = idx; heightVal.textContent = state.height;
+  updateRatioDisplay(); buildFramesPanel(); render();
+});
+
+// ============================================================
+// INFO
+// ============================================================
+function updateInfo() {
+  const count = Object.keys(pixels()).filter(k => {
+    const [x, y] = k.split(',').map(Number);
+    return x < state.width && y < state.height;
+  }).length;
+  const total = state.width * state.height;
+  document.getElementById('info-size').textContent    = `${state.width}×${state.height}`;
+  document.getElementById('info-drawn').textContent   = count;
+  document.getElementById('info-fill').textContent    = `${Math.round(count / total * 100)}%`;
+  document.getElementById('info-frames').textContent  = state.frames.length;
+  document.getElementById('status-drawn').textContent = `${count} pixels`;
+}
+
+// ============================================================
+// CLEAR / NEW
+// ============================================================
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('Clear current frame?')) return;
+  pushUndo();
+  state.frames[state.currentFrame] = {};
+  render(); renderThumb(state.currentFrame);
+});
+
+document.getElementById('btn-new').addEventListener('click', () => {
+  const hasContent = state.frames.some(f => Object.keys(f).length > 0);
+  if (hasContent && !confirm('New canvas? All unsaved work will be lost.')) return;
+  stopPlayback();
+  state.frames       = [{}];
+  state.currentFrame = 0;
+  state.undoStack    = [];
+  state.redoStack    = [];
+  document.getElementById('filename-input').value = 'untitled';
+  state.filename = 'untitled';
+  buildFramesPanel(); render();
+});
+
+// ============================================================
+// SAVE JSON
+// ============================================================
+function buildSaveData() {
+  // Only include in-bounds pixels per frame
+  const cleanFrames = state.frames.map(frame => {
+    const clean = {};
+    for (const [key, color] of Object.entries(frame)) {
+      const [x, y] = key.split(',').map(Number);
+      if (x < state.width && y < state.height) clean[key] = color;
+    }
+    return clean;
+  });
+
+  return {
+    version:     2,
+    name:        state.filename,
+    width:       state.width,
+    height:      state.height,
+    frameCount:  state.frames.length,
+    fps:         state.fps,
+    looping:     state.looping,
+    frames:      cleanFrames,
+    savedAt:     new Date().toISOString(),
+    _format: {
+      desc: "Each frame is an object. Keys are 'x,y' (column,row from top-left, 0-indexed). Values are hex color strings. Missing keys = transparent.",
+      example: "'3,7': '#ff0000' means column 3, row 7 is red."
+    }
+  };
+}
+
+// ============================================================
+// SAVES FOLDER (IndexedDB-persisted FileSystemDirectoryHandle)
+// ============================================================
+const IDB_DB    = 'PixelArtEditor';
+const IDB_STORE = 'settings';
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_DB, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = reject;
+  });
+}
+async function idbGet(key) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = reject;
+  });
+}
+async function idbSet(key, val) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = resolve;
+    tx.onerror    = reject;
+  });
+}
+
+async function getSavesDirHandle() {
+  const h = await idbGet('savesDir');
+  if (!h) return null;
+  try {
+    const perm = await h.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') return h;
+    const req = await h.requestPermission({ mode: 'readwrite' });
+    return req === 'granted' ? h : null;
+  } catch { return null; }
+}
+
+function updateSavesDirUI(name) {
+  const el = document.getElementById('saves-dir-name');
+  el.textContent = name || 'no folder set';
+  el.title = name ? `Saves folder: ${name}` : 'Click 📁 to set a saves folder';
+}
+
+async function pickSavesDir() {
+  if (!window.showDirectoryPicker) {
+    alert('Directory picker not supported in this browser. Use Chrome or Edge.');
+    return;
+  }
+  try {
+    const h = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await idbSet('savesDir', h);
+    updateSavesDirUI(h.name);
+  } catch (e) { if (e.name !== 'AbortError') console.warn(e); }
+}
+
+document.getElementById('btn-set-dir').addEventListener('click', pickSavesDir);
+
+// Restore saved dir name on load
+idbGet('savesDir').then(h => { if (h) updateSavesDirUI(h.name); }).catch(() => {});
+
+// ============================================================
+// SAVE JSON
+// ============================================================
+async function saveJson() {
+  state.filename = document.getElementById('filename-input').value.trim() || 'untitled';
+  const json  = JSON.stringify(buildSaveData(), null, 2);
+  const fname = `${state.filename}.json`;
+
+  // 1. Try writing to pinned saves folder
+  const dirHandle = await getSavesDirHandle();
+  if (dirHandle) {
+    try {
+      const fh = await dirHandle.getFileHandle(fname, { create: true });
+      const w  = await fh.createWritable();
+      await w.write(json); await w.close();
+      // Flash save button green briefly
+      const btn = document.getElementById('btn-save');
+      const orig = btn.style.cssText;
+      btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)';
+      setTimeout(() => btn.style.cssText = orig, 800);
+      return;
+    } catch (e) { console.warn('Direct save failed, falling back:', e); }
+  }
+
+  // 2. Fall back to save-file picker
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: 'Pixel Art JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(json); await w.close();
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+
+  // 3. Fallback download
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([json], { type: 'application/json' })),
+    download: fname
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('btn-save').addEventListener('click', saveJson);
+
+// ============================================================
+// LOAD JSON
+// ============================================================
+async function loadJson() {
+  if (window.showOpenFilePicker) {
+    try {
+      const dirHandle = await getSavesDirHandle();
+      const [handle] = await window.showOpenFilePicker({
+        startIn: dirHandle || 'downloads',
+        types: [{ description: 'Pixel Art JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      const file = await handle.getFile();
+      parseAndLoad(await file.text(), file.name.replace('.json', ''));
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  fileInput.click();
+}
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => parseAndLoad(ev.target.result, file.name.replace('.json', ''));
+  r.readAsText(file); fileInput.value = '';
+});
+function parseAndLoad(text, name) {
+  try {
+    const d = JSON.parse(text);
+    stopPlayback();
+    state.width  = d.width  || 16;
+    state.height = d.height || 16;
+    state.fps    = d.fps    || 8;
+    state.looping = d.looping !== false;
+    // Support v1 (single-frame pixels) and v2 (frames array)
+    if (d.frames && Array.isArray(d.frames)) {
+      state.frames = d.frames;
+    } else if (d.pixels) {
+      state.frames = [d.pixels];
+    } else {
+      state.frames = [{}];
+    }
+    state.currentFrame = 0;
+    state.filename = d.name || name;
+    document.getElementById('filename-input').value = state.filename;
+    document.getElementById('fps-input').value = state.fps;
+    widthSlider.value  = valueToSlider(state.width);  widthVal.textContent  = state.width;
+    heightSlider.value = valueToSlider(state.height); heightVal.textContent = state.height;
+    state.undoStack = []; state.redoStack = [];
+    document.getElementById('loop-toggle').classList.toggle('active', state.looping);
+    updateRatioDisplay(); buildFramesPanel(); render();
+  } catch (e) { alert('Failed to load: ' + e.message); }
+}
+document.getElementById('btn-load').addEventListener('click', loadJson);
+
+// ============================================================
+// EXPORT PNG (current frame, 1px per cell)
+// ============================================================
+function exportPng() {
+  const off = document.createElement('canvas');
+  off.width = state.width; off.height = state.height;
+  const oc = off.getContext('2d');
+  oc.clearRect(0, 0, state.width, state.height);
+  for (const [key, color] of Object.entries(pixels())) {
+    const [px, py] = key.split(',').map(Number);
+    if (px < state.width && py < state.height) {
+      oc.fillStyle = color;
+      oc.fillRect(px, py, 1, 1);
+    }
+  }
+  const a = Object.assign(document.createElement('a'), {
+    href: off.toDataURL('image/png'),
+    download: `${state.filename || 'sprite'}_f${state.currentFrame + 1}.png`
+  });
+  a.click();
+}
+document.getElementById('btn-export-png').addEventListener('click', exportPng);
+
+// ============================================================
+// FLIP HORIZONTAL
+// ============================================================
+function flipAllFrames() {
+  pushUndo();
+  for (let fi = 0; fi < state.frames.length; fi++) {
+    const frame = state.frames[fi];
+    const newFrame = {};
+    for (const [key, color] of Object.entries(frame)) {
+      const [x, y] = key.split(',').map(Number);
+      if (x >= state.width || y >= state.height) continue;
+      newFrame[`${state.width - 1 - x},${y}`] = color;
+    }
+    state.frames[fi] = newFrame;
+  }
+  buildFramesPanel();
+  render();
+}
+document.getElementById('btn-flip-h').addEventListener('click', flipAllFrames);
+
+// ============================================================
+// NUDGE (SHIFT PIXELS)
+// ============================================================
+function nudgePixels(dx, dy) {
+  const amount = Math.max(1, parseInt(document.getElementById('nudge-amount').value) || 1);
+  const allFrames = document.getElementById('nudge-all-frames').checked;
+  const adx = dx * amount;
+  const ady = dy * amount;
+  pushUndo();
+  const targets = allFrames ? state.frames.map((_, i) => i) : [state.currentFrame];
+  for (const fi of targets) {
+    const frame = state.frames[fi];
+    const newFrame = {};
+    for (const [key, color] of Object.entries(frame)) {
+      const [x, y] = key.split(',').map(Number);
+      if (x >= state.width || y >= state.height) continue;
+      const nx = x + adx;
+      const ny = y + ady;
+      if (nx >= 0 && nx < state.width && ny >= 0 && ny < state.height) {
+        newFrame[`${nx},${ny}`] = color;
+      }
+    }
+    state.frames[fi] = newFrame;
+  }
+  buildFramesPanel();
+  render();
+}
+document.getElementById('btn-nudge-left').addEventListener('click',  () => nudgePixels(-1,  0));
+document.getElementById('btn-nudge-right').addEventListener('click', () => nudgePixels( 1,  0));
+document.getElementById('btn-nudge-up').addEventListener('click',    () => nudgePixels( 0, -1));
+document.getElementById('btn-nudge-down').addEventListener('click',  () => nudgePixels( 0,  1));
+// Prevent arrow keys inside the number input from accidentally triggering tool shortcuts
+document.getElementById('nudge-amount').addEventListener('keydown', e => e.stopPropagation());
+
+// ============================================================
+// IMAGE IMPORT
+// ============================================================
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function enterImgMode(img) {
+  state.importImg = img;
+  state.imgMode   = true;
+
+  // Auto-fit: scale to fill grid, then center
+  const fitW = canvas.width  / img.naturalWidth;
+  const fitH = canvas.height / img.naturalHeight;
+  state.imgScale = Math.min(fitW, fitH);
+  state.imgX = (canvas.width  - img.naturalWidth  * state.imgScale) / 2;
+  state.imgY = (canvas.height - img.naturalHeight * state.imgScale) / 2;
+
+  document.getElementById('img-scale-slider').value = Math.round(state.imgScale * 100);
+  document.getElementById('img-scale-val').textContent = state.imgScale.toFixed(2) + '×';
+  document.getElementById('img-controls').style.display = 'flex';
+  canvas.classList.add('img-mode');
+  render();
+}
+
+function exitImgMode() {
+  state.importImg  = null;
+  state.imgMode    = false;
+  state.imgDragging = false;
+  document.getElementById('img-controls').style.display = 'none';
+  canvas.classList.remove('img-mode', 'dragging');
+  render();
+}
+
+function solidifyImage() {
+  if (!state.importImg) return;
+  pushUndo();
+
+  // Draw image into a grid-sized offscreen canvas so each pixel = one grid cell
+  const off = document.createElement('canvas');
+  off.width  = state.width;
+  off.height = state.height;
+  const oc = off.getContext('2d');
+
+  // Convert canvas-pixel position to grid-space
+  const gx = state.imgX / cellSize;
+  const gy = state.imgY / cellSize;
+  const gw = (state.importImg.naturalWidth  * state.imgScale) / cellSize;
+  const gh = (state.importImg.naturalHeight * state.imgScale) / cellSize;
+
+  oc.drawImage(state.importImg, gx, gy, gw, gh);
+
+  const { data } = oc.getImageData(0, 0, state.width, state.height);
+  for (let cy = 0; cy < state.height; cy++) {
+    for (let cx = 0; cx < state.width; cx++) {
+      const i = (cy * state.width + cx) * 4;
+      const a = data[i + 3];
+      if (a > 32) {
+        pixels()[`${cx},${cy}`] = rgbToHex(data[i], data[i+1], data[i+2]);
+      }
+    }
+  }
+
+  exitImgMode();
+  buildFramesPanel();
+  render();
+}
+
+// Import button → open file picker
+document.getElementById('btn-import-img').addEventListener('click', () => {
+  document.getElementById('img-file-input').click();
+});
+
+document.getElementById('img-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); enterImgMode(img); };
+  img.src = url;
+  e.target.value = '';
+});
+
+// Drag & drop an image onto the canvas area
+canvasWrap.addEventListener('dragover', e => {
+  if (e.dataTransfer.types.includes('Files')) {
+    e.preventDefault();
+    canvasWrap.classList.add('drag-over');
+  }
+});
+canvasWrap.addEventListener('dragleave', () => canvasWrap.classList.remove('drag-over'));
+canvasWrap.addEventListener('drop', e => {
+  e.preventDefault();
+  canvasWrap.classList.remove('drag-over');
+  const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); enterImgMode(img); };
+  img.src = url;
+});
+
+// Scale slider
+document.getElementById('img-scale-slider').addEventListener('input', e => {
+  state.imgScale = parseInt(e.target.value) / 100;
+  document.getElementById('img-scale-val').textContent = state.imgScale.toFixed(2) + '×';
+  render();
+});
+
+// Opacity slider
+document.getElementById('img-opacity-slider').addEventListener('input', e => {
+  state.imgOpacity = parseInt(e.target.value);
+  document.getElementById('img-opacity-val').textContent = state.imgOpacity + '%';
+  render();
+});
+
+// Solidify / Cancel buttons
+document.getElementById('btn-solidify').addEventListener('click', solidifyImage);
+document.getElementById('btn-img-cancel').addEventListener('click', exitImgMode);
+
+// ============================================================
+// RECT ERASE
+// ============================================================
+function applyRectErase() {
+  if (!state.rectStart || !state.rectEnd) return;
+  const x0 = Math.min(state.rectStart.x, state.rectEnd.x);
+  const y0 = Math.min(state.rectStart.y, state.rectEnd.y);
+  const x1 = Math.max(state.rectStart.x, state.rectEnd.x);
+  const y1 = Math.max(state.rectStart.y, state.rectEnd.y);
+  state.rectStart = null;
+  state.rectEnd   = null;
+
+  const tol  = cr.tolerance / 100 * MAX_RGB_DIST;
+  const tRgb = hexToRgb(cr.targetHex);
+  pushUndo();
+  const frame = pixels();
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      const key   = `${cx},${cy}`;
+      const color = frame[key];
+      if (color && rgbDist(hexToRgb(color), tRgb) <= tol) delete frame[key];
+    }
+  }
+  buildFramesPanel();
+  render();
+}
+
+// ============================================================
+// COLOR REMOVAL
+// ============================================================
+
+// Max Euclidean distance in RGB space
+const MAX_RGB_DIST = Math.sqrt(3 * 255 * 255);
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbDist(a, b) {
+  return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2);
+}
+
+// State for color removal
+const cr = {
+  targetHex: '#00d4ff',
+  tolerance: 0,       // 0–100 %
+  allFrames: false,
+  contiguous: false,  // flood-fill mode vs whole-image
+};
+
+function crUpdateSwatch() {
+  document.getElementById('cr-target-swatch').style.background = cr.targetHex;
+  document.getElementById('cr-target-hex').textContent = cr.targetHex;
+}
+
+function crCountMatches() {
+  const tol  = cr.tolerance / 100 * MAX_RGB_DIST;
+  const tRgb = hexToRgb(cr.targetHex);
+  let   count = 0;
+  const framesToScan = cr.allFrames ? state.frames : [pixels()];
+  for (const frame of framesToScan) {
+    for (const [key, color] of Object.entries(frame)) {
+      const [x, y] = key.split(',').map(Number);
+      if (x >= state.width || y >= state.height) continue;
+      if (rgbDist(hexToRgb(color), tRgb) <= tol) count++;
+    }
+  }
+  return count;
+}
+
+function crUpdatePreview() {
+  const count = crCountMatches();
+  const el = document.getElementById('cr-preview');
+  const scope = cr.contiguous ? 'contiguous' : (cr.allFrames ? 'all frames' : 'this frame');
+  if (count === 0) {
+    el.textContent = 'no pixels match';
+    el.className = 'no-match';
+  } else {
+    el.textContent = `${count} pixel${count !== 1 ? 's' : ''} (${scope})`;
+    el.className = 'has-match';
+  }
+}
+
+function crRemove() {
+  const tol  = cr.tolerance / 100 * MAX_RGB_DIST;
+  const tRgb = hexToRgb(cr.targetHex);
+
+  // Push undo for each affected frame
+  const framesToProcess = cr.allFrames
+    ? state.frames.map((_, i) => i)
+    : [state.currentFrame];
+
+  pushUndo();
+
+  for (const fi of framesToProcess) {
+    const frame = state.frames[fi];
+
+    if (cr.contiguous) {
+      // Flood-fill removal: only remove connected pixels matching the color,
+      // starting from any pixel of the target color that's within tolerance.
+      // Find all starting pixels (any matching pixel, flood outward).
+      const toVisit = [];
+      const visited = new Set();
+
+      for (const [key, color] of Object.entries(frame)) {
+        const [x, y] = key.split(',').map(Number);
+        if (x >= state.width || y >= state.height) continue;
+        if (!visited.has(key) && rgbDist(hexToRgb(color), tRgb) <= tol) {
+          toVisit.push(key);
+          visited.add(key);
+        }
+      }
+
+      while (toVisit.length) {
+        const key = toVisit.pop();
+        const color = frame[key];
+        if (!color || rgbDist(hexToRgb(color), tRgb) > tol) continue;
+        delete frame[key];
+        const [x, y] = key.split(',').map(Number);
+        for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
+          if (nx < 0 || nx >= state.width || ny < 0 || ny >= state.height) continue;
+          const nk = `${nx},${ny}`;
+          if (!visited.has(nk) && frame[nk]) {
+            visited.add(nk);
+            toVisit.push(nk);
+          }
+        }
+      }
+    } else {
+      // Whole-image: remove every matching pixel
+      for (const [key, color] of Object.entries(frame)) {
+        const [x, y] = key.split(',').map(Number);
+        if (x >= state.width || y >= state.height) continue;
+        if (rgbDist(hexToRgb(color), tRgb) <= tol) delete frame[key];
+      }
+    }
+  }
+
+  buildFramesPanel();
+  render();
+  crUpdatePreview();
+}
+
+// Wire up UI
+document.getElementById('cr-target-swatch').addEventListener('click', () => {
+  // Reuse the hidden color picker for picking the removal target
+  const tmp = document.createElement('input');
+  tmp.type = 'color'; tmp.value = cr.targetHex;
+  tmp.style.display = 'none';
+  document.body.appendChild(tmp);
+  tmp.addEventListener('input', e => { cr.targetHex = e.target.value; crUpdateSwatch(); crUpdatePreview(); });
+  tmp.addEventListener('change', () => document.body.removeChild(tmp));
+  tmp.click();
+});
+
+document.getElementById('cr-use-current').addEventListener('click', () => {
+  cr.targetHex = state.color;
+  crUpdateSwatch();
+  crUpdatePreview();
+});
+
+document.getElementById('cr-tolerance').addEventListener('input', e => {
+  cr.tolerance = parseInt(e.target.value);
+  document.getElementById('cr-tol-val').textContent = cr.tolerance + '%';
+  crUpdatePreview();
+});
+
+document.getElementById('cr-all-frames').addEventListener('change', e => {
+  cr.allFrames = e.target.checked;
+  crUpdatePreview();
+});
+
+document.getElementById('cr-contiguous').addEventListener('change', e => {
+  cr.contiguous = e.target.checked;
+  // All Frames only makes sense when not in contiguous mode
+  const allFramesRow = document.getElementById('cr-all-frames-row');
+  allFramesRow.style.display = cr.contiguous ? 'none' : '';
+  if (cr.contiguous) {
+    cr.allFrames = false;
+    document.getElementById('cr-all-frames').checked = false;
+  }
+  crUpdatePreview();
+});
+
+document.getElementById('cr-remove-btn').addEventListener('click', crRemove);
+
+// Keep removal target in sync when drawing color changes
+const _origSetColor = setColor;
+// Patch setColor to also refresh swatch if cr is synced
+// (we don't auto-sync after init — user controls it via ↺ button)
+
+// Init swatch
+crUpdateSwatch();
+crUpdatePreview();
+
+// ============================================================
+// TOOL CATEGORY COLLAPSE
+// ============================================================
+document.querySelectorAll('.tool-cat-header').forEach(header => {
+  header.addEventListener('click', () => {
+    header.closest('.tool-cat').classList.toggle('collapsed');
+  });
+});
+
+// ============================================================
+// Ctrl+V — paste image from clipboard
+document.addEventListener('paste', async e => {
+  // Don't intercept paste in text inputs
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+
+  const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+  if (!item) return;
+  e.preventDefault();
+
+  const blob = item.getAsFile();
+  const url  = URL.createObjectURL(blob);
+  const img  = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); enterImgMode(img); };
+  img.src = url;
+});
+
+// ============================================================
+// KEYBOARD SHORTCUTS
+// ============================================================
+document.addEventListener('keydown', e => {
+  const inText = e.target.tagName === 'INPUT' && e.target.type === 'text';
+  if (inText && e.key !== 'Escape') return;
+
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.key === 'z') { e.preventDefault(); undo(); return; }
+  if (ctrl && e.key === 'y') { e.preventDefault(); redo(); return; }
+  if (ctrl && e.key === 's') { e.preventDefault(); saveJson(); return; }
+
+  if (e.key === ' ') { e.preventDefault(); state.playing ? stopPlayback() : startPlayback(); return; }
+  if (e.key === ',') { if (state.currentFrame > 0) { state.currentFrame--; buildFramesPanel(); render(); } return; }
+  if (e.key === '.') { if (state.currentFrame < state.frames.length - 1) { state.currentFrame++; buildFramesPanel(); render(); } return; }
+
+  if (e.key === 'p' || e.key === 'P') { state.tool = 'pencil';     updateToolButtons(); }
+  else if (e.key === 'e' || e.key === 'E') { state.tool = 'eraser'; updateToolButtons(); }
+  else if (e.key === 'f' || e.key === 'F') { state.tool = 'fill';   updateToolButtons(); }
+  else if (e.key === 'i' || e.key === 'I') { state.tool = 'eyedropper'; updateToolButtons(); }
+  else if (e.key === 'r' || e.key === 'R') { state.tool = 'rect-erase'; updateToolButtons(); }
+  else if (e.key === 'g' || e.key === 'G') {
+    state.gridVisible = !state.gridVisible;
+    document.getElementById('btn-grid').classList.toggle('active', state.gridVisible);
+    render();
+  } else if (e.key === 'o' || e.key === 'O') {
+    state.onionSkin = !state.onionSkin;
+    document.getElementById('onion-toggle').classList.toggle('active', state.onionSkin);
+    render();
+  }
+});
+
+// ============================================================
+// RESIZE OBSERVER
+// ============================================================
+new ResizeObserver(() => { if (state.zoomLevel === 0) render(); }).observe(canvasWrap);
+
+// ============================================================
+// HELP SYSTEM
+// ============================================================
+
+const HELP_ARTICLES = [
+  // ── OVERVIEW ──────────────────────────────────────────────
+  { cat: 'OVERVIEW', id: 'intro', title: 'What Is This?', html: `
+    <h2>WHAT IS THIS?</h2>
+    <p>This is a standalone pixel art editor built into Claude Companion. It lets you draw sprites, characters, tiles, backgrounds, and multi-frame animations, then save them as JSON files that Claude can read and understand in conversation.</p>
+    <p>Everything runs in your browser — no installs, no accounts, no internet required. Just open the HTML file in Chrome or Edge and start drawing.</p>
+    <h3>DESIGNED FOR CLAUDE</h3>
+    <p>The JSON save format is human-readable and AI-readable. Each pixel is stored as an <code>"x,y": "#rrggbb"</code> pair, so Claude can inspect your artwork, describe it, modify it, or generate new ones from scratch.</p>
+    <div class="hc-note">Best used in <strong>Chrome</strong> or <strong>Edge</strong>. Firefox and Safari don't support the File System Access API needed for the folder-save feature. Saving still works in all browsers via a download dialog.</div>
+    <h3>SINGLE FILE</h3>
+    <p>The editor is entirely self-contained in one HTML file — all CSS and JavaScript are inline. You can copy and share just the <code>index.html</code> file and it works anywhere.</p>
+  `},
+  { cat: 'OVERVIEW', id: 'save-format', title: 'Save File Format', html: `
+    <h2>SAVE FILE FORMAT</h2>
+    <p>Files are saved as <code>.json</code>. The format is straightforward and readable by both humans and Claude.</p>
+    <h3>FILE STRUCTURE</h3>
+    <pre style="background:var(--surface2);padding:10px;font-size:10px;line-height:1.6;overflow-x:auto">{
+  "version": 2,
+  "name": "my_sprite",
+  "width": 16,
+  "height": 16,
+  "frameCount": 2,
+  "fps": 8,
+  "looping": true,
+  "frames": [
+    { "3,2": "#ff6688", "4,2": "#ff6688" },
+    { "3,2": "#ff6688", "4,3": "#ff6688" }
+  ],
+  "savedAt": "2026-03-08T12:00:00.000Z"
+}</pre>
+    <h3>PIXEL KEY FORMAT</h3>
+    <p>Each frame is a plain object. Keys are <code>"x,y"</code> where <code>x</code> is the column (0 = left) and <code>y</code> is the row (0 = top). Values are hex color strings. Missing keys are transparent — only drawn pixels are stored.</p>
+    <div class="hc-tip">So <code>"0,0"</code> is the top-left corner and <code>"15,15"</code> is the bottom-right of a 16×16 grid.</div>
+    <h3>SINGLE-FRAME FILES</h3>
+    <p>Older v1 saves use a flat <code>"pixels"</code> key instead of a <code>"frames"</code> array. The editor handles both formats when loading.</p>
+  `},
+
+  // ── TOOLS — DRAW ──────────────────────────────────────────
+  { cat: 'TOOLS — DRAW', id: 'tool-pen', title: 'Pen Tool', html: `
+    <h2>PEN TOOL</h2>
+    <p>The pen (pencil) tool is the primary drawing tool. Click or click-and-drag to paint pixels in the current color.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">P</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Draw</span><span class="hc-v">Click anywhere on the canvas</span></div>
+    <div class="hc-kv"><span class="hc-k">Draw line</span><span class="hc-v">Click and drag — Bresenham interpolation fills in gaps so no pixels are skipped even at fast speeds</span></div>
+    <h3>HOW IT WORKS</h3>
+    <p>When you click a cell, the current drawing color is applied to that grid cell. When you drag, the editor interpolates between your last position and current position using a line algorithm, so you always get smooth, connected strokes.</p>
+    <div class="hc-tip">The pen always draws in the currently selected color shown in the COLOR section of the left panel.</div>
+  `},
+  { cat: 'TOOLS — DRAW', id: 'tool-fill', title: 'Fill Tool', html: `
+    <h2>FILL TOOL</h2>
+    <p>The fill (flood fill) tool fills a contiguous region of same-colored pixels with the current color — like the paint bucket in any art program.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">F</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Use</span><span class="hc-v">Click any pixel to flood-fill its connected region</span></div>
+    <h3>HOW IT WORKS</h3>
+    <p>The fill tool uses a 4-directional flood-fill algorithm (up, down, left, right). It finds all pixels connected to the clicked cell that share the exact same color and replaces them all with the current drawing color.</p>
+    <div class="hc-note">Fill works on the current frame only. For exact-color matching — no tolerance. Use the Color Removal tool if you need tolerance-based filling across frames.</div>
+  `},
+  { cat: 'TOOLS — DRAW', id: 'tool-eyedropper', title: 'Eyedropper (Pick)', html: `
+    <h2>EYEDROPPER — COLOR PICK</h2>
+    <p>The eyedropper samples the color of any pixel on the canvas and sets it as the active drawing color, then automatically switches you back to the Pen tool.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">I</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Use</span><span class="hc-v">Click any painted pixel on the canvas</span></div>
+    <h3>WORKFLOW TIP</h3>
+    <p>Click an empty cell with the eyedropper does nothing — it only picks painted pixels. After picking, you're immediately back on the pen tool ready to draw.</p>
+  `},
+
+  // ── TOOLS — ERASE ─────────────────────────────────────────
+  { cat: 'TOOLS — ERASE', id: 'tool-eraser', title: 'Eraser Brush', html: `
+    <h2>ERASER BRUSH</h2>
+    <p>The eraser removes individual pixels by making them transparent. Click or drag to erase cells one at a time.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">E</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Draw</span><span class="hc-v">Click and drag to erase</span></div>
+    <p>Like the pen tool, dragging interpolates between cells so you won't skip pixels at speed. Erased pixels are truly transparent — they won't be stored in the saved JSON at all.</p>
+  `},
+  { cat: 'TOOLS — ERASE', id: 'tool-area', title: 'Area Eraser (Rect)', html: `
+    <h2>AREA ERASER — RECT SELECT</h2>
+    <p>The area eraser lets you drag a rectangular selection on the canvas, then erases all pixels inside it that match the current Erase Color target (plus tolerance).</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">R</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Use</span><span class="hc-v">Click and drag on the canvas to draw the rectangle; release to erase</span></div>
+    <h3>SELECTION OVERLAY</h3>
+    <p>While dragging, you'll see a dashed red rectangle with a light red fill showing the area that will be affected. When you release the mouse button, the erase operation is applied instantly.</p>
+    <h3>COLOR FILTERING</h3>
+    <p>The area eraser uses the same Erase Color settings (target color + tolerance) as the REMOVE button. Only pixels within the rect that match the target color within the tolerance are erased. Set tolerance to 100% to erase everything in the area regardless of color.</p>
+    <div class="hc-tip">The area eraser only affects the current frame. Use the Color Removal REMOVE button with "All frames" checked to erase across all frames.</div>
+  `},
+  { cat: 'TOOLS — ERASE', id: 'tool-color-removal', title: 'Color Removal', html: `
+    <h2>COLOR REMOVAL</h2>
+    <p>The Color Removal section (inside the ERASE tool category) lets you specify a target color and remove all pixels that match it — with optional tolerance, contiguous-only mode, and all-frames mode.</p>
+    <h3>TARGET COLOR</h3>
+    <div class="hc-kv"><span class="hc-k">Color swatch</span><span class="hc-v">Click the colored square to open a color picker and set the target color</span></div>
+    <div class="hc-kv"><span class="hc-k">↺ button</span><span class="hc-v">Copy the current drawing color into the removal target</span></div>
+    <h3>TOLERANCE (TOL)</h3>
+    <p>The tolerance slider (0–100%) controls how loosely "matching" is defined. At 0%, only exact color matches are removed. Higher values remove colors increasingly far from the target in RGB distance space.</p>
+    <div class="hc-kv"><span class="hc-k">0%</span><span class="hc-v">Exact match only</span></div>
+    <div class="hc-kv"><span class="hc-k">~15%</span><span class="hc-v">Removes near-identical shades</span></div>
+    <div class="hc-kv"><span class="hc-k">100%</span><span class="hc-v">Removes all pixels regardless of color</span></div>
+    <h3>MATCH PREVIEW</h3>
+    <p>Below the slider, a live count shows how many pixels in the current scope match the target. This updates in real time as you change the color or tolerance.</p>
+    <h3>CONTIGUOUS MODE</h3>
+    <p>When <strong>Contiguous</strong> is checked, removal uses a flood-fill approach — only connected (touching) matching pixels are removed, starting from any matching pixel and spreading outward. This is useful for removing a background without affecting same-colored pixels inside the sprite.</p>
+    <h3>ALL FRAMES</h3>
+    <p>When <strong>All frames</strong> is checked (only visible when Contiguous is unchecked), the removal is applied to every frame in the animation at once. Use this to remove a background color from all frames in one click.</p>
+    <h3>REMOVE BUTTON</h3>
+    <p>Click the red <strong>REMOVE</strong> button to execute the removal with the current settings. The operation is undoable (Ctrl+Z).</p>
+    <div class="hc-warn">There is no confirmation dialog. Make sure you're happy with the preview count before clicking REMOVE.</div>
+  `},
+
+  // ── COLOR ──────────────────────────────────────────────────
+  { cat: 'COLOR', id: 'color-picker', title: 'Color Picker', html: `
+    <h2>COLOR PICKER</h2>
+    <p>The color picker (left panel, COLOR section) sets the active drawing color used by the Pen and Fill tools.</p>
+    <div class="hc-kv"><span class="hc-k">Color input</span><span class="hc-v">Click the wide color bar to open the native browser color picker dialog</span></div>
+    <div class="hc-kv"><span class="hc-k">Hex display</span><span class="hc-v">Shows the current color as a hex code (e.g. #ff6688)</span></div>
+    <div class="hc-kv"><span class="hc-k">Eyedropper key</span><span class="hc-v">Press <span class="hc-kbd">I</span> then click any pixel on canvas to sample that color</span></div>
+    <p>The status bar at the bottom also shows a small color swatch and hex value for the current drawing color at all times.</p>
+  `},
+  { cat: 'COLOR', id: 'palette', title: 'Palette', html: `
+    <h2>PALETTE</h2>
+    <p>The palette is a fixed grid of 32 preset colors displayed in the left panel. Click any swatch to instantly set it as the drawing color.</p>
+    <h3>DEFAULT COLORS</h3>
+    <p>The default palette includes black, white, grays, primaries, and a selection of common game-art tones. The palette is built in and cannot currently be customized per-session (though it may be in future updates).</p>
+    <div class="hc-tip">Use the eyedropper tool to pick from colors you've already drawn rather than hunting through the palette again.</div>
+  `},
+  { cat: 'COLOR', id: 'recent-colors', title: 'Recent Colors', html: `
+    <h2>RECENT COLORS</h2>
+    <p>The RECENT section in the left panel shows the last 10 colors you drew with. Each time you finish a stroke with the pen or eraser, the current color is added to the history.</p>
+    <p>Click any recent color swatch to restore it as the drawing color. The most recent color is always on the left.</p>
+    <div class="hc-note">Recent colors are session-only — they reset when you refresh or close the browser.</div>
+  `},
+
+  // ── CANVAS ─────────────────────────────────────────────────
+  { cat: 'CANVAS', id: 'canvas-size', title: 'Canvas Size', html: `
+    <h2>CANVAS SIZE</h2>
+    <p>Use the WIDTH and HEIGHT sliders in the right panel to set the grid dimensions. The canvas is a grid of cells; each cell is one "pixel" in your art.</p>
+    <h3>AVAILABLE SIZES</h3>
+    <p>Both sliders snap to the following values: <strong>4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128</strong> pixels. This prevents awkward non-power-of-2 sizes and keeps art crisp.</p>
+    <div class="hc-kv"><span class="hc-k">Default size</span><span class="hc-v">16 × 16 pixels</span></div>
+    <div class="hc-kv"><span class="hc-k">Maximum</span><span class="hc-v">128 × 128 pixels</span></div>
+    <h3>RESIZING BEHAVIOR</h3>
+    <p>Resizing the canvas crops or expands it. Pixels that fall outside the new bounds are permanently removed (after a resize, undo will restore both the artwork and dimensions).</p>
+    <div class="hc-warn">Resizing is undoable, but be careful with large resize operations.</div>
+    <h3>INFO PANEL</h3>
+    <p>The INFO section below the size sliders shows: current dimensions, number of drawn pixels, fill percentage, and total frame count.</p>
+  `},
+  { cat: 'CANVAS', id: 'aspect-ratio', title: 'Aspect Ratio Lock', html: `
+    <h2>ASPECT RATIO LOCK</h2>
+    <p>The <strong>Lock Aspect Ratio</strong> checkbox (right panel) ties the width and height sliders together so they change proportionally.</p>
+    <h3>RATIO PRESETS</h3>
+    <p>Below the lock toggle are 10 quick-set buttons for common ratios. Clicking a preset immediately adjusts both sliders to produce the nearest valid size at that ratio:</p>
+    <div class="hc-kv"><span class="hc-k">1:1</span><span class="hc-v">Square — ideal for sprites, icons, tiles</span></div>
+    <div class="hc-kv"><span class="hc-k">2:1 / 1:2</span><span class="hc-v">Landscape / Portrait doubles</span></div>
+    <div class="hc-kv"><span class="hc-k">4:3 / 3:4</span><span class="hc-v">Classic screen ratios</span></div>
+    <div class="hc-kv"><span class="hc-k">16:9 / 9:16</span><span class="hc-v">Widescreen / Story format</span></div>
+    <div class="hc-kv"><span class="hc-k">3:2 / 2:3</span><span class="hc-v">Photo proportions</span></div>
+    <div class="hc-kv"><span class="hc-k">8:5</span><span class="hc-v">Wide+ format</span></div>
+    <div class="hc-note">The ratio display shows the current width:height ratio as a simplified fraction in real time.</div>
+  `},
+
+  // ── ZOOM & GRID ────────────────────────────────────────────
+  { cat: 'ZOOM & GRID', id: 'zoom', title: 'Zoom Controls', html: `
+    <h2>ZOOM CONTROLS</h2>
+    <p>Zoom controls are in the topbar on the right side.</p>
+    <div class="hc-kv"><span class="hc-k">− button</span><span class="hc-v">Zoom out one step</span></div>
+    <div class="hc-kv"><span class="hc-k">+ button</span><span class="hc-v">Zoom in one step</span></div>
+    <div class="hc-kv"><span class="hc-k">FIT button</span><span class="hc-v">Reset to auto-fit mode — the canvas scales to fill the available space</span></div>
+    <div class="hc-kv"><span class="hc-k">Zoom display</span><span class="hc-v">Shows current zoom level (e.g. "8px" = each grid cell is 8 screen pixels) or "FIT" in auto mode</span></div>
+    <h3>ZOOM LEVELS</h3>
+    <p>Fixed zoom levels: <strong>1, 2, 3, 4, 6, 8, 12, 16, 24, 32</strong> px/cell. FIT (level 0) is the default and automatically adjusts when the window is resized.</p>
+    <h3>MOUSE WHEEL</h3>
+    <p>Scroll the mouse wheel over the canvas to zoom in and out quickly.</p>
+    <div class="hc-tip">The canvas area has scrollbars when zoomed in — you can scroll to reach pixels that are off-screen.</div>
+  `},
+  { cat: 'ZOOM & GRID', id: 'grid', title: 'Grid Toggle', html: `
+    <h2>GRID TOGGLE</h2>
+    <p>The GRID button in the topbar toggles the grid lines on and off. The grid draws a faint line between every cell to help with precise placement.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">G</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Auto-hide</span><span class="hc-v">Grid lines are automatically hidden at very small zoom levels (below 4px/cell) to reduce clutter</span></div>
+    <p>The GRID button highlights cyan when active.</p>
+  `},
+
+  // ── ANIMATION ─────────────────────────────────────────────
+  { cat: 'ANIMATION', id: 'frames', title: 'Frames', html: `
+    <h2>ANIMATION FRAMES</h2>
+    <p>The timeline at the bottom of the editor shows all frames as thumbnail previews. You can have as many frames as you need for smooth animations.</p>
+    <h3>ADDING FRAMES</h3>
+    <div class="hc-kv"><span class="hc-k">+ button</span><span class="hc-v">Add a new blank frame at the end of the timeline</span></div>
+    <div class="hc-kv"><span class="hc-k">DUP button</span><span class="hc-v">Duplicate the current frame — useful for incremental animation changes</span></div>
+    <h3>SELECTING FRAMES</h3>
+    <p>Click any frame thumbnail to switch to it. The active frame is highlighted in cyan. All drawing operations affect only the currently active frame.</p>
+    <h3>DELETING FRAMES</h3>
+    <p>Hover over a frame thumbnail to reveal a small red ✕ button in the corner. Click it to delete that frame. You cannot delete the last remaining frame.</p>
+    <h3>REORDERING FRAMES</h3>
+    <p>Drag frame thumbnails left or right to reorder them. A dashed highlight shows the drop target. The active frame tracks through the move correctly.</p>
+    <h3>NAVIGATION</h3>
+    <div class="hc-kv"><span class="hc-k"><span class="hc-kbd">,</span></span><span class="hc-v">Previous frame</span></div>
+    <div class="hc-kv"><span class="hc-k"><span class="hc-kbd">.</span></span><span class="hc-v">Next frame</span></div>
+    <div class="hc-kv"><span class="hc-k">◀ ▶ buttons</span><span class="hc-v">Step one frame back or forward</span></div>
+  `},
+  { cat: 'ANIMATION', id: 'playback', title: 'Playback', html: `
+    <h2>PLAYBACK</h2>
+    <p>Use the playback controls in the timeline bar to preview your animation.</p>
+    <div class="hc-kv"><span class="hc-k">▶ PLAY button</span><span class="hc-v">Start / stop playback</span></div>
+    <div class="hc-kv"><span class="hc-k"><span class="hc-kbd">Space</span></span><span class="hc-v">Toggle play / pause</span></div>
+    <div class="hc-kv"><span class="hc-k">FPS field</span><span class="hc-v">Set playback speed (1–60 frames per second). Default: 8 fps</span></div>
+    <div class="hc-kv"><span class="hc-k">LOOP button</span><span class="hc-v">Toggle looping on/off. Green = loop enabled. When looping is off, playback stops on the last frame</span></div>
+    <h3>DRAWING DURING PLAYBACK</h3>
+    <p>Drawing automatically stops playback so you can edit the frame that's currently visible.</p>
+    <div class="hc-note">The FPS setting is saved with the file so Claude and any external tools know the intended playback speed.</div>
+  `},
+  { cat: 'ANIMATION', id: 'onion-skin', title: 'Onion Skin', html: `
+    <h2>ONION SKIN</h2>
+    <p>Onion skin overlays a semi-transparent ghost of the previous frame behind the current frame, making it easier to judge movement and position continuity between frames.</p>
+    <div class="hc-kv"><span class="hc-k">ONION button</span><span class="hc-v">Toggle onion skin on/off (orange when active)</span></div>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">O</span></span></div>
+    <p>The ghost is drawn at 30% opacity using the magenta/pink channel so it's visually distinct from the live frame. Onion skin only shows when you're on frame 2 or later.</p>
+  `},
+
+  // ── IMAGE IMPORT ───────────────────────────────────────────
+  { cat: 'IMAGE IMPORT', id: 'import', title: 'Importing Images', html: `
+    <h2>IMPORTING IMAGES</h2>
+    <p>You can import any image (PNG, JPG, GIF, WebP, etc.) as a reference overlay to trace over or auto-convert into pixels.</p>
+    <h3>THREE WAYS TO IMPORT</h3>
+    <div class="hc-kv"><span class="hc-k">⬆ IMPORT IMG</span><span class="hc-v">Click the yellow button in the topbar to open a file picker</span></div>
+    <div class="hc-kv"><span class="hc-k">Drag & drop</span><span class="hc-v">Drag an image file from your desktop/file explorer onto the canvas area</span></div>
+    <div class="hc-kv"><span class="hc-k">Ctrl+V paste</span><span class="hc-v">Copy an image to your clipboard (e.g. screenshot or right-click → Copy Image) then paste it directly</span></div>
+    <h3>IMPORT MODE</h3>
+    <p>Once imported, the image appears as a semi-transparent overlay on the canvas with a dashed yellow border. A yellow control bar appears below the canvas with:</p>
+    <div class="hc-kv"><span class="hc-k">SCALE slider</span><span class="hc-v">Resize the overlay (5%–800% of original size)</span></div>
+    <div class="hc-kv"><span class="hc-k">OPACITY slider</span><span class="hc-v">Adjust the overlay transparency (10%–100%)</span></div>
+    <div class="hc-kv"><span class="hc-k">Drag overlay</span><span class="hc-v">Click and drag directly on the image overlay to reposition it</span></div>
+    <h3>SOLIDIFY</h3>
+    <p>Click <strong>✔ SOLIDIFY</strong> to convert the overlay into actual pixels on the current frame. The editor samples each grid cell from the image at its current position and scale, converting colors to the nearest hex value. Pixels with alpha &lt; 32 are treated as transparent.</p>
+    <div class="hc-tip">Scale the image to exactly fit the grid before solidifying for best results. The overlay auto-scales to fit the canvas on import.</div>
+    <h3>CANCEL</h3>
+    <p>Click <strong>✕ CANCEL</strong> to discard the overlay without modifying any pixels.</p>
+  `},
+
+  // ── SAVING & LOADING ──────────────────────────────────────
+  { cat: 'SAVING & LOADING', id: 'save', title: 'Saving (SAVE JSON)', html: `
+    <h2>SAVING — SAVE JSON</h2>
+    <p>Click <strong>SAVE JSON</strong> in the topbar to save your current artwork. Three save methods are tried in order:</p>
+    <h3>1. PINNED FOLDER (best)</h3>
+    <p>If you've set a saves folder with the 📁 button, the file is written there silently and instantly. The SAVE button flashes green to confirm. No dialog needed.</p>
+    <h3>2. SAVE FILE PICKER</h3>
+    <p>If no folder is pinned (or writing fails), the browser's native save dialog opens, letting you choose where to save the file.</p>
+    <h3>3. DOWNLOAD FALLBACK</h3>
+    <p>If the File System Access API isn't available (Firefox, older browsers), the file is saved as a browser download to your Downloads folder.</p>
+    <div class="hc-kv"><span class="hc-k">Keyboard</span><span class="hc-v"><span class="hc-kbd">Ctrl+S</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Filename</span><span class="hc-v">Set in the filename text field in the topbar (before clicking SAVE)</span></div>
+    <div class="hc-note">The filename field defaults to "untitled". Change it before saving to give your file a meaningful name.</div>
+  `},
+  { cat: 'SAVING & LOADING', id: 'saves-folder', title: 'Pinned Saves Folder', html: `
+    <h2>PINNED SAVES FOLDER</h2>
+    <p>The 📁 button in the topbar lets you pick a folder on your computer that becomes the default save destination. Once set, every Ctrl+S or SAVE JSON click writes directly to that folder with no dialog.</p>
+    <h3>SETTING THE FOLDER</h3>
+    <p>Click 📁 → a folder picker dialog opens → select the folder you want. The folder name appears next to the button.</p>
+    <h3>PERSISTENCE</h3>
+    <p>The folder handle is saved in IndexedDB and restored automatically when you reopen the editor. You may be asked to re-grant permission on first save after reopening (a browser security requirement).</p>
+    <div class="hc-warn">Pinned folder saving requires Chrome or Edge. In Firefox, the 📁 button shows an alert explaining this limitation.</div>
+    <h3>SUGGESTED LOCATION</h3>
+    <p>By convention, save files to <code>tools/pixel-art-editor/saves/</code> inside the Claude Companion project folder — this makes them easy to load back and share with Claude.</p>
+  `},
+  { cat: 'SAVING & LOADING', id: 'load', title: 'Loading (LOAD)', html: `
+    <h2>LOADING — LOAD</h2>
+    <p>Click <strong>LOAD</strong> in the topbar to open a previously saved <code>.json</code> file.</p>
+    <p>If a saves folder is pinned, the file picker opens inside that folder automatically. Otherwise it opens in your Downloads folder or the last location.</p>
+    <h3>WHAT GETS LOADED</h3>
+    <p>The editor reads both v2 (frames array) and v1 (flat pixels) save formats. All frame data, dimensions, FPS, and loop setting are restored.</p>
+    <div class="hc-warn">Loading replaces the current canvas. There is no "merge" — if you have unsaved work, save first.</div>
+  `},
+  { cat: 'SAVING & LOADING', id: 'export-png', title: 'Export PNG', html: `
+    <h2>EXPORT PNG</h2>
+    <p>Click <strong>EXPORT PNG</strong> to export the current frame as a PNG image file. The image is downloaded at the native pixel resolution of your canvas (e.g. 16×16 for a 16-pixel canvas, not scaled up).</p>
+    <p>The filename is: <code>{name}_f{frameNumber}.png</code></p>
+    <div class="hc-note">Only the current frame is exported. To export all frames as separate PNGs, step through each frame and export individually.</div>
+    <div class="hc-tip">To get a larger image, import the PNG into an image editor and scale it with "nearest neighbor" interpolation to preserve the crisp pixel look.</div>
+  `},
+  { cat: 'SAVING & LOADING', id: 'new', title: 'New Canvas', html: `
+    <h2>NEW CANVAS</h2>
+    <p>Click <strong>NEW</strong> in the topbar to reset the canvas to a blank 16×16 single-frame state. All pixels, all frames, and the filename are cleared.</p>
+    <div class="hc-warn">NEW does not ask for confirmation. Save your work first if you want to keep it. (You can Ctrl+Z to undo the clear if you haven't refreshed.)</div>
+    <p>The <strong>CLEAR</strong> button at the bottom of the left panel clears only the current frame — it's the safer option if you just want to wipe one frame.</p>
+  `},
+  { cat: 'SAVING & LOADING', id: 'undo-redo', title: 'Undo & Redo', html: `
+    <h2>UNDO & REDO</h2>
+    <p>The editor maintains a full undo history for all drawing operations.</p>
+    <div class="hc-kv"><span class="hc-k">Undo</span><span class="hc-v"><span class="hc-kbd">Ctrl+Z</span></span></div>
+    <div class="hc-kv"><span class="hc-k">Redo</span><span class="hc-v"><span class="hc-kbd">Ctrl+Y</span></span></div>
+    <h3>WHAT IS UNDOABLE</h3>
+    <ul>
+      <li>Every pen stroke</li>
+      <li>Every eraser stroke</li>
+      <li>Fill operations</li>
+      <li>Area erase operations</li>
+      <li>Color removal operations</li>
+      <li>Solidify image import</li>
+      <li>Canvas resize operations</li>
+    </ul>
+    <div class="hc-note">Undo history is session-only — it is not saved to the JSON file.</div>
+  `},
+
+  // ── KEYBOARD SHORTCUTS ─────────────────────────────────────
+  // ── TRANSFORMS ────────────────────────────────────────────
+  { cat: 'TRANSFORMS', id: 'nudge', title: 'Nudge (Shift Pixels)', html: `
+    <h2>NUDGE — SHIFT PIXELS</h2>
+    <p>The <strong>NUDGE</strong> controls in the topbar shift all pixels in the canvas by a set number of pixels in a cardinal direction. Pixels that move off the edge of the canvas are permanently removed.</p>
+    <h3>CONTROLS</h3>
+    <div class="hc-kv"><span class="hc-k">← ↑ ↓ →</span><span class="hc-v">Click an arrow to shift all pixels one step in that direction</span></div>
+    <div class="hc-kv"><span class="hc-k">Amount input</span><span class="hc-v">Number of pixels to shift per click. Default: 1. Accepts any value from 1–128</span></div>
+    <div class="hc-kv"><span class="hc-k">ALL checkbox</span><span class="hc-v">When checked, the shift is applied to every frame simultaneously. When unchecked, only the current frame is shifted</span></div>
+    <h3>EDGE CLIPPING</h3>
+    <p>Nudge does <strong>not</strong> wrap pixels around the canvas edge. Any pixel that would move outside the canvas bounds is discarded. This is intentional — use it to slide artwork into position without worrying about wrap-around artifacts.</p>
+    <h3>UNDO</h3>
+    <p>Every nudge operation is undoable with <span class="hc-kbd">Ctrl+Z</span>, even when ALL frames mode is active.</p>
+    <div class="hc-tip">Set the amount to your canvas size and nudge once to wipe all content off-screen — useful for quickly clearing a frame while preserving undo history.</div>
+  `},
+
+  { cat: 'TRANSFORMS', id: 'flip-h', title: 'Flip Horizontal', html: `
+    <h2>FLIP HORIZONTAL</h2>
+    <p>The <strong>⇄ FLIP H</strong> button in the topbar mirrors all frames horizontally — every pixel at column <em>x</em> moves to column <em>(width − 1 − x)</em>, producing a left/right mirror image of your entire animation.</p>
+    <h3>WHAT IT AFFECTS</h3>
+    <p>Flip operates on <strong>all frames at once</strong> — the same mirror transformation is applied to every frame in the timeline simultaneously, keeping multi-frame animations consistent.</p>
+    <h3>UNDO</h3>
+    <p>Flip is fully undoable. Press <span class="hc-kbd">Ctrl+Z</span> to revert all frames to their pre-flip state in one step.</p>
+    <div class="hc-tip">Useful for creating sprite sheets where a character faces both directions — draw facing right, duplicate all frames, then flip to get the left-facing set.</div>
+  `},
+
+  { cat: 'KEYBOARD SHORTCUTS', id: 'shortcuts', title: 'All Shortcuts', html: `
+    <h2>ALL KEYBOARD SHORTCUTS</h2>
+    <h3>TOOLS</h3>
+    <div class="hc-shortcuts">
+      <div class="hc-sc"><span class="hc-kbd">P</span><span class="hc-desc">Pen tool</span></div>
+      <div class="hc-sc"><span class="hc-kbd">E</span><span class="hc-desc">Eraser brush</span></div>
+      <div class="hc-sc"><span class="hc-kbd">F</span><span class="hc-desc">Fill tool</span></div>
+      <div class="hc-sc"><span class="hc-kbd">I</span><span class="hc-desc">Eyedropper (pick color)</span></div>
+      <div class="hc-sc"><span class="hc-kbd">R</span><span class="hc-desc">Rect area eraser</span></div>
+    </div>
+    <h3>VIEW</h3>
+    <div class="hc-shortcuts">
+      <div class="hc-sc"><span class="hc-kbd">G</span><span class="hc-desc">Toggle grid</span></div>
+      <div class="hc-sc"><span class="hc-kbd">O</span><span class="hc-desc">Toggle onion skin</span></div>
+      <div class="hc-sc"><span class="hc-kbd">Scroll</span><span class="hc-desc">Zoom in/out</span></div>
+    </div>
+    <h3>ANIMATION</h3>
+    <div class="hc-shortcuts">
+      <div class="hc-sc"><span class="hc-kbd">Space</span><span class="hc-desc">Play / Pause</span></div>
+      <div class="hc-sc"><span class="hc-kbd">,</span><span class="hc-desc">Previous frame</span></div>
+      <div class="hc-sc"><span class="hc-kbd">.</span><span class="hc-desc">Next frame</span></div>
+    </div>
+    <h3>FILE</h3>
+    <div class="hc-shortcuts">
+      <div class="hc-sc"><span class="hc-kbd">Ctrl+S</span><span class="hc-desc">Save JSON</span></div>
+      <div class="hc-sc"><span class="hc-kbd">Ctrl+Z</span><span class="hc-desc">Undo</span></div>
+      <div class="hc-sc"><span class="hc-kbd">Ctrl+Y</span><span class="hc-desc">Redo</span></div>
+      <div class="hc-sc"><span class="hc-kbd">Ctrl+V</span><span class="hc-desc">Paste image from clipboard</span></div>
+    </div>
+    <h3>MISC</h3>
+    <div class="hc-shortcuts">
+      <div class="hc-sc"><span class="hc-kbd">?</span><span class="hc-desc">Open this help (via HELP button)</span></div>
+      <div class="hc-sc"><span class="hc-kbd">Esc</span><span class="hc-desc">Close help / popups</span></div>
+    </div>
+  `},
+];
+
+// ── Navigation build ──────────────────────────────────────
+function buildHelpNav(activeId) {
+  const nav = document.getElementById('help-nav');
+  nav.innerHTML = '';
+  const cats = [...new Set(HELP_ARTICLES.map(a => a.cat))];
+  for (const cat of cats) {
+    const catLabel = document.createElement('div');
+    catLabel.className = 'help-nav-cat';
+    catLabel.textContent = cat;
+    nav.appendChild(catLabel);
+    for (const art of HELP_ARTICLES.filter(a => a.cat === cat)) {
+      const btn = document.createElement('button');
+      btn.className = 'help-nav-item' + (art.id === activeId ? ' active' : '');
+      btn.textContent = art.title;
+      btn.addEventListener('click', () => showHelpArticle(art.id));
+      nav.appendChild(btn);
+    }
+  }
+}
+
+function showHelpArticle(id) {
+  const art = HELP_ARTICLES.find(a => a.id === id) || HELP_ARTICLES[0];
+  document.getElementById('help-content').innerHTML = art.html;
+  buildHelpNav(art.id);
+  document.getElementById('help-content').scrollTop = 0;
+}
+
+function openHelp(articleId) {
+  document.getElementById('help-overlay').classList.remove('hidden');
+  showHelpArticle(articleId || HELP_ARTICLES[0].id);
+}
+
+function closeHelp() {
+  document.getElementById('help-overlay').classList.add('hidden');
+}
+
+document.getElementById('btn-help').addEventListener('click', () => openHelp());
+document.getElementById('btn-help-close').addEventListener('click', closeHelp);
+document.getElementById('help-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('help-overlay')) closeHelp();
+});
+
+// ── Welcome popup ─────────────────────────────────────────
+function showWelcomeIfNeeded() {
+  if (localStorage.getItem('pae-hide-welcome') === '1') return;
+  document.getElementById('welcome-overlay').classList.remove('hidden');
+}
+
+function closeWelcome() {
+  if (document.getElementById('wp-no-show').checked) {
+    localStorage.setItem('pae-hide-welcome', '1');
+  }
+  document.getElementById('welcome-overlay').classList.add('hidden');
+}
+
+document.getElementById('wp-btn-close').addEventListener('click', closeWelcome);
+document.getElementById('wp-btn-help').addEventListener('click', () => {
+  closeWelcome();
+  openHelp();
+});
+document.getElementById('welcome-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('welcome-overlay')) closeWelcome();
+});
+
+// Escape closes any open modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeHelp();
+    document.getElementById('welcome-overlay').classList.add('hidden');
+  }
+}, true);
+
+// ============================================================
+// RESIZE OBSERVER
+// ============================================================
+new ResizeObserver(() => { if (state.zoomLevel === 0) render(); }).observe(canvasWrap);
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  buildPalette();
+  widthSlider.value  = valueToSlider(state.width);  widthVal.textContent  = state.width;
+  heightSlider.value = valueToSlider(state.height); heightVal.textContent = state.height;
+  setColor(state.color);
+  updateToolButtons();
+  updateRatioDisplay();
+  buildFramesPanel();
+  render();
+  showWelcomeIfNeeded();
+}
+init();
+</script>
+</body>
+</html>
