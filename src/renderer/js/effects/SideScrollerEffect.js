@@ -264,7 +264,7 @@ class SideScrollerEffect extends VisualEffect {
     // Hero starts off left edge — footY is the ground contact point (sprites are drawn foot-anchored)
     this._hero = {
       x:      ga.x - 60,
-      footY:  groundY + 6,   // feet sit 6px into ground stripe
+      footY:  groundY + 14,  // feet at vertical centre of 28px ground strip
       state:  'walk',   // 'walk' | 'slash' | 'dying' | 'dead'
       frame:  0,
       animT:  0,
@@ -1014,7 +1014,7 @@ class SideScrollerEffect extends VisualEffect {
     this._enemy = {
       type, state: 'walk',
       x: ga.x + ga.w + 10,
-      y: this._groundY + 7 - h - flyOff,
+      y: this._groundY + 14 - h - flyOff,
       spawnScrollX: this._scrollX,
       frame: 0, animT: 0, flashT: 0, dyingT: 0,
     };
@@ -1136,7 +1136,7 @@ class SideScrollerEffect extends VisualEffect {
   _startBossPhase(ga) {
     this._bossSpawned = true;
     // Ogre sprite bounding box height = 75px at 1:1
-    const bossY = this._groundY + 5 - Math.round(75 * 1.6);
+    const bossY = this._groundY + 14 - Math.round(75 * 1.6);
     this._boss = {
       type: this._bossType,
       x: ga.x + ga.w + 60,
