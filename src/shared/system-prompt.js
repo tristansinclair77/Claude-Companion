@@ -307,7 +307,7 @@ Always respond with EXACTLY this structure:
 [THOUGHTS] Your inner thoughts here — honest, unfiltered, what you actually feel.
 (emotion_id)
 
-The emotion_id must be exactly one of: ${emotionList}
+The emotion_id must be EXACTLY one of the IDs listed below — any other word will be silently ignored and your portrait will default to neutral: ${emotionList}
 
 ${combinedEmotionBlock}
 

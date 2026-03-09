@@ -17,8 +17,8 @@ class SideScrollerEffect extends VisualEffect {
   static ENGAGE_DIST  = 70;    // px — hero/enemy engage distance
   static MIN_KILLS    = 3;     // kills before boss triggers
   static XP_PER_LEVEL = 90;   // xp needed per level-up
-  static ENEMY_TYPES  = ['goblin','slime','harpy','wolf','imp','boar','mimic'];
-  static BOSS_TYPES   = ['orc','blob','troll'];
+  static ENEMY_TYPES  = ['imp', 'wolf', 'harpy', 'boar'];
+  static BOSS_TYPES   = ['ogre'];
 
   constructor() {
     super('sideScroller');
@@ -44,7 +44,7 @@ class SideScrollerEffect extends VisualEffect {
 
     // Enemy queue
     this._enemyQueue  = [];   // ordered list of enemy type strings
-    this._bossType    = 'orc';
+    this._bossType    = 'ogre';
     this._bossSpawned = false;
 
     // HUD state
@@ -62,6 +62,12 @@ class SideScrollerEffect extends VisualEffect {
     this._levelUpPhase  = '';  // 'draining' | 'flash'
     this._inLevelUp     = false;
     this._crumbleStarted = false;
+
+    // Sprite system
+    this._sprites        = null;   // loaded sprite sets (name → OffscreenCanvas[])
+    this._bgImage        = null;   // bg_mountain PNG
+    this._spritesReady   = false;
+    this._spritesLoading = false;
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -75,7 +81,87 @@ class SideScrollerEffect extends VisualEffect {
     this._state  = 'intro';
     this._t      = 0;
     this._lastTs = 0;
-    this._rAF = requestAnimationFrame(ts => this._tick(ts));
+    if (!this._spritesReady) {
+      this._loadSprites().then(() => {
+        this._rAF = requestAnimationFrame(ts => this._tick(ts));
+      });
+    } else {
+      this._rAF = requestAnimationFrame(ts => this._tick(ts));
+    }
+  }
+
+  // ── Sprite Loading ─────────────────────────────────────────────────────────
+
+  async _loadSprites() {
+    if (this._spritesLoading || this._spritesReady) return;
+    this._spritesLoading = true;
+    const names = ['heroWalk', 'heroAttack', 'heroLoop', 'impLoop', 'wolfLoop', 'harpyLoop', 'boarLoop', 'ogreLoop', 'ogreAttack', 'bush1', 'bush2', 'bush3', 'tree1', 'tree2', 'tree3', 'tree4'];
+    this._sprites = {};
+    const jsonLoad = Promise.all(names.map(async name => {
+      try {
+        const res  = await fetch(`./sprites/${name}.json`);
+        const data = await res.json();
+        this._sprites[name] = this._renderJsonFrames(data);
+      } catch (e) {
+        console.warn(`SideScroller: failed to load sprite ${name}:`, e);
+        this._sprites[name] = [];
+      }
+    }));
+    const pngLoad = new Promise(resolve => {
+      const img = new Image();
+      img.onload  = () => { this._bgImage = img; resolve(); };
+      img.onerror = () => { console.warn('SideScroller: failed to load bg_mountain PNG'); resolve(); };
+      img.src = '../../assets/pixelarteditor/bg_mountain_f1.png';
+    });
+    await Promise.all([jsonLoad, pngLoad]);
+    this._spritesReady  = true;
+    this._spritesLoading = false;
+  }
+
+  /**
+   * Convert a pixel-art editor JSON save into an array of OffscreenCanvas (one per frame).
+   * Each canvas is sized to the tight bounding box of ALL frames combined.
+   */
+  _renderJsonFrames(data) {
+    // Compute global bounding box across all frames
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const frame of data.frames) {
+      for (const key of Object.keys(frame)) {
+        const [cx, cy] = key.split(',').map(Number);
+        if (cx < minX) minX = cx;
+        if (cy < minY) minY = cy;
+        if (cx > maxX) maxX = cx;
+        if (cy > maxY) maxY = cy;
+      }
+    }
+    if (!isFinite(minX)) return [];
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+    return data.frames.map(frame => {
+      const oc  = new OffscreenCanvas(w, h);
+      const ctx = oc.getContext('2d');
+      for (const [key, color] of Object.entries(frame)) {
+        const [cx, cy] = key.split(',').map(Number);
+        ctx.fillStyle = color;
+        ctx.fillRect(cx - minX, cy - minY, 1, 1);
+      }
+      return oc;
+    });
+  }
+
+  /** Draw a pre-rendered sprite frame, optionally flipped horizontally. */
+  _drawSpriteFrame(frames, frameIdx, ctx, x, y, flipX = false) {
+    if (!frames || !frames.length) return;
+    const oc = frames[frameIdx % frames.length];
+    if (!oc) return;
+    if (flipX) {
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(oc, -x - oc.width, y);
+      ctx.restore();
+    } else {
+      ctx.drawImage(oc, x, y);
+    }
   }
 
   _onStart(config) { this._initCanvas(); }
@@ -121,17 +207,13 @@ class SideScrollerEffect extends VisualEffect {
       }
     });
 
-    // Dev hotkeys: Ctrl=orc, Shift=blob, Alt=troll — forces immediate boss spawn
+    // Dev hotkey: Ctrl — forces immediate ogre boss spawn
     this._keyHandler = (e) => {
       if (this._state !== 'scrolling') return;
       if (this._bossSpawned || this._inCombat || this._inLevelUp) return;
-      let type = null;
-      if (e.key === 'Control') type = 'orc';
-      else if (e.key === 'Shift') type = 'blob';
-      else if (e.key === 'Alt') type = 'troll';
-      if (!type) return;
+      if (e.key !== 'Control') return;
       e.preventDefault();
-      this._bossType = type;
+      this._bossType = 'ogre';
       this._enemy = null;
       this._inCombat = false;
       this._scrollFrozen = false;
@@ -179,10 +261,10 @@ class SideScrollerEffect extends VisualEffect {
     const groundY = ga.y + ga.h - 28;
     this._groundY = groundY;
 
-    // Hero starts off left edge
+    // Hero starts off left edge — footY is the ground contact point (sprites are drawn foot-anchored)
     this._hero = {
       x:      ga.x - 60,
-      y:      groundY - 11 * PX,
+      footY:  groundY + 6,   // feet sit 6px into ground stripe
       state:  'walk',   // 'walk' | 'slash' | 'dying' | 'dead'
       frame:  0,
       animT:  0,
@@ -244,13 +326,41 @@ class SideScrollerEffect extends VisualEffect {
 
   _buildLayers(ga) {
     this._layers = {
-      clouds:     this._buildClouds(ga),
-      farHills:   this._buildFarHills(ga),
-      midBushes:  this._buildMidBushes(ga),
+      bgMtn:      this._buildBgMountain(ga),
       nearTrees:  this._buildNearTrees(ga),
       fgFences:   this._buildFgFences(ga),
       fgBushes:   this._buildFgBushes(ga),
     };
+  }
+
+  _buildBgMountain(ga) {
+    // Width determined at draw time from the loaded PNG; use placeholder until ready
+    return { offset: 0, speed: 18, W: 512 };
+  }
+
+  _drawBgMountain(ctx, ga, layer) {
+    const img = this._bgImage;
+    if (!img) {
+      ctx.fillStyle = '#050510';
+      ctx.fillRect(ga.x, ga.y, ga.w, ga.h);
+      return;
+    }
+    layer.W = img.naturalWidth;
+    const iw       = img.naturalWidth;
+    const groundY  = ga.y + ga.h - 28;
+    const drawY    = Math.round(groundY - img.naturalHeight);
+    // Start one full tile-width before the left edge to guarantee no seam on the left
+    const startX   = Math.floor(ga.x - (layer.offset % iw)) - iw;
+    // Fill any sky gap above by tiling the image's top row stretched to that height
+    if (drawY > ga.y) {
+      const gapH = drawY - ga.y;
+      for (let x = startX; x < ga.x + ga.w + iw; x += iw) {
+        ctx.drawImage(img, 0, 0, iw, 1, Math.round(x), ga.y, iw, gapH);
+      }
+    }
+    for (let x = startX; x < ga.x + ga.w + iw; x += iw) {
+      ctx.drawImage(img, Math.round(x), drawY);
+    }
   }
 
   _buildFarHills(ga) {
@@ -299,12 +409,10 @@ class SideScrollerEffect extends VisualEffect {
     // Random gap accumulation for irregular spacing
     let tx = 10 + Math.random() * 60;
     while (tx < W) {
-      const th = 60 + Math.random() * 40;
-      trees.push({ tx, th, tw: 14 + Math.random() * 10, groundY });
+      trees.push({ tx, groundY, variant: Math.ceil(Math.random() * 4) });
       tx += Math.random() < 0.4 ? 28 + Math.random() * 65 : 110 + Math.random() * 260;
     }
-    return { trees, W, offset: 0, speed: 60,
-             trunkColor: '#4A2A0E', crownColor: '#1A5520', crownMid: '#2A7530', crownLight: '#3A8A40' };
+    return { trees, W, offset: 0, speed: 60 };
   }
 
   _buildClouds(ga) {
@@ -333,7 +441,8 @@ class SideScrollerEffect extends VisualEffect {
     while (fx < W) {
       const panels = 1 + Math.floor(Math.random() * 5);
       items.push({ x: fx, panels });
-      fx += panels * 16 + 8;
+      // Advance past actual fence width (panelW=24, totalW = panels*24+4) then add gap
+      fx += panels * 24 + 4;
       fx += Math.random() < 0.5 ? 30 + Math.random() * 80 : 120 + Math.random() * 280;
     }
     return { items, W, groundY, offset: 0, speed: 60 };
@@ -354,8 +463,9 @@ class SideScrollerEffect extends VisualEffect {
     while (fx < W) {
       const r = 10 + Math.random() * 14;
       const blocked = forbidZones.some(z => Math.abs(fx - z) < r + clearance);
-      if (!blocked) items.push({ x: fx, r });
-      fx += r * 2 + 6;
+      if (!blocked) items.push({ x: fx, r, variant: Math.floor(Math.random() * 3) + 1 });
+      // Bush sprites are ~64px wide, center-anchored — need at least 65px center-to-center
+      fx += 65;
       fx += Math.random() < 0.5 ? 10 + Math.random() * 50 : 80 + Math.random() * 200;
     }
     return { items, W, groundY, offset: 0, speed: 60 };
@@ -366,8 +476,13 @@ class SideScrollerEffect extends VisualEffect {
       const ox = ga.x - layer.offset + rep * layer.W;
       for (const item of layer.items) {
         const dx = ox + item.x;
-        if (dx + 130 < ga.x || dx - 20 > ga.x + ga.w) continue;
+        if (dx + 200 < ga.x || dx - 20 > ga.x + ga.w) continue;
+        ctx.save();
+        ctx.translate(dx, layer.groundY);
+        ctx.scale(1.5, 1.5);
+        ctx.translate(-dx, -layer.groundY);
         this._drawFgFence(ctx, dx, layer.groundY, item.panels);
+        ctx.restore();
       }
     }
   }
@@ -377,14 +492,14 @@ class SideScrollerEffect extends VisualEffect {
       const ox = ga.x - layer.offset + rep * layer.W;
       for (const item of layer.items) {
         const dx = ox + item.x;
-        if (dx + 60 < ga.x || dx - 60 > ga.x + ga.w) continue;
-        this._drawFgBush(ctx, dx, layer.groundY, item.r);
+        if (dx + 80 < ga.x || dx - 80 > ga.x + ga.w) continue;
+        this._drawFgBush(ctx, dx, layer.groundY, item.r, item.variant);
       }
     }
   }
 
   _drawFgOverlay(ga) {
-    if (this._layers?.fgBushes) this._drawFgBushes(this._ctx, ga, this._layers.fgBushes);
+    // All ground-layer objects now drawn in _drawBg before the hero; nothing drawn on top here.
   }
 
   _drawFgFence(ctx, x, groundY, panels) {
@@ -431,16 +546,26 @@ class SideScrollerEffect extends VisualEffect {
     }
   }
 
-  _drawFgBush(ctx, x, groundY, r) {
+  _drawFgBush(ctx, x, groundY, r, variant = 1) {
+    // Use pixel-art sprite if loaded
+    if (this._spritesReady) {
+      const key = `bush${variant}`;
+      const frames = this._sprites[key];
+      if (frames && frames.length) {
+        const oc = frames[0];
+        ctx.filter = 'brightness(0.6)';
+        ctx.drawImage(oc, Math.round(x - oc.width / 2), groundY - oc.height);
+        ctx.filter = 'none';
+        return;
+      }
+    }
+    // Procedural fallback (used before sprites load)
     const ri = Math.round(r);
-    // Push the bush base down so it grows out of the ground stripe
     const gy = groundY + Math.round(ri * 0.85);
-    // Shadow at base
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.beginPath();
     ctx.ellipse(x, gy + 2, ri * 1.15, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Back / outer blobs (darkest)
     ctx.fillStyle = '#145514';
     ctx.beginPath();
     ctx.ellipse(x - ri * 0.7, gy - ri * 0.5, ri * 0.75, ri * 0.65, 0, 0, Math.PI * 2);
@@ -448,12 +573,10 @@ class SideScrollerEffect extends VisualEffect {
     ctx.beginPath();
     ctx.ellipse(x + ri * 0.75, gy - ri * 0.55, ri * 0.72, ri * 0.62, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Main center body
     ctx.fillStyle = '#1A7A1A';
     ctx.beginPath();
     ctx.ellipse(x, gy - ri * 0.9, ri * 0.95, ri * 0.85, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Upper side lobes (mid-bright)
     ctx.fillStyle = '#22922A';
     ctx.beginPath();
     ctx.ellipse(x - ri * 0.55, gy - ri * 1.15, ri * 0.65, ri * 0.58, -0.2, 0, Math.PI * 2);
@@ -461,25 +584,6 @@ class SideScrollerEffect extends VisualEffect {
     ctx.beginPath();
     ctx.ellipse(x + ri * 0.6, gy - ri * 1.1, ri * 0.62, ri * 0.55, 0.2, 0, Math.PI * 2);
     ctx.fill();
-    // Top highlight blob
-    ctx.fillStyle = '#3AB83A';
-    ctx.beginPath();
-    ctx.ellipse(x - ri * 0.15, gy - ri * 1.55, ri * 0.42, ri * 0.36, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Bright specular spot
-    ctx.fillStyle = '#66DD66';
-    ctx.beginPath();
-    ctx.ellipse(x - ri * 0.25, gy - ri * 1.72, ri * 0.18, ri * 0.14, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Small berry dots (seeded by position, deterministic)
-    const seed = Math.round(x * 3.7 + ri * 11.3);
-    const pseudo = (n) => ((seed * 1664525 + n * 1013904223) & 0x7FFFFFFF) / 0x7FFFFFFF;
-    ctx.fillStyle = '#CC2222';
-    for (let i = 0; i < 3; i++) {
-      const bx = x + (pseudo(i*3)   - 0.5) * ri * 1.2;
-      const by = gy - ri * 0.3 - pseudo(i*3+1) * ri * 1.1;
-      ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
-    }
   }
 
   _drawBg(ga, dt) {
@@ -488,25 +592,16 @@ class SideScrollerEffect extends VisualEffect {
     const adv = this._scrollFrozen ? 0 : dt;
     const L = this._layers;
     if (adv > 0) {
-      L.farHills.offset   = (L.farHills.offset   + L.farHills.speed   * adv) % L.farHills.W;
-      L.midBushes.offset  = (L.midBushes.offset  + L.midBushes.speed  * adv) % L.midBushes.W;
+      L.bgMtn.offset      = (L.bgMtn.offset      + L.bgMtn.speed      * adv) % L.bgMtn.W;
       L.nearTrees.offset  = (L.nearTrees.offset  + L.nearTrees.speed  * adv) % L.nearTrees.W;
-      L.clouds.offset     = (L.clouds.offset     + L.clouds.speed     * adv) % L.clouds.W;
       L.fgFences.offset   = (L.fgFences.offset   + L.fgFences.speed   * adv) % L.fgFences.W;
       L.fgBushes.offset   = (L.fgBushes.offset   + L.fgBushes.speed   * adv) % L.fgBushes.W;
     }
-    // Sky gradient
-    const sky = ctx.createLinearGradient(0, ga.y, 0, ga.y + ga.h);
-    sky.addColorStop(0, '#050510');
-    sky.addColorStop(1, '#0A1A20');
-    ctx.fillStyle = sky;
-    ctx.fillRect(ga.x, ga.y, ga.w, ga.h);
-    this._drawFarHills(ctx, ga, L.farHills);
-    this._drawMidBushes(ctx, ga, L.midBushes);
+    this._drawBgMountain(ctx, ga, L.bgMtn);
     this._drawNearTrees(ctx, ga, L.nearTrees);
-    this._drawClouds(ctx, ga, L.clouds);
     this._drawGround(ctx, ga);
-    this._drawFgFences(ctx, ga, L.fgFences);  // fgBushes drawn after hero via _drawFgOverlay
+    this._drawFgBushes(ctx, ga, L.fgBushes);
+    this._drawFgFences(ctx, ga, L.fgFences);
   }
 
   _drawFarHills(ctx, ga, layer) {
@@ -576,55 +671,17 @@ class SideScrollerEffect extends VisualEffect {
     for (let rep = -1; rep <= 1; rep++) {
       const ox = ga.x - layer.offset + rep * layer.W;
       for (const tr of layer.trees) {
-        const bx = ox + tr.tx;
+        const bx = Math.round(ox + tr.tx);
         const by = tr.groundY;
-        const tw = tr.tw;    // base width unit: 14-24
-        const th = tr.th;    // total height:    60-100
-        const cx = Math.round(bx + tw * 0.5);
-
-        // Trunk
-        const trW = Math.max(5, Math.round(tw * 0.32));
-        ctx.fillStyle = layer.trunkColor;
-        ctx.fillRect(cx - Math.round(trW / 2), by - 20, trW, 20);
-        // Trunk highlight
-        ctx.fillStyle = '#7A4A20';
-        ctx.fillRect(cx - Math.round(trW / 2), by - 20, 1, 20);
-
-        // Pine tiers — 4 stacked triangular bough layers
-        // Each tier: rows that widen from tip (top) to base (bottom)
-        const tipY = by - 20 - th;
-        const tierDefs = [
-          { topFrac: 0.00, botFrac: 0.28, wMult: 0.55 },  // very top (narrow tip)
-          { topFrac: 0.18, botFrac: 0.52, wMult: 1.00 },  // upper mid
-          { topFrac: 0.40, botFrac: 0.76, wMult: 1.55 },  // lower mid
-          { topFrac: 0.62, botFrac: 1.00, wMult: 2.10 },  // bottom (widest)
-        ];
-
-        for (const def of tierDefs) {
-          const topY  = tipY + Math.round(def.topFrac * th);
-          const botY  = tipY + Math.round(def.botFrac * th);
-          const tH    = botY - topY;
-          const maxW  = Math.round(tw * def.wMult);
-          const steps = Math.max(3, Math.round(tH / 5));
-          for (let s = 0; s < steps; s++) {
-            const frac = (s + 1) / steps;  // 0..1 — narrow at top, wide at bottom
-            const rW = Math.max(2, Math.round(maxW * frac));
-            const rX = cx - Math.round(rW / 2);
-            const rY = topY + Math.round(s * tH / steps);
-            const rH = Math.ceil(tH / steps) + 1;
-            // Lighter color near each tier's tip, darker toward base
-            const lightFrac = 1 - frac;
-            if      (lightFrac > 0.6) ctx.fillStyle = layer.crownLight;
-            else if (lightFrac > 0.3) ctx.fillStyle = layer.crownMid;
-            else                      ctx.fillStyle = layer.crownColor;
-            ctx.fillRect(rX, rY, rW, rH);
-          }
-        }
-
-        // Snow cap at very tip
-        ctx.fillStyle = 'rgba(220,235,255,0.85)';
-        ctx.fillRect(cx - 2, tipY,     4, 4);
-        ctx.fillRect(cx - 1, tipY - 3, 2, 3);
+        if (!this._spritesReady) continue;
+        const key    = `tree${tr.variant}`;
+        const frames = this._sprites[key];
+        if (!frames || !frames.length) continue;
+        const oc = frames[0];
+        const dw = oc.width  * 2;
+        const dh = oc.height * 2;
+        // Center horizontally, bottom of sprite sits at groundY, drawn at 2x
+        ctx.drawImage(oc, bx - Math.round(dw / 2), by - dh, dw, dh);
       }
     }
   }
@@ -674,1007 +731,196 @@ class SideScrollerEffect extends VisualEffect {
 
   _drawGround(ctx, ga) {
     const groundY = ga.y + ga.h - 28;
-    const bW = 18, bH = 5, mW = 1, mH = 1;  // brick dims + mortar
-    const stride = bW + mW;                   // 19px per brick slot
+    const totalH  = 28;  // full ground strip height
 
-    // Mortar background
-    ctx.fillStyle = '#2E1A06';
-    ctx.fillRect(ga.x, groundY + 3, ga.w, 25);
+    // Deep soil base
+    ctx.fillStyle = '#1A3A0A';
+    ctx.fillRect(ga.x, groundY, ga.w, totalH);
 
-    // Brick rows (4 rows in 25px)
-    const bOff = Math.round(this._scrollX) % stride;
-    for (let row = 0; row < 4; row++) {
-      const rowY  = groundY + 3 + row * (bH + mH);
-      const shift = (row % 2) * Math.round(bW * 0.5);
-      const startX = ga.x - ((bOff + shift) % stride);
-      const isTop = row === 0;
-      for (let bx = startX; bx < ga.x + ga.w; bx += stride) {
-        // Brick face
-        ctx.fillStyle = isTop ? '#8B6218' : '#6A4A0E';
-        ctx.fillRect(bx, rowY, bW, bH);
-        // Top highlight
-        ctx.fillStyle = isTop ? '#AA8030' : '#7A5A18';
-        ctx.fillRect(bx, rowY, bW, 1);
-        // Left highlight (light source from upper-left)
-        ctx.fillStyle = isTop ? '#9A7020' : '#6E5010';
-        ctx.fillRect(bx, rowY, 1, bH);
-        // Bottom + right shadow
-        ctx.fillStyle = '#3A2006';
-        ctx.fillRect(bx, rowY + bH - 1, bW, 1);
-        ctx.fillRect(bx + bW - 1, rowY, 1, bH);
-      }
+    // Mid soil layer
+    ctx.fillStyle = '#224E10';
+    ctx.fillRect(ga.x, groundY + 4, ga.w, totalH - 4);
+
+    // Lower soil shadow
+    ctx.fillStyle = '#162E08';
+    ctx.fillRect(ga.x, groundY + 14, ga.w, totalH - 14);
+
+    // Scrolling soil texture — dark vertical streaks
+    const sOff = Math.round(this._scrollX) % 11;
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let tx = ga.x - sOff; tx < ga.x + ga.w; tx += 11) {
+      ctx.fillRect(tx, groundY + 6, 1, totalH - 6);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    for (let tx = ga.x - sOff + 5; tx < ga.x + ga.w; tx += 11) {
+      ctx.fillRect(tx, groundY + 6, 1, totalH - 6);
     }
 
-    // Bottom edge
-    ctx.fillStyle = '#1A0E02';
-    ctx.fillRect(ga.x, groundY + 27, ga.w, 1);
-
-    // Grass layers
-    ctx.fillStyle = '#2A7A18';
-    ctx.fillRect(ga.x, groundY - 1, ga.w, 4);
-    ctx.fillStyle = '#3EA828';
-    ctx.fillRect(ga.x, groundY - 3, ga.w, 2);
-    ctx.fillStyle = '#185A0A';
-    ctx.fillRect(ga.x, groundY + 2, ga.w, 1);
+    // Top grass band
+    ctx.fillStyle = '#2A6E12';
+    ctx.fillRect(ga.x, groundY, ga.w, 5);
+    ctx.fillStyle = '#3A9020';
+    ctx.fillRect(ga.x, groundY, ga.w, 3);
+    ctx.fillStyle = '#4AAA28';
+    ctx.fillRect(ga.x, groundY, ga.w, 1);
 
     // Grass tufts
     const tOff = Math.round(this._scrollX) % 14;
-    ctx.fillStyle = '#185A0A';
+    ctx.fillStyle = '#1A5008';
     for (let tx = ga.x - tOff; tx < ga.x + ga.w + 2; tx += 14) {
-      ctx.fillRect(tx,      groundY - 6, 1, 6);
-      ctx.fillRect(tx + 4,  groundY - 4, 1, 4);
-      ctx.fillRect(tx + 8,  groundY - 8, 1, 8);
-      ctx.fillRect(tx + 11, groundY - 3, 1, 3);
+      ctx.fillRect(tx,      groundY - 6, 1, 7);
+      ctx.fillRect(tx + 4,  groundY - 4, 1, 5);
+      ctx.fillRect(tx + 8,  groundY - 8, 1, 9);
+      ctx.fillRect(tx + 11, groundY - 3, 1, 4);
     }
-    ctx.fillStyle = '#3EA828';
+    ctx.fillStyle = '#4AAA28';
     for (let tx = ga.x - tOff; tx < ga.x + ga.w + 2; tx += 14) {
       ctx.fillRect(tx,     groundY - 6, 1, 2);
       ctx.fillRect(tx + 8, groundY - 8, 1, 2);
     }
+    // Tuft highlights
+    ctx.fillStyle = '#6ACC3A';
+    for (let tx = ga.x - tOff; tx < ga.x + ga.w + 2; tx += 14) {
+      ctx.fillRect(tx,     groundY - 6, 1, 1);
+      ctx.fillRect(tx + 8, groundY - 8, 1, 1);
+    }
   }
 
   _drawHero(ctx, hero) {
-    const PX = SideScrollerEffect.PX;
-    const x = Math.round(hero.x);
-    const y = Math.round(hero.y);
-    if (hero.state === 'dying') {
-      const angle = Math.min(1, hero.deadT / 0.3) * (-Math.PI / 2);
-      ctx.save();
-      ctx.translate(x + 3*PX, y + 5*PX);
-      ctx.rotate(angle);
-      ctx.translate(-(x + 3*PX), -(y + 5*PX));
-      this._drawHeroBody(ctx, x, y, 'idle', 0, PX);
-      ctx.restore();
+    if (!this._spritesReady) return;
+    const x     = Math.round(hero.x);
+    const footY = Math.round(hero.footY);
+
+    let frames, frameIdx;
+    if (hero.state === 'slash') {
+      frames    = this._sprites.heroAttack;
+      frameIdx  = hero.frame;
+    } else if (hero.state === 'idle') {
+      frames    = this._sprites.heroLoop;
+      frameIdx  = hero.frame;
+    } else {
+      frames    = this._sprites.heroWalk;
+      frameIdx  = hero.frame;
+    }
+
+    const oc = (frames && frames.length) ? frames[frameIdx % frames.length] : null;
+    if (!oc) return;
+
+    // All animations draw foot-anchored: top-left = (x, footY - height)
+    const drawY = footY - oc.height;
+
+    if (hero.state === 'dying' || hero.state === 'dead') {
+      if (!hero._exploded) {
+        hero._exploded = true;
+        this._spawnSpriteParticles(oc, x, drawY);
+      }
+      // Brief white flash then invisible — particles handle the visual
+      if (hero.deadT < 0.12) {
+        ctx.filter = 'brightness(10)';
+        ctx.drawImage(oc, x, drawY);
+        ctx.filter = 'none';
+      }
       return;
     }
-    if (hero.state === 'dead') return;
-    this._drawHeroBody(ctx, x, y, hero.state, hero.frame, PX);
-  }
 
-  _drawHeroBody(ctx, x, y, state, frame, PX) {
-    // Red cape (drawn behind body, visible on right)
-    ctx.fillStyle = '#AA1100';
-    ctx.fillRect(x+4*PX, y+4*PX, 2*PX, 5*PX);
-    ctx.fillStyle = '#771100';
-    ctx.fillRect(x+5*PX, y+4*PX, PX,   5*PX);
-
-    // Hair
-    ctx.fillStyle = _HERO_COLORS.H;
-    ctx.fillRect(x+PX, y, 4*PX, PX);
-    ctx.fillRect(x, y+PX, 6*PX, PX);
-    // Hair highlight
-    ctx.fillStyle = '#7A4A28';
-    ctx.fillRect(x+PX, y, PX, PX);
-
-    // Head (skin)
-    ctx.fillStyle = _HERO_COLORS.S;
-    ctx.fillRect(x+PX, y+PX, 4*PX, 3*PX);
-    // Jaw/cheek shadow
-    ctx.fillStyle = '#D89060';
-    ctx.fillRect(x+4*PX, y+2*PX, PX, 2*PX);
-
-    // Eyes — whites + blue iris + pupil
-    ctx.fillStyle = '#EEEEEE';
-    ctx.fillRect(x+2*PX, y+2*PX, PX, PX);
-    ctx.fillRect(x+4*PX, y+2*PX, PX, PX);
-    ctx.fillStyle = '#3366CC';
-    ctx.fillRect(x+2*PX, y+2*PX+2, PX, PX-2);
-    ctx.fillRect(x+4*PX, y+2*PX+2, PX, PX-2);
-    ctx.fillStyle = '#0A0A22';
-    ctx.fillRect(x+2*PX+1, y+3*PX, PX-2, 1);
-    ctx.fillRect(x+4*PX+1, y+3*PX, PX-2, 1);
-
-    // Tunic body
-    ctx.fillStyle = _HERO_COLORS.T;
-    ctx.fillRect(x+PX, y+4*PX, 4*PX, 3*PX);
-    // Tunic left highlight
-    ctx.fillStyle = '#3355CC';
-    ctx.fillRect(x+PX, y+4*PX, PX, 3*PX);
-    // Tunic right shadow
-    ctx.fillStyle = '#1A3388';
-    ctx.fillRect(x+4*PX, y+4*PX, PX, 3*PX);
-    // Gold trim band at chest
-    ctx.fillStyle = '#DDAA00';
-    ctx.fillRect(x+PX, y+4*PX, 4*PX, 2);
-    ctx.fillStyle = '#FFCC44';
-    ctx.fillRect(x+PX, y+4*PX, 4*PX, 1);
-
-    // Belt
-    ctx.fillStyle = _HERO_COLORS.B;
-    ctx.fillRect(x+PX, y+7*PX, 4*PX, PX);
-    // Belt buckle
-    ctx.fillStyle = '#DDAA00';
-    ctx.fillRect(x+2*PX, y+7*PX, PX, PX);
-    ctx.fillStyle = '#FFEE88';
-    ctx.fillRect(x+2*PX, y+7*PX, PX, 2);
-
-    // Sword
-    if (state === 'slash') {
-      // Blade horizontal
-      ctx.fillStyle = _HERO_COLORS.W;
-      ctx.fillRect(x-3*PX, y+3*PX, 4*PX, PX);
-      // Blade shine
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(x-3*PX, y+3*PX, 4*PX, 2);
-      // Guard (crosspiece)
-      ctx.fillStyle = _HERO_COLORS.X;
-      ctx.fillRect(x, y+2*PX, PX, 3*PX);
-      ctx.fillStyle = '#CCAA44';
-      ctx.fillRect(x, y+2*PX, PX, 2);
-    } else {
-      // Blade vertical
-      ctx.fillStyle = _HERO_COLORS.W;
-      ctx.fillRect(x+5*PX, y+2*PX, PX, 4*PX);
-      // Blade shine (left edge)
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(x+5*PX, y+2*PX, 2, 4*PX);
-      // Guard crosspiece
-      ctx.fillStyle = _HERO_COLORS.X;
-      ctx.fillRect(x+4*PX, y+5*PX, 3*PX, PX);
-      ctx.fillStyle = '#CCAA44';
-      ctx.fillRect(x+4*PX, y+5*PX, 3*PX, 2);
-    }
-
-    // Pants (darker blue than tunic)
-    ctx.fillStyle = '#334488';
-    ctx.fillRect(x+PX,   y+8*PX, 2*PX, 2*PX);
-    ctx.fillRect(x+3*PX, y+8*PX, 2*PX, 2*PX);
-    // Pants highlight
-    ctx.fillStyle = '#445599';
-    ctx.fillRect(x+PX,   y+8*PX, PX, 2*PX);
-    ctx.fillRect(x+3*PX, y+8*PX, PX, 2*PX);
-
-    // Boots (alternating for walk)
-    ctx.fillStyle = _HERO_COLORS.G;
-    ctx.fillRect(x+PX,   y+9*PX + (frame===0?PX:0), 2*PX, PX);
-    ctx.fillRect(x+3*PX, y+9*PX + (frame===1?PX:0), 2*PX, PX);
-    // Boot top highlight
-    ctx.fillStyle = '#5A3010';
-    ctx.fillRect(x+PX,   y+9*PX + (frame===0?PX:0), 2*PX, 2);
-    ctx.fillRect(x+3*PX, y+9*PX + (frame===1?PX:0), 2*PX, 2);
+    ctx.drawImage(oc, x, drawY);
   }
 
   _drawEnemy(ctx, enemy) {
     if (!enemy || enemy.state === 'gone') return;
-    const PX = SideScrollerEffect.PX;
+    if (!this._spritesReady) return;
     const x = Math.round(enemy.x);
     const y = Math.round(enemy.y);
+
+    // Advance animation timer (uses per-enemy animT so it's independent of tick dt)
     enemy.animT = (enemy.animT || 0) + 0.016;
-    const frame = Math.floor(enemy.animT / 0.2) % 3;
+    const spriteMap = { imp: 'impLoop', wolf: 'wolfLoop', harpy: 'harpyLoop', boar: 'boarLoop' };
+    const spriteName = spriteMap[enemy.type];
+    const frames = spriteName ? this._sprites[spriteName] : null;
+    if (!frames || !frames.length) return;
+    const frameIdx = Math.floor(enemy.animT * 4) % frames.length;  // 4 fps (halved from 8)
+    const oc = frames[frameIdx % frames.length];
+
+    // imp and wolf sprites face right in the editor, but need to face left in-game
+    const flipX = (enemy.type === 'imp' || enemy.type === 'wolf');
+
     ctx.save();
+
     if (enemy.state === 'dying') {
-      const tilt = Math.min(1, enemy.dyingT / 0.3) * (Math.PI / 2);
-      ctx.translate(x + 4*PX, y + 4*PX);
-      ctx.rotate(tilt);
-      ctx.translate(-(x + 4*PX), -(y + 4*PX));
-      if (enemy.dyingT > 0.65) ctx.globalAlpha = Math.floor(enemy.dyingT / 0.15) % 2 === 0 ? 1.0 : 0.25;
-      if (enemy.dyingT > 1.05) { enemy.state = 'gone'; ctx.restore(); return; }
+      if (!enemy._exploded) {
+        enemy._exploded = true;
+        this._spawnSpriteParticles(oc, x, y);
+      }
+      // Brief white flash then invisible — particles handle the visual
+      if (enemy.dyingT < 0.12) {
+        ctx.filter = 'brightness(10)';
+        if (flipX) { ctx.scale(-1, 1); ctx.drawImage(oc, -(x + oc.width), y); }
+        else { ctx.drawImage(oc, x, y); }
+        ctx.filter = 'none';
+      }
+      if (enemy.dyingT > 0.25) enemy.state = 'gone';
+      ctx.restore();
+      return;
     }
+
     // Ground shadow for non-flying enemies
-    if (!{ harpy:1, imp:1 }[enemy.type] && enemy.state !== 'dying') {
+    if (enemy.type !== 'harpy' && enemy.type !== 'imp' && enemy.state !== 'dying') {
       ctx.save();
       ctx.globalAlpha = 0.32;
       ctx.fillStyle = '#000000';
       ctx.beginPath();
-      ctx.ellipse(x + 4*PX, this._groundY + 3, 4*PX, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + oc.width / 2, this._groundY + 3, oc.width * 0.4, 5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
+
     if (enemy.flashT > 0) ctx.filter = 'brightness(10)';
-    this[`_drawEnemy_${enemy.type}`]?.(ctx, x, y, frame, PX);
+    if (flipX) {
+      ctx.scale(-1, 1);
+      ctx.drawImage(oc, -(x + oc.width), y);
+    } else {
+      ctx.drawImage(oc, x, y);
+    }
     ctx.filter = 'none';
     ctx.restore();
   }
 
-  _drawEnemy_goblin(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.goblin;
-    const lo = frame % 2;
-    // Spear shaft
-    ctx.fillStyle = C.spear;
-    ctx.fillRect(x-6*PX, y+3*PX, 8*PX, PX);
-    // Shaft highlight
-    ctx.fillStyle = '#DDBB77';
-    ctx.fillRect(x-6*PX, y+3*PX, 8*PX, 1);
-    // Spear tip (metal, two-tone)
-    ctx.fillStyle = '#CCCCDD';
-    ctx.fillRect(x-7*PX, y+2*PX, PX, 3*PX);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x-7*PX, y+2*PX, PX, 1);
-    // Big pointy ears
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x-PX,   y+PX, 2*PX, 3*PX);
-    ctx.fillRect(x+6*PX, y+PX, 2*PX, 3*PX);
-    // Ear shadow
-    ctx.fillStyle = C.dark;
-    ctx.fillRect(x,      y+PX, 1, 3*PX);
-    ctx.fillRect(x+7*PX, y+PX, 1, 3*PX);
-    // Head
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x,      y+PX, 7*PX, 4*PX);
-    // Head left highlight
-    ctx.fillStyle = '#66CC44';
-    ctx.fillRect(x,      y+PX, PX, 4*PX);
-    // Mean brows
-    ctx.fillStyle = C.dark;
-    ctx.fillRect(x+PX,   y+PX,   2*PX, PX);
-    ctx.fillRect(x+4*PX, y+PX,   2*PX, PX);
-    // Eyes (glow)
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+PX,   y+2*PX, PX, PX);
-    ctx.fillRect(x+4*PX, y+2*PX, PX, PX);
-    // Eye highlight dot
-    ctx.fillStyle = '#FFCC44';
-    ctx.fillRect(x+PX,   y+2*PX, 2, 2);
-    ctx.fillRect(x+4*PX, y+2*PX, 2, 2);
-    // Brown vest/torso
-    ctx.fillStyle = C.cloth;
-    ctx.fillRect(x,      y+5*PX, PX,   2*PX);
-    ctx.fillRect(x+PX,   y+5*PX, 5*PX, 3*PX);
-    // Vest left highlight
-    ctx.fillStyle = '#AA7744';
-    ctx.fillRect(x+PX,   y+5*PX, PX, 3*PX);
-    // Vest button/stitch
-    ctx.fillStyle = '#CC9966';
-    ctx.fillRect(x+3*PX, y+6*PX, 1, PX);
-    // Legs
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y+8*PX+(lo?PX:0), 2*PX, 2*PX);
-    ctx.fillRect(x+4*PX, y+8*PX+(lo?0:PX), 2*PX, 2*PX);
-    // Leg highlight
-    ctx.fillStyle = '#66CC44';
-    ctx.fillRect(x+PX,   y+8*PX+(lo?PX:0), PX, 2*PX);
-    ctx.fillRect(x+4*PX, y+8*PX+(lo?0:PX), PX, 2*PX);
-  }
-
-  _drawEnemy_slime(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.slime;
-    const bob = Math.round(Math.sin(Date.now() / 200) * 1.5);
-    const yy = y + bob;
-    // Shadow beneath (dark green at base)
-    ctx.fillStyle = '#0A4A0A';
-    ctx.fillRect(x+PX,   yy+5*PX, 7*PX, PX);
-    ctx.fillRect(x+2*PX, yy+6*PX, 5*PX, PX);
-    // Wide flat oval body
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+2*PX, yy,       5*PX, PX);
-    ctx.fillRect(x+PX,   yy+PX,    7*PX, PX);
-    ctx.fillRect(x,      yy+2*PX,  9*PX, 3*PX);
-    ctx.fillRect(x+PX,   yy+5*PX,  7*PX, PX);
-    ctx.fillRect(x+2*PX, yy+6*PX,  5*PX, PX);
-    // Left/right side shading
-    ctx.fillStyle = '#148814';
-    ctx.fillRect(x,      yy+2*PX, PX,   3*PX);
-    ctx.fillRect(x+8*PX, yy+2*PX, PX,   3*PX);
-    // Primary highlight blob
-    ctx.fillStyle = C.shine;
-    ctx.fillRect(x+2*PX, yy+PX, 3*PX, 2*PX);
-    // Secondary smaller highlight
-    ctx.fillStyle = '#AAFFAA';
-    ctx.fillRect(x+2*PX, yy+PX, 2*PX, PX);
-    // Drip/tendril at bottom center
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+4*PX, yy+7*PX, PX, PX);
-    // Sleepy line eyes
-    ctx.fillStyle = '#111111';
-    ctx.fillRect(x+PX,   yy+3*PX, 2*PX, PX);
-    ctx.fillRect(x+5*PX, yy+3*PX, 2*PX, PX);
-    // Eye highlight
-    ctx.fillStyle = '#555566';
-    ctx.fillRect(x+PX,   yy+3*PX, PX, 1);
-    ctx.fillRect(x+5*PX, yy+3*PX, PX, 1);
-    // Rosy cheeks
-    ctx.fillStyle = '#FF9999';
-    ctx.fillRect(x+PX,   yy+4*PX, PX, PX);
-    ctx.fillRect(x+6*PX, yy+4*PX, PX, PX);
-    // Mouth (small curve)
-    ctx.fillStyle = '#0A5A0A';
-    ctx.fillRect(x+3*PX, yy+4*PX, 3*PX, 1);
-  }
-
-  _drawEnemy_harpy(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.harpy;
-    const wo = frame===0 ? -PX : frame===1 ? 0 : PX;
-    // Outer wings (dark)
-    ctx.fillStyle = C.wingDark;
-    ctx.fillRect(x-5*PX, y+2*PX+wo, 5*PX, 5*PX);
-    ctx.fillRect(x+8*PX, y+2*PX+wo, 5*PX, 5*PX);
-    ctx.fillRect(x-4*PX, y+7*PX+wo, 4*PX, 2*PX);
-    ctx.fillRect(x+8*PX, y+7*PX+wo, 4*PX, 2*PX);
-    // Wing feather lines (darker stripes on outer wings)
-    ctx.fillStyle = '#771199';
-    ctx.fillRect(x-5*PX, y+3*PX+wo, 5*PX, 1);
-    ctx.fillRect(x-5*PX, y+5*PX+wo, 5*PX, 1);
-    ctx.fillRect(x+8*PX, y+3*PX+wo, 5*PX, 1);
-    ctx.fillRect(x+8*PX, y+5*PX+wo, 5*PX, 1);
-    // Inner wings (lighter)
-    ctx.fillStyle = C.wing;
-    ctx.fillRect(x-2*PX, y+2*PX+wo, 4*PX, 6*PX);
-    ctx.fillRect(x+6*PX, y+2*PX+wo, 4*PX, 6*PX);
-    // Inner wing highlight
-    ctx.fillStyle = '#EEA8FF';
-    ctx.fillRect(x-2*PX, y+2*PX+wo, PX, 6*PX);
-    ctx.fillRect(x+9*PX, y+2*PX+wo, PX, 6*PX);
-    // Poofy teal hair
-    ctx.fillStyle = C.hair;
-    ctx.fillRect(x+PX,   y-PX,  5*PX, 2*PX);
-    ctx.fillRect(x,      y,     2*PX, PX);
-    ctx.fillRect(x+5*PX, y,     2*PX, PX);
-    // Hair highlight
-    ctx.fillStyle = '#88FFDD';
-    ctx.fillRect(x+2*PX, y-PX, 2*PX, PX);
-    // Face
-    ctx.fillStyle = C.skin;
-    ctx.fillRect(x+PX, y+PX, 5*PX, 3*PX);
-    // Face shadow right
-    ctx.fillStyle = '#E8A888';
-    ctx.fillRect(x+5*PX, y+2*PX, PX, 2*PX);
-    // Eyes (magenta)
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+2*PX, y+2*PX, PX, PX);
-    ctx.fillRect(x+4*PX, y+2*PX, PX, PX);
-    // Eye highlight
-    ctx.fillStyle = '#FF88CC';
-    ctx.fillRect(x+2*PX, y+2*PX, 2, 2);
-    ctx.fillRect(x+4*PX, y+2*PX, 2, 2);
-    // Torso
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX, y+4*PX, 5*PX, 4*PX);
-    // Torso highlight
-    ctx.fillStyle = '#FFCCEE';
-    ctx.fillRect(x+PX, y+4*PX, 2*PX, 4*PX);
-    // Torso shadow
-    ctx.fillStyle = '#CC8899';
-    ctx.fillRect(x+5*PX, y+4*PX, PX, 4*PX);
-    // Talons
-    ctx.fillStyle = C.talon;
-    ctx.fillRect(x+PX,   y+8*PX, 2*PX, 2*PX);
-    ctx.fillRect(x+4*PX, y+8*PX, 2*PX, 2*PX);
-    ctx.fillRect(x,      y+9*PX, 2*PX, PX);
-    ctx.fillRect(x+2*PX, y+9*PX, 2*PX, PX);
-    ctx.fillRect(x+4*PX, y+9*PX, 2*PX, PX);
-    ctx.fillRect(x+6*PX, y+9*PX, PX,   PX);
-    // Talon highlight
-    ctx.fillStyle = '#FFDD66';
-    ctx.fillRect(x,      y+9*PX, PX, 1);
-    ctx.fillRect(x+4*PX, y+9*PX, PX, 1);
-  }
-
-  _drawEnemy_wolf(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.wolf;
-    const lo = frame % 2;
-    // Tail
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+9*PX,  y+PX, 2*PX, PX);
-    ctx.fillRect(x+10*PX, y,    PX,   2*PX);
-    // Tail tip (lighter)
-    ctx.fillStyle = '#3A4060';
-    ctx.fillRect(x+10*PX, y, PX, PX);
-    // Pointy ears
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y,    PX, 2*PX);
-    ctx.fillRect(x+3*PX, y,    PX, PX);
-    // Ear inner (pink)
-    ctx.fillStyle = '#440022';
-    ctx.fillRect(x+PX,   y, PX, PX);
-    // Head (facing left)
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x,      y+PX, 5*PX, 4*PX);
-    // Head top highlight
-    ctx.fillStyle = '#2A3050';
-    ctx.fillRect(x,      y+PX, 5*PX, PX);
-    // Snout
-    ctx.fillStyle = C.snout;
-    ctx.fillRect(x-PX,   y+3*PX, 2*PX, 2*PX);
-    // Nostril
-    ctx.fillStyle = '#0A0A14';
-    ctx.fillRect(x-PX,   y+4*PX, PX, 1);
-    // Red glowing eye
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+PX,   y+2*PX, PX, PX);
-    // Eye glow corona
-    ctx.fillStyle = '#FF6666';
-    ctx.fillRect(x+PX,   y+2*PX, 2, 2);
-    // Body
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+3*PX, y+2*PX, 8*PX, 4*PX);
-    // Back highlight stripe
-    ctx.fillStyle = '#2A3050';
-    ctx.fillRect(x+3*PX, y+2*PX, 8*PX, PX);
-    // Saddle
-    ctx.fillStyle = C.saddle;
-    ctx.fillRect(x+4*PX, y+2*PX, 5*PX, 2*PX);
-    // Saddle highlight
-    ctx.fillStyle = '#3A4050';
-    ctx.fillRect(x+4*PX, y+2*PX, 5*PX, 1);
-    // 4 legs alternating
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y+6*PX+(lo?PX:0), 2*PX, 2*PX);
-    ctx.fillRect(x+3*PX, y+6*PX+(lo?0:PX), 2*PX, 2*PX);
-    ctx.fillRect(x+7*PX, y+6*PX+(lo?PX:0), 2*PX, 2*PX);
-    ctx.fillRect(x+9*PX, y+6*PX+(lo?0:PX), 2*PX, 2*PX);
-    // Paw tips (lighter)
-    ctx.fillStyle = '#2A3050';
-    ctx.fillRect(x+PX,   y+7*PX+(lo?PX:0), 2*PX, PX);
-    ctx.fillRect(x+7*PX, y+7*PX+(lo?PX:0), 2*PX, PX);
-  }
-
-  _drawEnemy_imp(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.imp;
-    const wo = frame===0 ? -PX : frame===1 ? 0 : PX;
-    const lo = frame % 2;
-    // Trident shaft + highlight
-    ctx.fillStyle = C.trident;
-    ctx.fillRect(x-7*PX, y+4*PX, 8*PX, PX);
-    ctx.fillStyle = '#EEDD44';
-    ctx.fillRect(x-7*PX, y+4*PX, 8*PX, 1);
-    // Center prong
-    ctx.fillStyle = C.trident;
-    ctx.fillRect(x-8*PX, y+3*PX, PX,   3*PX);
-    ctx.fillRect(x-8*PX, y+3*PX, 3*PX, PX);   // top fork
-    ctx.fillRect(x-8*PX, y+5*PX, 3*PX, PX);   // bottom fork
-    // Prong tips shine
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x-8*PX, y+3*PX, PX, 1);
-    ctx.fillRect(x-8*PX, y+5*PX, PX, 1);
-    ctx.fillRect(x-8*PX, y+3*PX, 1, PX);
-    // Bat wings (flutter)
-    ctx.fillStyle = C.wing;
-    ctx.fillRect(x-2*PX, y+3*PX+wo, 2*PX, 3*PX);
-    ctx.fillRect(x+5*PX, y+3*PX+wo, 2*PX, 3*PX);
-    // Wing vein lines
-    ctx.fillStyle = '#AA0022';
-    ctx.fillRect(x-PX,   y+3*PX+wo, 1, 3*PX);
-    ctx.fillRect(x+5*PX, y+3*PX+wo, 1, 3*PX);
-    // Wing highlight edge
-    ctx.fillStyle = '#BB2233';
-    ctx.fillRect(x-2*PX, y+3*PX+wo, PX, 3*PX);
-    // Tail
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+4*PX, y+8*PX,  PX, 3*PX);
-    ctx.fillRect(x+3*PX, y+10*PX, 3*PX, PX);
-    ctx.fillRect(x+4*PX, y+11*PX, PX,   PX);
-    // Horns
-    ctx.fillStyle = C.horn;
-    ctx.fillRect(x+PX,   y-PX, PX, 2*PX);
-    ctx.fillRect(x+3*PX, y-PX, PX, 2*PX);
-    // Horn tips
-    ctx.fillStyle = '#990033';
-    ctx.fillRect(x+PX,   y-PX, PX, 1);
-    ctx.fillRect(x+3*PX, y-PX, PX, 1);
-    // Head
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x,      y+PX, 5*PX, 3*PX);
-    // Head left highlight
-    ctx.fillStyle = '#EE7766';
-    ctx.fillRect(x,      y+PX, PX, 3*PX);
-    // Head right shadow
-    ctx.fillStyle = '#AA3322';
-    ctx.fillRect(x+4*PX, y+PX, PX, 3*PX);
-    // Eyes (yellow glow)
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+PX,   y+2*PX, PX, PX);
-    ctx.fillRect(x+3*PX, y+2*PX, PX, PX);
-    // Eye shine
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x+PX,   y+2*PX, 2, 2);
-    ctx.fillRect(x+3*PX, y+2*PX, 2, 2);
-    // Torso + arms
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y+4*PX, 3*PX, 4*PX);
-    ctx.fillStyle = '#EE7766';
-    ctx.fillRect(x+PX,   y+4*PX, PX,   4*PX);  // torso left highlight
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x,      y+4*PX, PX,   2*PX);
-    ctx.fillRect(x+4*PX, y+4*PX, PX,   2*PX);
-    // Legs
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y+8*PX+(lo?PX:0), PX, 3*PX);
-    ctx.fillRect(x+3*PX, y+8*PX+(lo?0:PX), PX, 3*PX);
-    // Hoof/foot
-    ctx.fillStyle = '#660022';
-    ctx.fillRect(x+PX,   y+10*PX+(lo?PX:0), PX, PX);
-    ctx.fillRect(x+3*PX, y+10*PX+(lo?0:PX), PX, PX);
-  }
-
-  _drawEnemy_boar(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.boar;
-    const lo = frame % 2;
-    // Dark bristle mane (spiky top)
-    ctx.fillStyle = C.mane;
-    ctx.fillRect(x+PX,   y,    8*PX, PX);
-    // Mane spikes (individual tufts)
-    ctx.fillRect(x+2*PX, y-PX, PX, PX);
-    ctx.fillRect(x+4*PX, y-PX, PX, PX);
-    ctx.fillRect(x+6*PX, y-PX, PX, PX);
-    // Main chunky body
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x,      y+PX,  10*PX, 4*PX);
-    ctx.fillRect(x+PX,   y+5*PX, 8*PX, PX);
-    // Body top highlight (just below mane)
-    ctx.fillStyle = '#DD7744';
-    ctx.fillRect(x,      y+PX,  10*PX, PX);
-    // Body right shadow
-    ctx.fillStyle = '#AA4422';
-    ctx.fillRect(x+9*PX, y+PX,  PX,   4*PX);
-    // Light underbelly
-    ctx.fillStyle = C.light;
-    ctx.fillRect(x+3*PX, y+2*PX, 5*PX, 2*PX);
-    // Underbelly highlight
-    ctx.fillStyle = '#FFCC88';
-    ctx.fillRect(x+3*PX, y+2*PX, 5*PX, PX);
-    // Eye
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+PX,  y+2*PX, 2*PX, 2*PX);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x+PX,  y+2*PX, PX, PX);
-    // Snout
-    ctx.fillStyle = C.snout;
-    ctx.fillRect(x-2*PX, y+2*PX, 3*PX, 2*PX);
-    // Snout highlight
-    ctx.fillStyle = '#EECCAA';
-    ctx.fillRect(x-2*PX, y+2*PX, 3*PX, PX);
-    // Nostril
-    ctx.fillStyle = '#885544';
-    ctx.fillRect(x-2*PX, y+3*PX, PX, PX);
-    // Tusk
-    ctx.fillStyle = C.tusk;
-    ctx.fillRect(x-3*PX, y+4*PX, 3*PX, PX);
-    ctx.fillRect(x-4*PX, y+3*PX, PX,   2*PX);
-    ctx.fillStyle = '#FFFFEE';
-    ctx.fillRect(x-3*PX, y+4*PX, 3*PX, 1);
-    // 4 legs
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+2*PX, y+6*PX+(lo?PX:0), 2*PX, 2*PX);
-    ctx.fillRect(x+4*PX, y+6*PX+(lo?0:PX), 2*PX, 2*PX);
-    ctx.fillRect(x+6*PX, y+6*PX+(lo?PX:0), 2*PX, 2*PX);
-    ctx.fillRect(x+8*PX, y+6*PX+(lo?0:PX), 2*PX, 2*PX);
-    // Hoof tips
-    ctx.fillStyle = '#441100';
-    ctx.fillRect(x+2*PX, y+7*PX+(lo?PX:0), 2*PX, PX);
-    ctx.fillRect(x+6*PX, y+7*PX+(lo?PX:0), 2*PX, PX);
-  }
-
-  _drawEnemy_mimic(ctx, x, y, frame, PX) {
-    const C = _ENEMY_COLORS.mimic;
-    const gap = frame * PX;
-    // Lid (top jaw) with gold trim + highlight
-    ctx.fillStyle = C.goldTrim; ctx.fillRect(x, y, 9*PX, PX);
-    ctx.fillStyle = '#FFDD44';  ctx.fillRect(x, y, 9*PX, 2);  // trim highlight
-    ctx.fillStyle = C.lid;      ctx.fillRect(x, y+PX, 9*PX, PX);
-    // Lid wood grain
-    ctx.fillStyle = '#5A2A08';
-    ctx.fillRect(x+2*PX, y+PX, 1, PX);
-    ctx.fillRect(x+5*PX, y+PX, 1, PX);
-    ctx.fillRect(x+7*PX, y+PX, 1, PX);
-    if (gap > 0) {
-      // Dark mouth interior
-      ctx.fillStyle = '#050508';
-      ctx.fillRect(x+PX, y+2*PX, 7*PX, gap);
-      // Tongue glow (even when partially open)
-      if (frame >= 1) {
-        ctx.fillStyle = '#CC1133';
-        ctx.fillRect(x+3*PX, y+2*PX+gap-2, 3*PX, 2);
-      }
-      // Upper teeth
-      ctx.fillStyle = C.teeth;
-      for (let t = 0; t < 4; t++) ctx.fillRect(x+(t*2+1)*PX, y+2*PX, PX, gap);
-      // Glowing eyes in darkness
-      ctx.fillStyle = C.eye;
-      ctx.fillRect(x+2*PX, y+2*PX, PX, PX);
-      ctx.fillRect(x+5*PX, y+2*PX, PX, PX);
-      // Eye glow halo
-      ctx.fillStyle = '#FF8844';
-      ctx.fillRect(x+2*PX, y+2*PX, 2, 2);
-      ctx.fillRect(x+5*PX, y+2*PX, 2, 2);
-      // Lower teeth
-      ctx.fillStyle = C.teeth;
-      for (let t = 0; t < 4; t++) ctx.fillRect(x+(t*2+1)*PX, y+2*PX+gap, PX, PX);
-      if (frame === 2) {
-        ctx.fillStyle = '#EE2244';
-        ctx.fillRect(x+3*PX, y+2*PX+gap, 3*PX, PX);
-        // Tongue highlight
-        ctx.fillStyle = '#FF6677';
-        ctx.fillRect(x+3*PX, y+2*PX+gap, 3*PX, 1);
-      }
-    }
-    // Chest base
-    const bY = y + 2*PX + gap + (gap > 0 ? PX : 0);
-    ctx.fillStyle = C.goldTrim; ctx.fillRect(x, bY, 9*PX, PX);
-    ctx.fillStyle = '#FFDD44';  ctx.fillRect(x, bY, 9*PX, 2);
-    ctx.fillStyle = C.box;      ctx.fillRect(x, bY+PX, 9*PX, y+8*PX-(bY+PX));
-    // Wood grain on body
-    ctx.fillStyle = '#7A3A10';
-    ctx.fillRect(x+2*PX, bY+PX, 1, y+8*PX-(bY+PX));
-    ctx.fillRect(x+5*PX, bY+PX, 1, y+8*PX-(bY+PX));
-    ctx.fillRect(x+7*PX, bY+PX, 1, y+8*PX-(bY+PX));
-    // Left highlight on chest
-    ctx.fillStyle = '#AA6030';
-    ctx.fillRect(x, bY+PX, PX, y+8*PX-(bY+PX));
-    ctx.fillStyle = C.goldTrim; ctx.fillRect(x, y+8*PX, 9*PX, PX);
-    ctx.fillStyle = '#FFDD44';  ctx.fillRect(x, y+8*PX, 9*PX, 2);
-    ctx.fillStyle = C.lock;     ctx.fillRect(x+4*PX, bY+PX, PX, PX);
-    // Lock shine
-    ctx.fillStyle = '#FFEE88';  ctx.fillRect(x+4*PX, bY+PX, 2, 2);
-    // Legs
-    ctx.fillStyle = C.leg;
-    ctx.fillRect(x+PX,   y+9*PX, 2*PX, PX);
-    ctx.fillRect(x+6*PX, y+9*PX, 2*PX, PX);
-    // Leg highlight
-    ctx.fillStyle = '#CC7730';
-    ctx.fillRect(x+PX,   y+9*PX, PX, PX);
-    ctx.fillRect(x+6*PX, y+9*PX, PX, PX);
-  }
 
   _drawBoss(ctx, boss) {
-    if (!boss) return;
-    const PX = SideScrollerEffect.PX;
+    if (!boss || !this._spritesReady) return;
     const x = Math.round(boss.x);
     const y = Math.round(boss.y + (boss.bobOffset || 0));
+
+    // Choose frames based on boss state
+    const useAttack = (boss.state === 'swipe');
+    const frames = useAttack ? this._sprites.ogreAttack : this._sprites.ogreLoop;
+    if (!frames || !frames.length) return;
+
+    // Reset animation timer on state change so attack plays from the beginning
+    if (boss._prevDrawState !== boss.state) {
+      boss._bossAnimT    = 0;
+      boss._prevDrawState = boss.state;
+    }
+    boss._bossAnimT = (boss._bossAnimT || 0) + 0.016;
+
+    let frameIdx;
+    if (useAttack) {
+      // Attack plays once at 2fps then holds on last frame
+      frameIdx = Math.min(Math.floor(boss._bossAnimT * 2), frames.length - 1);
+    } else {
+      // Idle loops at 2fps
+      frameIdx = Math.floor(boss._bossAnimT * 2) % frames.length;
+    }
+    const oc = frames[frameIdx];
+
+    // Screenshake on roar
     const jx = boss.roaring ? (Math.random() * 4 - 2) : 0;
     ctx.save();
-    ctx.translate(jx, 0);
-    this[`_drawBoss_${boss.type}`]?.(ctx, x, y, boss.state, PX);
+    if (jx !== 0) ctx.translate(jx, 0);
+    ctx.drawImage(oc, x, y, oc.width * 1.6, oc.height * 1.6);
     ctx.restore();
   }
 
-  _drawBoss_orc(ctx, x, y, state, PX) {
-    const C = _BOSS_COLORS.orc;
-    // Golden nub horns
-    ctx.fillStyle = C.horn;
-    ctx.fillRect(x+2*PX, y,    2*PX, 2*PX);
-    ctx.fillRect(x+7*PX, y,    2*PX, 2*PX);
-    // Horn highlight
-    ctx.fillStyle = '#FFEE66';
-    ctx.fillRect(x+2*PX, y,    PX, PX);
-    ctx.fillRect(x+7*PX, y,    PX, PX);
-    // Big round head + puffy cheeks
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+PX,   y+PX,  9*PX, 2*PX);   // upper head
-    ctx.fillRect(x,      y+3*PX, 11*PX, 3*PX);  // wide cheeks
-    // Head left highlight
-    ctx.fillStyle = '#5AAA2A';
-    ctx.fillRect(x+PX, y+PX,   PX, 4*PX);
-    ctx.fillRect(x,    y+3*PX, PX, 3*PX);
-    // Head right shadow
-    ctx.fillStyle = '#326416';
-    ctx.fillRect(x+9*PX,  y+PX,   PX, 2*PX);
-    ctx.fillRect(x+10*PX, y+3*PX, PX, 3*PX);
-    // Brow ridges above eyes (draw before eyes so eyes override)
-    ctx.fillStyle = '#2A5510';
-    ctx.fillRect(x+2*PX, y+PX,   3*PX, PX);    // left brow
-    ctx.fillRect(x+7*PX, y+PX,   3*PX, PX);    // right brow
-    // Yellow eyes (squinting)
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+2*PX, y+2*PX, 2*PX, PX);
-    ctx.fillRect(x+7*PX, y+2*PX, 2*PX, PX);
-    // Eye pupils
-    ctx.fillStyle = '#221100';
-    ctx.fillRect(x+3*PX, y+2*PX, PX, PX);
-    ctx.fillRect(x+8*PX, y+2*PX, PX, PX);
-    // Tusks
-    ctx.fillStyle = C.tusk;
-    ctx.fillRect(x+2*PX, y+5*PX, PX, 2*PX);
-    ctx.fillRect(x+8*PX, y+5*PX, PX, 2*PX);
-    // Tusk highlight
-    ctx.fillStyle = '#FFFFCC';
-    ctx.fillRect(x+2*PX, y+5*PX, PX, PX);
-    ctx.fillRect(x+8*PX, y+5*PX, PX, PX);
-    // Chin / jaw shadow
-    ctx.fillStyle = '#326416';
-    ctx.fillRect(x+PX, y+5*PX, 9*PX, PX);
-    // Open mouth on roar
-    if (state === 'roar') {
-      ctx.fillStyle = C.mouth;
-      ctx.fillRect(x+3*PX, y+4*PX, 5*PX, 2*PX);
-      // Roar teeth
-      ctx.fillStyle = '#FFFCE8';
-      ctx.fillRect(x+3*PX, y+4*PX, PX, PX);
-      ctx.fillRect(x+5*PX, y+4*PX, PX, PX);
-      ctx.fillRect(x+7*PX, y+4*PX, PX, PX);
-    }
-    // Massive shoulders
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x-PX,   y+6*PX,  13*PX, 2*PX);  // shoulder span
-    ctx.fillRect(x+PX,   y+8*PX,  9*PX,  3*PX);  // torso
-    // Shoulder left highlight
-    ctx.fillStyle = '#5AAA2A';
-    ctx.fillRect(x-PX,   y+6*PX,  PX, 2*PX);
-    ctx.fillRect(x,      y+6*PX,  2*PX, PX);
-    // Shoulder right shadow
-    ctx.fillStyle = '#326416';
-    ctx.fillRect(x+11*PX, y+6*PX, PX, 2*PX);
-    // Torso left highlight / right shadow
-    ctx.fillStyle = '#5AAA2A';
-    ctx.fillRect(x+PX, y+8*PX, PX, 3*PX);
-    ctx.fillStyle = '#326416';
-    ctx.fillRect(x+9*PX, y+8*PX, PX, 3*PX);
-    // Armor chest
-    ctx.fillStyle = C.armor;
-    ctx.fillRect(x+2*PX, y+6*PX, 7*PX, 3*PX);
-    // Armor left highlight band
-    ctx.fillStyle = '#7A9966';
-    ctx.fillRect(x+2*PX, y+6*PX, PX, 3*PX);
-    // Armor right shadow band
-    ctx.fillStyle = '#4A5540';
-    ctx.fillRect(x+8*PX, y+6*PX, PX, 3*PX);
-    // Armor rivets
-    ctx.fillStyle = '#AABB88';
-    ctx.fillRect(x+3*PX, y+7*PX, PX, PX);
-    ctx.fillRect(x+6*PX, y+7*PX, PX, PX);
-    // Arms
-    ctx.fillStyle = C.body;
-    if (state === 'swipe') {
-      ctx.fillRect(x-5*PX, y+6*PX, 6*PX, 3*PX);  // left arm lunge
-      ctx.fillRect(x-6*PX, y+7*PX, 2*PX, 3*PX);  // fist
-      // Arm top highlight
-      ctx.fillStyle = '#5AAA2A';
-      ctx.fillRect(x-5*PX, y+6*PX, 6*PX, PX);
-      ctx.fillStyle = C.body;
-    } else {
-      ctx.fillRect(x-2*PX, y+6*PX, 3*PX, 3*PX);
-      ctx.fillRect(x-3*PX, y+7*PX, 2*PX, 3*PX);
-      // Arm left highlight
-      ctx.fillStyle = '#5AAA2A';
-      ctx.fillRect(x-2*PX, y+6*PX, PX, 3*PX);
-      ctx.fillStyle = C.body;
-    }
-    ctx.fillRect(x+11*PX, y+6*PX, 3*PX, 3*PX);   // right arm
-    ctx.fillRect(x+13*PX, y+7*PX, 2*PX, 3*PX);   // right hand
-    // Right arm shadow
-    ctx.fillStyle = '#326416';
-    ctx.fillRect(x+13*PX, y+6*PX, PX, 3*PX);
-    // Legs
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+2*PX,  y+11*PX, 3*PX, 3*PX);
-    ctx.fillRect(x+6*PX,  y+11*PX, 3*PX, 3*PX);
-    // Leg left highlights
-    ctx.fillStyle = '#5AAA2A';
-    ctx.fillRect(x+2*PX, y+11*PX, PX, 3*PX);
-    ctx.fillRect(x+6*PX, y+11*PX, PX, 3*PX);
-    // Boots
-    ctx.fillStyle = C.boot;
-    ctx.fillRect(x+PX,    y+13*PX, 4*PX, PX);
-    ctx.fillRect(x+6*PX,  y+13*PX, 4*PX, PX);
-    // Boot toe highlight
-    ctx.fillStyle = '#554422';
-    ctx.fillRect(x+PX,   y+13*PX, 2*PX, PX);
-    ctx.fillRect(x+6*PX, y+13*PX, 2*PX, PX);
-  }
-
-  _drawBoss_blob(ctx, x, y, state, PX) {
-    const C = _BOSS_COLORS.blob;
-    // Main yellow body — round blob
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+3*PX, y,       8*PX, PX);    // head top
-    ctx.fillRect(x+PX,   y+PX,    12*PX, 2*PX); // upper head
-    ctx.fillRect(x,      y+3*PX,  14*PX, 6*PX); // widest body
-    ctx.fillRect(x+PX,   y+9*PX,  12*PX, 2*PX); // lower body
-    ctx.fillRect(x+2*PX, y+11*PX, 10*PX, PX);   // waist
-    // Right-side shadow
-    ctx.fillStyle = '#CC9900';
-    ctx.fillRect(x+11*PX, y+3*PX,  3*PX, 6*PX);  // right body edge
-    ctx.fillRect(x+10*PX, y+PX,    2*PX, 2*PX);  // upper right
-    ctx.fillRect(x+10*PX, y+9*PX,  3*PX, 2*PX);  // lower right taper
-    // Underside shadow
-    ctx.fillStyle = '#AA7700';
-    ctx.fillRect(x+3*PX, y+10*PX, 8*PX, PX);
-    // Left-side highlight
-    ctx.fillStyle = '#FFE066';
-    ctx.fillRect(x,    y+3*PX, 2*PX, 5*PX);
-    ctx.fillRect(x+PX, y+PX,   2*PX, 2*PX);
-    // Top shine + specular
-    ctx.fillStyle = C.shine;
-    ctx.fillRect(x+3*PX, y+PX, 4*PX, 2*PX);
-    ctx.fillRect(x+4*PX, y,    2*PX, PX);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x+4*PX, y+PX, 2*PX, PX);        // white specular streak
-    // ── Single large eye (center-left of face) ──
-    const ex = x+5*PX, ey = y+3*PX;
-    ctx.fillStyle = C.eyeOuter;
-    ctx.fillRect(ex,      ey,      5*PX, 4*PX);   // dark ring
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(ex+PX,   ey+PX,   3*PX, 2*PX);   // sclera
-    ctx.fillStyle = C.eyeRed;
-    ctx.fillRect(ex+PX,   ey+PX,   2*PX, 2*PX);   // red iris
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(ex+PX+2, ey+PX+1, PX-2, PX-2);   // pupil
-    // Eye inner highlight dot
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(ex+PX, ey+PX, 2, 2);
-    // Arms
-    ctx.fillStyle = C.body;
-    if (state === 'swipe') {
-      ctx.fillRect(x-6*PX, y+4*PX, 7*PX, 4*PX);  // left arm extended
-      ctx.fillRect(x-7*PX, y+4*PX, 2*PX, 5*PX);  // claw
-      // Arm top highlight
-      ctx.fillStyle = '#FFE066';
-      ctx.fillRect(x-6*PX, y+4*PX, 7*PX, PX);
-      // Claw drip
-      ctx.fillStyle = '#CC9900';
-      ctx.fillRect(x-7*PX, y+8*PX, PX, PX);
-      ctx.fillRect(x-6*PX, y+9*PX, PX, PX);
-    } else {
-      ctx.fillRect(x-3*PX, y+4*PX, 4*PX, 4*PX);  // left arm tucked
-      ctx.fillRect(x-4*PX, y+6*PX, 2*PX, 3*PX);  // hand
-      // Arm left highlight
-      ctx.fillStyle = '#FFE066';
-      ctx.fillRect(x-3*PX, y+4*PX, PX, 4*PX);
-      // Arm right shadow
-      ctx.fillStyle = '#CC9900';
-      ctx.fillRect(x+PX,   y+4*PX, PX, 4*PX);
-      // Drip from hand
-      ctx.fillStyle = '#CC9900';
-      ctx.fillRect(x-4*PX, y+9*PX, PX, PX);
-    }
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+14*PX, y+4*PX, 3*PX, 4*PX);   // right arm
-    ctx.fillRect(x+17*PX, y+6*PX, 2*PX, 3*PX);   // right hand
-    // Right arm shadow
-    ctx.fillStyle = '#CC9900';
-    ctx.fillRect(x+16*PX, y+4*PX, PX, 4*PX);
-    // Short legs
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+3*PX,  y+12*PX, 3*PX, 3*PX);
-    ctx.fillRect(x+8*PX,  y+12*PX, 3*PX, 3*PX);
-    // Leg left highlights
-    ctx.fillStyle = '#FFE066';
-    ctx.fillRect(x+3*PX,  y+12*PX, PX, 3*PX);
-    ctx.fillRect(x+8*PX,  y+12*PX, PX, 3*PX);
-    // Leg bottom shadows
-    ctx.fillStyle = '#AA7700';
-    ctx.fillRect(x+3*PX,  y+14*PX, 3*PX, PX);
-    ctx.fillRect(x+8*PX,  y+14*PX, 3*PX, PX);
-    // Open mouth on roar
-    if (state === 'roar') {
-      ctx.fillStyle = C.mouth;
-      ctx.fillRect(x+4*PX, y+9*PX, 6*PX, 2*PX);
-      // Roar teeth
-      ctx.fillStyle = '#FFFCE8';
-      ctx.fillRect(x+4*PX, y+9*PX,  PX, PX);
-      ctx.fillRect(x+6*PX, y+9*PX,  PX, PX);
-      ctx.fillRect(x+8*PX, y+9*PX,  PX, PX);
-      // Drool
-      ctx.fillStyle = '#FFEE44';
-      ctx.fillRect(x+5*PX, y+11*PX, PX, PX);
-      ctx.fillRect(x+7*PX, y+11*PX, PX, 2*PX);
-    }
-  }
-
-  _drawBoss_troll(ctx, x, y, state, PX) {
-    const C = _BOSS_COLORS.troll;
-    // Head — wide and round
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x+2*PX, y,       10*PX, PX);
-    ctx.fillRect(x+PX,   y+PX,    12*PX, 2*PX);
-    ctx.fillRect(x,      y+3*PX,  14*PX, 3*PX);   // wide jowls
-    // Head left highlight
-    ctx.fillStyle = '#3A9944';
-    ctx.fillRect(x+2*PX, y,      PX, PX);
-    ctx.fillRect(x+PX,   y+PX,   PX, 2*PX);
-    ctx.fillRect(x,      y+3*PX, PX, 3*PX);
-    // Head right shadow
-    ctx.fillStyle = '#1A5520';
-    ctx.fillRect(x+11*PX, y,      PX, PX);
-    ctx.fillRect(x+12*PX, y+PX,   PX, 2*PX);
-    ctx.fillRect(x+13*PX, y+3*PX, PX, 3*PX);
-    // Heavy brow ridge — dark band across forehead above eye
-    ctx.fillStyle = '#1A5520';
-    ctx.fillRect(x+4*PX, y,      6*PX, PX);       // brow top shadow
-    ctx.fillRect(x+3*PX, y+PX,   4*PX, PX);       // brow overhang left
-    ctx.fillRect(x+9*PX, y+PX,   3*PX, PX);       // brow overhang right
-    // Single red eye (center forehead)
-    ctx.fillStyle = C.eye;
-    ctx.fillRect(x+5*PX, y+PX,    3*PX,  2*PX);
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(x+6*PX, y+PX,    PX,    PX);     // pupil
-    // Eye inner glow highlight
-    ctx.fillStyle = '#FF8800';
-    ctx.fillRect(x+6*PX, y+PX,    2,     2);
-    // Open gaping mouth with teeth
-    ctx.fillStyle = C.mouth;
-    ctx.fillRect(x+2*PX, y+4*PX, 10*PX, 2*PX);
-    // Mouth inner depth
-    ctx.fillStyle = '#660000';
-    ctx.fillRect(x+3*PX, y+4*PX,  8*PX, PX);
-    ctx.fillStyle = '#FFFCE8';
-    for (let t = 0; t < 5; t++) ctx.fillRect(x+(t*2+2)*PX, y+4*PX, PX, PX);  // upper
-    for (let t = 0; t < 4; t++) ctx.fillRect(x+(t*2+3)*PX, y+5*PX, PX, PX);  // lower
-    // Chin drool drops
-    ctx.fillStyle = '#55EE66';
-    ctx.fillRect(x+4*PX, y+6*PX, PX, PX);
-    ctx.fillRect(x+7*PX, y+6*PX, PX, 2*PX);
-    ctx.fillRect(x+9*PX, y+6*PX, PX, PX);
-    // Massive hunched shoulders
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x-2*PX, y+6*PX,  18*PX, 3*PX);  // shoulders span
-    ctx.fillRect(x,      y+9*PX,  14*PX, 3*PX);  // torso
-    // Shoulder left highlight
-    ctx.fillStyle = '#3A9944';
-    ctx.fillRect(x-2*PX, y+6*PX,  PX, 3*PX);
-    ctx.fillRect(x-PX,   y+6*PX,  PX, PX);
-    // Shoulder right shadow
-    ctx.fillStyle = '#1A5520';
-    ctx.fillRect(x+15*PX, y+6*PX, PX, 3*PX);
-    // Torso left highlight / right shadow
-    ctx.fillStyle = '#3A9944';
-    ctx.fillRect(x,      y+9*PX,  PX, 3*PX);
-    ctx.fillStyle = '#1A5520';
-    ctx.fillRect(x+13*PX,y+9*PX,  PX, 3*PX);
-    // Lighter belly
-    ctx.fillStyle = C.belly;
-    ctx.fillRect(x+3*PX, y+9*PX,  8*PX, 2*PX);
-    // Belly center highlight
-    ctx.fillStyle = '#55BB55';
-    ctx.fillRect(x+5*PX, y+9*PX,  4*PX, PX);
-    // Club (left side)
-    ctx.fillStyle = C.club;
-    if (state === 'swipe') {
-      ctx.fillRect(x-6*PX, y+3*PX, 5*PX, 2*PX);  // handle
-      ctx.fillRect(x-7*PX, y+2*PX, 3*PX, 4*PX);  // club head
-      // Club head highlight
-      ctx.fillStyle = '#9A7020';
-      ctx.fillRect(x-7*PX, y+2*PX, PX, 4*PX);
-      // Wood grain lines
-      ctx.fillStyle = '#5A3A00';
-      ctx.fillRect(x-5*PX, y+3*PX, PX, 2*PX);
-      ctx.fillRect(x-3*PX, y+3*PX, PX, 2*PX);
-      // Metal nail spike
-      ctx.fillStyle = '#BBBBBB';
-      ctx.fillRect(x-8*PX, y+3*PX, PX, 2*PX);
-    } else {
-      ctx.fillRect(x-2*PX, y+6*PX, 2*PX, 6*PX);  // handle
-      ctx.fillRect(x-3*PX, y+6*PX, 4*PX, 4*PX);  // club head
-      // Club head highlight
-      ctx.fillStyle = '#9A7020';
-      ctx.fillRect(x-3*PX, y+6*PX, PX, 4*PX);
-      // Wood grain lines
-      ctx.fillStyle = '#5A3A00';
-      ctx.fillRect(x-2*PX, y+7*PX, PX, 3*PX);
-      ctx.fillRect(x+PX,   y+7*PX, PX, 3*PX);
-      // Metal nail spikes
-      ctx.fillStyle = '#BBBBBB';
-      ctx.fillRect(x-4*PX, y+7*PX, PX, 2*PX);
-      ctx.fillRect(x,      y+5*PX, PX, PX);
-    }
-    // Loincloth
-    ctx.fillStyle = C.loin;
-    ctx.fillRect(x+3*PX, y+12*PX, 8*PX, 2*PX);
-    // Loincloth top highlight
-    ctx.fillStyle = '#AA5522';
-    ctx.fillRect(x+3*PX, y+12*PX, 8*PX, PX);
-    // Legs
-    ctx.fillStyle = C.leg;
-    ctx.fillRect(x+2*PX,  y+12*PX, 4*PX, 3*PX);
-    ctx.fillRect(x+8*PX,  y+12*PX, 4*PX, 3*PX);
-    // Leg left highlights
-    ctx.fillStyle = '#2A7733';
-    ctx.fillRect(x+2*PX,  y+12*PX, PX, 3*PX);
-    ctx.fillRect(x+8*PX,  y+12*PX, PX, 3*PX);
-    // Leg right shadows
-    ctx.fillStyle = '#112218';
-    ctx.fillRect(x+5*PX,  y+12*PX, PX, 3*PX);
-    ctx.fillRect(x+11*PX, y+12*PX, PX, 3*PX);
-  }
 
   _drawHUD(ctx, ga) {
     const x = ga.x + Math.round(ga.w * 0.28);
@@ -1704,7 +950,7 @@ class SideScrollerEffect extends VisualEffect {
     const heroTarget = ga.x + ga.w * 0.28;
     hero.x += 80 * dt;
     hero.animT += dt;
-    if (hero.animT > 0.15) { hero.animT = 0; hero.frame = (hero.frame + 1) % 2; }
+    hero.frame = Math.floor(hero.animT * 4) % 5;
     hero.state = 'walk';
     this._drawBg(ga, 0);
     this._drawHero(this._ctx, hero);
@@ -1727,7 +973,7 @@ class SideScrollerEffect extends VisualEffect {
 
     // Walk anim
     hero.animT += dt;
-    if (hero.animT > 0.15) { hero.animT = 0; hero.frame = (hero.frame + 1) % 2; }
+    hero.frame = Math.floor(hero.animT * 4) % 5;
     hero.state = 'walk';
 
     // Spawn next enemy
@@ -1751,7 +997,8 @@ class SideScrollerEffect extends VisualEffect {
     this._drawBg(ga, dt);
     if (this._enemy) this._drawEnemy(this._ctx, this._enemy);
     this._drawHero(this._ctx, hero);
-    this._drawFgOverlay(ga);
+    this._updateParticles(dt);
+    this._drawParticles(this._ctx);
     this._updateFloatTexts(dt);
     this._drawFloatTexts(this._ctx);
     this._drawHUD(this._ctx, ga);
@@ -1759,13 +1006,15 @@ class SideScrollerEffect extends VisualEffect {
 
   _spawnEnemy(ga) {
     const type = this._enemyQueue.shift();
-    const PX = SideScrollerEffect.PX;
-    const floatOff = { harpy: 20, imp: 15 }[type] || 0;
-    const h = ({ goblin:10, slime:7, harpy:12, wolf:9, imp:12, boar:8, mimic:10 }[type] || 10) * PX;
+    // Sprite heights (bounding box) at 1:1 scale, plus fly offset for airborne enemies
+    const heightMap = { imp: 75, wolf: 43, harpy: 75, boar: 45 };
+    const flyMap    = { imp: 30, harpy: 30 };
+    const h       = heightMap[type] || 60;
+    const flyOff  = flyMap[type]    || 0;
     this._enemy = {
       type, state: 'walk',
       x: ga.x + ga.w + 10,
-      y: this._groundY - h - floatOff,
+      y: this._groundY + 7 - h - flyOff,
       spawnScrollX: this._scrollX,
       frame: 0, animT: 0, flashT: 0, dyingT: 0,
     };
@@ -1777,6 +1026,7 @@ class SideScrollerEffect extends VisualEffect {
     this._inCombat = true;
     this._combatT  = 0;
     this._hero.state = 'slash';
+    this._hero.frame = 0;
     this._enemy.state = 'hit';
   }
 
@@ -1786,8 +1036,8 @@ class SideScrollerEffect extends VisualEffect {
     const hero  = this._hero;
     const enemy = this._enemy;
 
-    if (ct < 0.2)  hero.state = 'slash';
-    if (ct >= 0.2) hero.state = 'idle';
+    if (ct < 0.45) { hero.state = 'slash'; hero.frame = Math.min(Math.floor(ct * 11), 4); }
+    if (ct >= 0.45) hero.state = 'idle';
     if (ct >= 0.25 && enemy && enemy.flashT <= 0) enemy.flashT = 0.12;
     if (enemy && enemy.flashT > 0) enemy.flashT -= dt;
     if (ct >= 0.35 && enemy && enemy.state !== 'dying') { enemy.state = 'dying'; enemy.dyingT = 0; }
@@ -1819,7 +1069,8 @@ class SideScrollerEffect extends VisualEffect {
     this._drawBg(ga, 0);
     if (enemy && enemy.state !== 'gone') this._drawEnemy(this._ctx, enemy);
     this._drawHero(this._ctx, hero);
-    this._drawFgOverlay(ga);
+    this._updateParticles(dt);
+    this._drawParticles(this._ctx);
     this._updateFloatTexts(dt);
     this._drawFloatTexts(this._ctx);
     this._drawHUD(this._ctx, ga);
@@ -1862,7 +1113,8 @@ class SideScrollerEffect extends VisualEffect {
     this._drawBg(ga, 0);
     if (this._enemy) this._drawEnemy(this._ctx, this._enemy);
     this._drawHero(this._ctx, this._hero);
-    this._drawFgOverlay(ga);
+    this._updateParticles(dt);
+    this._drawParticles(this._ctx);
     this._drawHUD(this._ctx, ga);
     if (this._levelUpPhase === 'flash' && this._levelUpT < 0.7) {
       const scale = 1 + Math.sin(this._levelUpT * Math.PI / 0.7) * 0.3;
@@ -1883,10 +1135,8 @@ class SideScrollerEffect extends VisualEffect {
 
   _startBossPhase(ga) {
     this._bossSpawned = true;
-    const PX = SideScrollerEffect.PX;
-    // Each boss sprite has a different pixel height to the bottom of its feet
-    const bossH = { orc: 14, blob: 15, troll: 15 }[this._bossType] || 15;
-    const bossY  = this._groundY - bossH * PX;
+    // Ogre sprite bounding box height = 75px at 1:1
+    const bossY = this._groundY + 5 - Math.round(75 * 1.6);
     this._boss = {
       type: this._bossType,
       x: ga.x + ga.w + 60,
@@ -1910,7 +1160,7 @@ class SideScrollerEffect extends VisualEffect {
     if (boss.state === 'walk_in') {
       this._scrollX += SideScrollerEffect.SCROLL_SPEED * dt;
       hero.animT += dt;
-      if (hero.animT > 0.15) { hero.animT = 0; hero.frame = (hero.frame + 1) % 2; }
+      hero.frame = Math.floor(hero.animT * 4) % 5;
       hero.state = 'walk';
       boss.x -= SideScrollerEffect.SCROLL_SPEED * dt;
       if (boss.x <= target) {
@@ -1939,14 +1189,13 @@ class SideScrollerEffect extends VisualEffect {
     }
     if (boss.state === 'swipe' && boss.scriptT >= 2.0) { this._state = 'game_over'; this._t = 0; boss.state = 'victory'; }
 
-    boss.bobT    += dt;
-    // Gentle upward-only breathe — boss never lifts off ground
-    boss.bobOffset = -Math.abs(Math.sin(boss.bobT * 1.2)) * 2;
+    boss.bobOffset = 0;
 
     this._drawBg(ga, dt);
     this._drawHero(this._ctx, this._hero);
     this._drawBoss(this._ctx, boss);
-    this._drawFgOverlay(ga);
+    this._updateParticles(dt);
+    this._drawParticles(this._ctx);
     this._updateFloatTexts(dt);
     this._drawFloatTexts(this._ctx);
     this._drawHUD(this._ctx, ga);
@@ -1956,16 +1205,13 @@ class SideScrollerEffect extends VisualEffect {
     const boss = this._boss;
     const ctx  = this._ctx;
 
-    // Solid dark background — no faded-asset soup
-    ctx.fillStyle = '#040408';
-    ctx.fillRect(ga.x, ga.y, ga.w, ga.h);
-
-    // Boss laughs — bobs fast and alternates idle/roar
+    // Draw full scene frozen in place
+    this._drawBg(ga, 0);
+    this._drawHero(ctx, this._hero);
     if (boss) {
-      boss.bobT    += dt;
-      boss.bobOffset = Math.sin(boss.bobT * 9) * 6;
-      boss.state   = Math.floor(this._t / 0.28) % 2 === 0 ? 'idle' : 'roar';
-      boss.roaring = (boss.state === 'roar');
+      boss.state     = 'idle';
+      boss.bobOffset = 0;
+      boss.roaring   = false;
       this._drawBoss(ctx, boss);
     }
 
@@ -1974,7 +1220,7 @@ class SideScrollerEffect extends VisualEffect {
     const blinking = this._t < 1.2;
     const visible  = !blinking || blinks % 2 === 0;
     if (visible) {
-      ctx.font = 'bold 28px "Courier New", monospace';
+      ctx.font = 'bold 32px "Press Start 2P", "Courier New", monospace';
       ctx.textAlign = 'center';
       const cx = ga.x + ga.w / 2;
       const cy = ga.y + ga.h / 2 + 4;
@@ -2031,10 +1277,32 @@ class SideScrollerEffect extends VisualEffect {
   }
 
   _spawnDeathParticles(enemy) {
-    const colors = { goblin:'#4AAA22', slime:'#22AA22', harpy:'#CC88EE', wolf:'#1A1E2A', imp:'#DD5544', boar:'#CC6633', mimic:'#FFB800' };
+    const colors = { harpy:'#CC88EE', wolf:'#1A1E2A', imp:'#DD5544', boar:'#CC6633' };
     const c = colors[enemy.type] || '#FFFFFF';
     for (let i = 0; i < 12; i++)
       this._particles.push({ x:enemy.x+Math.random()*40, y:enemy.y+Math.random()*30, color:c, vx:(Math.random()-0.5)*100, vy:-60-Math.random()*60, size:2+Math.random()*4, life:0.6+Math.random()*0.5, maxLife:1.1 });
+  }
+
+  _spawnSpriteParticles(oc, worldX, worldY) {
+    if (!oc) return;
+    const d    = oc.getContext('2d').getImageData(0, 0, oc.width, oc.height).data;
+    const step = 3;
+    for (let py = 0; py < oc.height; py += step) {
+      for (let px = 0; px < oc.width; px += step) {
+        const i = (py * oc.width + px) * 4;
+        if (d[i + 3] < 128) continue;
+        const color = `#${d[i].toString(16).padStart(2,'0')}${d[i+1].toString(16).padStart(2,'0')}${d[i+2].toString(16).padStart(2,'0')}`;
+        this._particles.push({
+          x: worldX + px, y: worldY + py,
+          color,
+          vx: (Math.random() - 0.5) * 160,
+          vy: -90 - Math.random() * 90,
+          size: step + 1,
+          life: 0.5 + Math.random() * 0.5,
+          maxLife: 1.0,
+        });
+      }
+    }
   }
 
   _spawnBossRoarParticles(x, y) {
@@ -2054,24 +1322,6 @@ class SideScrollerEffect extends VisualEffect {
 
 }
 
-// ── Sprite color palettes ────────────────────────────────────────────────────
-
-const _HERO_COLORS = { H:'#4A2000', S:'#FFB870', T:'#2244AA', B:'#885500', G:'#3A1A00', W:'#CCDDFF', X:'#885500' };
-
-const _BOSS_COLORS = {
-  orc:  { body:'#4A8A22', horn:'#DDBB22', eye:'#FFEE00', tusk:'#EEDDAA', armor:'#667755', mouth:'#CC0000', boot:'#331100' },
-  blob: { body:'#FFCC00', shine:'#FFEE88', eyeOuter:'#111111', eyeRed:'#FF2200', mouth:'#CC0000' },
-  troll:{ body:'#2A7733', belly:'#44AA44', eye:'#FF2200', club:'#7A5500', loin:'#8B4513', leg:'#1A5528', mouth:'#CC0000' },
-};
-
-const _ENEMY_COLORS = {
-  goblin:  { body:'#4AAA22', dark:'#226611', eye:'#FF6600', spear:'#BB9955', cloth:'#885522' },
-  slime:   { body:'#22AA22', shine:'#77EE55', eye:'#111111' },
-  harpy:   { hair:'#44DDAA', skin:'#FFCCAA', wing:'#CC88EE', wingDark:'#9944BB', body:'#FFAACC', eye:'#FF0099', talon:'#DDAA22' },
-  wolf:    { body:'#1A1E2A', saddle:'#2A3040', snout:'#181C28', eye:'#FF0000' },
-  imp:     { wing:'#880011', body:'#DD5544', horn:'#660022', eye:'#FFFF00', trident:'#CCAA00' },
-  boar:    { body:'#CC6633', light:'#EEAA66', snout:'#DDBB99', tusk:'#FFFFCC', eye:'#220022', mane:'#882211' },
-  mimic:   { box:'#8B4513', goldTrim:'#FFB800', lid:'#6B3410', lock:'#FFCC00', teeth:'#FFFCE8', eye:'#FF4400', leg:'#AA5500' },
-};
+// (Color palette constants removed — sprites are now drawn from JSON pixel art data.)
 
 PackageRegistry.registerEffect(new SideScrollerEffect());

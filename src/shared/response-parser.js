@@ -35,13 +35,16 @@ function parseResponse(raw) {
   const thoughtsMatch = text.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
-  // Extract emotion (emotion_id) — must match one of our 19 emotions
-  const emotionMatch = text.match(/\(([a-z_]+)\)/);
+  // Extract emotion — scan ALL (word) and *(word)* patterns, use the first valid emotion ID.
+  // Claude occasionally wraps the tag in asterisks or uses a non-canonical name; scanning all
+  // candidates (rather than taking only the first match) makes the parser much more resilient.
+  const emotionCandidates = [...text.matchAll(/\*?\(([a-z_]+)\)\*?/g)];
   let emotion = 'neutral';
-  if (emotionMatch) {
-    const candidate = emotionMatch[1].toLowerCase().trim();
+  for (const m of emotionCandidates) {
+    const candidate = m[1].toLowerCase().trim();
     if (EMOTION_MAP[candidate] || COMBINED_EMOTION_MAP[candidate]) {
       emotion = candidate;
+      break;
     }
   }
 
