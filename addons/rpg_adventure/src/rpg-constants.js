@@ -38,7 +38,7 @@ const ARCHETYPE_DISTRIBUTIONS = {
 
 // ── Tier Power Multipliers ─────────────────────────────────────────────────────
 // Index by (tier - 1). Custom handcrafted curve, not a formula.
-const TIER_MULTIPLIERS = [0.9, 1.8, 3.0, 6.5, 10.0, 15.0, 24.0, 40.0, 54.0, 60.0];
+const TIER_MULTIPLIERS = [0.9, 1.8, 3.1, 6.5, 10.0, 15.0, 24.0, 40.0, 54.0, 60.0];
 
 // ── Base Hit/Dodge Values ──────────────────────────────────────────────────────
 // All characters start with these before secondary stat gear is applied.
