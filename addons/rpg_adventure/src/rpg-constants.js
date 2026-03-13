@@ -8,7 +8,7 @@
 // ── Difficulty Brackets ───────────────────────────────────────────────────────
 // baseBudget = stat budget at zone level 1; scales by Math.pow(zoneLevel, 1.3)
 const BRACKETS = {
-  minion:   { id: 'minion',   baseBudget:   14, xpMult:  1.0, goldMult:  1.0, tier: [1]       },
+  minion:   { id: 'minion',   baseBudget:   17, xpMult:  1.0, goldMult:  1.0, tier: [1]       },
   scout:    { id: 'scout',    baseBudget:   60, xpMult:  1.5, goldMult:  1.2, tier: [2]       },
   soldier:  { id: 'soldier',  baseBudget:   95, xpMult:  2.0, goldMult:  1.5, tier: [3]       },
   elite:    { id: 'elite',    baseBudget:  157, xpMult:  3.0, goldMult:  2.0, tier: [4, 5]    },
