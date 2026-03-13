@@ -13,7 +13,7 @@ const BRACKETS = {
   soldier:  { id: 'soldier',  baseBudget:   90, xpMult:  2.0, goldMult:  1.5, tier: [3]       },
   elite:    { id: 'elite',    baseBudget:  150, xpMult:  3.0, goldMult:  2.0, tier: [4, 5]    },
   champion: { id: 'champion', baseBudget:  250, xpMult:  5.0, goldMult:  3.0, tier: [5, 6]    },
-  legend:   { id: 'legend',   baseBudget:  470, xpMult:  8.0, goldMult:  5.0, tier: [6, 7, 8] },
+  legend:   { id: 'legend',   baseBudget:  450, xpMult:  8.0, goldMult:  5.0, tier: [6, 7, 8] },
   apex:     { id: 'apex',     baseBudget:  650, xpMult: 12.0, goldMult:  8.0, tier: [8, 9]    },
   god_tier: { id: 'god_tier', baseBudget: 1000, xpMult: 20.0, goldMult: 15.0, tier: [9, 10]   },
   boss:     { id: 'boss',     baseBudget:    0, xpMult: 15.0, goldMult: 10.0, tier: 'any',
