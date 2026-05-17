@@ -1,5 +1,14 @@
 # Claude Companion — Working Instructions for Claude
 
+## GitHub Push Account
+
+`tristansinclair77`
+
+This repo lives at `tristansinclair77/Claude-Companion`. Before any `git push`,
+run `gh auth switch -u tristansinclair77`. Commits remain authored as
+**Sansflaire** per global rule. See `~/.claude/CLAUDE.md` → "Git Push Account
+Switching" for the protocol.
+
 @.claude/aria-context.md
 
 > ⬆ The import above pulls live Aria context (personality, memories, emotional state)
