@@ -10,43 +10,67 @@ const { EMOTION_MAP, COMBINED_EMOTION_MAP, RESPONSE_MARKERS } = require('./const
  *   [MEMORY] category: fact   (optional, one or more)
  *
  * @param {string} raw - Raw response text from Claude
- * @returns {{ dialogue: string, thoughts: string, emotion: string, memories: Array }}
+ * @param {object} [opts]
+ * @param {string} [opts.fallbackEmotion]  Emotion to use when the model omits the tag entirely
+ *                                         (e.g. inherit the previous turn's emotion instead of
+ *                                         snapping back to a blank "neutral" portrait).
+ * @returns {{ dialogue: string, thoughts: string, emotion: string, emotionExplicit: boolean, memories: Array }}
  */
-function parseResponse(raw) {
+function parseResponse(raw, opts = {}) {
+  const fallbackEmotion = (opts && typeof opts.fallbackEmotion === 'string' && opts.fallbackEmotion)
+    ? opts.fallbackEmotion
+    : 'neutral';
+
   if (!raw || typeof raw !== 'string') {
-    return { dialogue: '', thoughts: '', emotion: 'neutral', memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [] };
+    return { dialogue: '', thoughts: '', emotion: fallbackEmotion, emotionExplicit: false, memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [] };
   }
 
   const text = raw.trim();
 
-  // Extract [DIALOGUE] — structural tags only count as section separators when they START a new line.
-  // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text, not a split point.
-  // [THREAD] omitted from lookahead deliberately (Aria may mention it in prose).
-  const dialogueMatch = text.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
-  // Strip any residual inline structural markers so they don't appear verbatim in the UI.
+  // ── Step 1: Locate the canonical end-of-message emotion tag ────────────────
+  // Scan ALL (word) / *(word)* / **(word)** candidates case-insensitively. The
+  // emotion tag is canonically the LAST valid one in the message, so prefer the
+  // last valid candidate (this is robust to dialogue containing parens-words
+  // like "(yeah)" or "(love)" that are NOT real emotions).
+  // We track the position of the chosen emotion tag so we can use it as a
+  // reliable upstream boundary for [DIALOGUE] / [THOUGHTS].
+  const emotionRegex = /(\*{1,2})?\(([a-zA-Z_]+)\)\1?/g;
+  let emotion = fallbackEmotion;
+  let emotionExplicit = false;
+  let emotionTagStart = text.length; // boundary for dialogue/thoughts capture
+  let emoMatch;
+  while ((emoMatch = emotionRegex.exec(text)) !== null) {
+    const candidate = emoMatch[2].toLowerCase().trim();
+    if (EMOTION_MAP[candidate] || COMBINED_EMOTION_MAP[candidate]) {
+      // Prefer the LAST valid match — keep updating as we scan
+      emotion = candidate;
+      emotionExplicit = true;
+      emotionTagStart = emoMatch.index;
+    }
+  }
+
+  // Substring upstream of the emotion tag — everything dialogue/thoughts can live in.
+  const beforeEmotion = text.slice(0, emotionTagStart);
+
+  // ── Step 2: Extract [DIALOGUE] ─────────────────────────────────────────────
+  // Structural tags only count as section separators when they START a new line.
+  // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text.
+  // The emotion tag (already located above) bounds the search, so we no longer rely
+  // on a fragile `\([a-z_]+\)` lookahead that would over-match parens-words in prose.
+  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\])|$)/i);
   const dialogue = dialogueMatch
     ? dialogueMatch[1].trim()
-        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST)\]/gi, '')
+        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION)\]/gi, '')
         .replace(/\\n/g, ' ')  // strip literal \n text Claude occasionally outputs
         .trim()
     : '';
 
-  // Extract [THOUGHTS] — only match when the tag starts a line; mid-sentence mentions are ignored.
-  const thoughtsMatch = text.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\])|\([a-z_]+\)|$)/i);
+  // ── Step 3: Extract [THOUGHTS] ─────────────────────────────────────────────
+  // Only match when the tag starts a line; mid-sentence mentions are ignored.
+  // Bounded by the emotion tag position (via beforeEmotion) so paren-words in the
+  // thoughts text can no longer cut the capture short.
+  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\])|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
-
-  // Extract emotion — scan ALL (word) and *(word)* patterns, use the first valid emotion ID.
-  // Claude occasionally wraps the tag in asterisks or uses a non-canonical name; scanning all
-  // candidates (rather than taking only the first match) makes the parser much more resilient.
-  const emotionCandidates = [...text.matchAll(/\*?\(([a-z_]+)\)\*?/g)];
-  let emotion = 'neutral';
-  for (const m of emotionCandidates) {
-    const candidate = m[1].toLowerCase().trim();
-    if (EMOTION_MAP[candidate] || COMBINED_EMOTION_MAP[candidate]) {
-      emotion = candidate;
-      break;
-    }
-  }
 
   // Extract [MEMORY] tags (new facts)
   const memories = [];
@@ -156,6 +180,7 @@ function parseResponse(raw) {
     dialogue: finalDialogue,
     thoughts,
     emotion,
+    emotionExplicit,
     memories,
     memoryUpdates,
     selfFacts,

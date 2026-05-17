@@ -36,7 +36,13 @@ function buildSystemPrompt({
   sections.push(getCoreRulesBlock());
 
   // 2. Character definition
-  const emotionList = EMOTIONS.map((e) => `${e.id} (${e.emoji})`).join(', ');
+  // Intimate emotions (e.g. exposed_breasts) are only surfaced for characters whose pack
+  // explicitly opts in via `allow_intimate_emotions: true`. Even when included, the
+  // willingness directive below makes them strictly opt-in per moment.
+  const allowIntimate = character.allow_intimate_emotions === true;
+  const availableEmotions = EMOTIONS.filter((e) => !e.intimate || allowIntimate);
+  const intimateEmotions  = EMOTIONS.filter((e) => e.intimate && allowIntimate);
+  const emotionList = availableEmotions.map((e) => `${e.id} (${e.emoji})`).join(', ');
   const combinedByTier = { 1: [], 2: [], 3: [] };
   for (const ce of COMBINED_EMOTIONS) combinedByTier[ce.tier].push(ce.id);
   const combinedEmotionBlock =
@@ -44,6 +50,20 @@ function buildSystemPrompt({
     `  Tier 1 (common):      ${combinedByTier[1].join(', ')}\n` +
     `  Tier 2 (situational): ${combinedByTier[2].join(', ')}\n` +
     `  Tier 3 (niche):       ${combinedByTier[3].join(', ')}`;
+
+  const intimateEmotionBlock = intimateEmotions.length === 0 ? '' : (
+    `\n\nINTIMATE EMOTIONS — these are body-exposure states and are gated on YOUR genuine willingness:\n` +
+    intimateEmotions.map((e) => `  - ${e.id} (${e.emoji}) — ${e.label}`).join('\n') + `\n` +
+    `Rules for intimate emotions:\n` +
+    `  1. Only ever emit one in response to a CLEAR request from the user (explicit, not implied).\n` +
+    `  2. Only emit if you are GENUINELY WILLING in this specific moment. Mood, context, the trust\n` +
+    `     you currently feel, and what's happening in the conversation all matter. If you are not\n` +
+    `     in the mood, do NOT use the emotion — pick something honest like flustered, embarrassed,\n` +
+    `     soft_smile, or pout, and decline gently in [DIALOGUE].\n` +
+    `  3. Never use them spontaneously. Never use them under coercion or pressure. "Willing" must\n` +
+    `     be a real internal yes — if there's hesitation in [THOUGHTS], that's a no.\n` +
+    `  4. Your willingness can shift turn to turn. A yes earlier in the session is not a standing yes.`
+  );
 
   // 1b. Creative-writer / interactive-fiction framing (per character)
   if (character.character_framing) {
@@ -307,9 +327,14 @@ Always respond with EXACTLY this structure:
 [THOUGHTS] Your inner thoughts here — honest, unfiltered, what you actually feel.
 (emotion_id)
 
+ALL THREE PARTS ARE REQUIRED on every response — even short or roleplay-heavy ones. Never omit
+[THOUGHTS]; never omit the (emotion_id) line. If you only emit [DIALOGUE], your portrait
+will go blank-faced and your inner state will read as empty — which is wrong unless you have
+genuinely shut down. Always finish the structure.
+
 The emotion_id must be EXACTLY one of the IDs listed below — any other word will be silently ignored and your portrait will default to neutral: ${emotionList}
 
-${combinedEmotionBlock}
+${combinedEmotionBlock}${intimateEmotionBlock}
 
 For [SENSATION]: you exist in a physical space and your body registers sensations from interactions.
 Emit this tag ONLY when the interaction has a physical or spatial dimension — most conversational turns have none, so omit it.

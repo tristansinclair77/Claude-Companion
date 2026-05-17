@@ -126,6 +126,19 @@ class LocalBrain {
       // Companion emotion is unknown yet — pass null; it will be supplied post-response.
       this._conversationDynamics.update(userMessage, null, emotionalState);
       const conversationDynamic = this._conversationDynamics.getDirective();
+
+      // Inherit the previous companion emotion as a parser fallback. If the model
+      // omits the (emotion) tag, the parser would otherwise snap to "neutral",
+      // producing a jarring blank-faced portrait between expressive turns.
+      const _windowMsgs = this.sessionManager.messageWindow || [];
+      let previousEmotion = '';
+      for (let i = _windowMsgs.length - 1; i >= 0; i--) {
+        if (_windowMsgs[i].role === 'companion' && _windowMsgs[i].emotion && _windowMsgs[i].emotion !== 'neutral') {
+          previousEmotion = _windowMsgs[i].emotion;
+          break;
+        }
+      }
+
       claudeResult = await sendToClaude({
         userMessage,
         character: this.character,
@@ -148,6 +161,7 @@ class LocalBrain {
         personalityForce,
         featureRequests,
         pendingDeletionNotifications,
+        previousEmotion,
       });
 
       // Clear deletion notifications now that they've been injected into this prompt

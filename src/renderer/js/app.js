@@ -31,6 +31,28 @@
   RvcSettings.init();
   HelpPanel.init();
 
+  // Chat-storage size warning — fires once on startup if knowledge.db > 1 GB.
+  // The DB never auto-prunes, so this is the user's nudge to clean things up.
+  (async () => {
+    const WARN_THRESHOLD = 1024 * 1024 * 1024; // 1 GB
+    try {
+      const { bytes } = await window.claudeAPI.getChatStorageSize();
+      if (typeof bytes !== 'number' || bytes < WARN_THRESHOLD) return;
+      const banner   = document.getElementById('storage-warning');
+      const text     = document.getElementById('storage-warning-text');
+      const dismiss  = document.getElementById('storage-warning-dismiss');
+      if (!banner || !text || !dismiss) return;
+      const gb = (bytes / (1024 * 1024 * 1024)).toFixed(2);
+      text.innerHTML =
+        `⚠ Chat storage is <strong>${gb} GB</strong>. Consider archiving or deleting old messages ` +
+        `from the message editor to keep performance snappy.`;
+      banner.classList.remove('hidden');
+      dismiss.addEventListener('click', () => banner.classList.add('hidden'), { once: true });
+    } catch (err) {
+      console.warn('[App] Storage size check failed:', err);
+    }
+  })();
+
   // Emotional axis monitor pop-out
   document.getElementById('btn-axis').addEventListener('click', () => {
     window.claudeAPI.openEmotionalState();

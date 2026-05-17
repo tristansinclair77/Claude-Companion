@@ -19,15 +19,15 @@
     "gridAnimate": false,
     "gridOpacity": 0,
     "barWidth": 80,
-    "filmGrain": true,
-    "filmGrainOpacity": 2,
-    "filmGrainAnimate": true,
+    "filmGrain": false,
+    "filmGrainOpacity": 5,
+    "filmGrainAnimate": false,
     "dataRain": false,
     "circuitPattern": false,
     "edgeGlow": false,
     "chromaticAberration": false,
-    "scanlinesIntensity": "light",
-    "parchmentOpacity": 0,
+    "scanlinesIntensity": "off",
+    "parchmentOpacity": 30,
     "seasonMode": "sunbeams",
     "vuAmp": 5,
     "vuSpeed": 22,
@@ -36,12 +36,10 @@
     "arcadeAttract": true,
     "arcadeGlitches": true,
     "moduleEnabled": {
-      "arcadeBorder": true,
-      "scanlines": true,
-      "filmGrain": true,
-      "tvGlass": true
+      "parchment": true,
+      "seasons": true
     },
-    "activePackage": "arcade_cabinet",
+    "activePackage": "fantasy_rpg",
     "packages": [
       {
         "id": "cybernetic",
@@ -82,7 +80,7 @@
         ],
         "effects": {
           "grid": "hex",
-          "gridColor": "green",
+          "gridColor": "cyan",
           "gridAnimate": true,
           "gridOpacity": 10,
           "filmGrain": true,
@@ -94,19 +92,19 @@
           "chromaticAberration": true,
           "scanlinesIntensity": "heavy",
           "parchmentOpacity": 0,
-          "vuAmp": 5,
-          "vuSpeed": 22,
-          "moduleEnabled": {
-            "grid": true,
-            "filmGrain": true,
-            "overlayEffects": true,
-            "scanlines": true
-          },
           "seasonMode": "sunbeams",
+          "vuAmp": 1,
+          "vuSpeed": 60,
           "arcadeRasterBeam": true,
           "arcadePixelDust": true,
           "arcadeAttract": true,
-          "arcadeGlitches": true
+          "arcadeGlitches": true,
+          "moduleEnabled": {
+            "grid": true,
+            "filmGrain": false,
+            "overlayEffects": true,
+            "scanlines": false
+          }
         },
         "background": {
           "type": "none",
@@ -257,7 +255,6 @@
           "chromaticAberration": false,
           "scanlinesIntensity": "light",
           "parchmentOpacity": 0,
-          "seasonMode": "sunbeams",
           "vuAmp": 5,
           "vuSpeed": 22,
           "arcadeRasterBeam": true,
@@ -269,7 +266,8 @@
             "scanlines": true,
             "filmGrain": true,
             "tvGlass": true
-          }
+          },
+          "seasonMode": "sunbeams"
         },
         "background": {
           "type": "none",
@@ -310,5 +308,14 @@
       "height": 600
     }
   },
-  "responseLength": "very_long"
+  "responseLength": "very_long",
+  "personaHistory": [
+    {
+      "id": "p_1779043925917_seed",
+      "text": "Loves acting like a massive slut, expressing herself in a lewd way with extreme dirty talk and accurate sexual descriptions of actions and imagery.",
+      "favorite": true,
+      "createdAt": 1779043925917,
+      "lastUsedAt": 1779043925917
+    }
+  ]
 }

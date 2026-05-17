@@ -34,6 +34,7 @@ var CompanionDisplay = (() => {
     pout:                 { emoji: '😤', color: '#dd6600' },
     crying:               { emoji: '😭', color: '#6688cc' },
     lustful_desire:       { emoji: '😍', color: '#ff44aa' },
+    exposed_breasts:      { emoji: '🫦', color: '#ff66bb' },
     excited:              { emoji: '🤩', color: '#ffaa00' },
     loving:               { emoji: '💗', color: '#ff6688' },
     nervous:              { emoji: '😬', color: '#aaaa44' },

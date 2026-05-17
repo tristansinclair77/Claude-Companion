@@ -147,7 +147,9 @@
     <div id="persona-popup" class="hidden">
       <div class="persona-popup-label">// PERSONALITY DIRECTIVE</div>
       <textarea id="persona-input" placeholder="Describe a temporary personality shift&#10;e.g. &quot;be more cold and aloof today&quot;&#10;or &quot;you're in an extremely playful mood&quot;&#10;&#10;Leave empty to use default." maxlength="500" spellcheck="false" rows="5"></textarea>
+      <div id="persona-history-list" class="hidden"></div>
       <div class="persona-popup-actions">
+        <button id="btn-persona-history" title="Show recent and favorite personas">▾ HISTORY</button>
         <button id="btn-persona-clear">CLEAR</button>
         <button id="btn-persona-apply" class="persona-apply-btn">APPLY</button>
       </div>
@@ -551,6 +553,12 @@
 
   <!-- Toast notification -->
   <div id="toast" class="hidden"></div>
+
+  <!-- Chat-storage size warning (shown on startup when knowledge.db exceeds threshold) -->
+  <div id="storage-warning" class="hidden">
+    <span id="storage-warning-text"></span>
+    <button id="storage-warning-dismiss" title="Dismiss">×</button>
+  </div>
 
   <!-- Renderer scripts (order matters) -->
   <script src="js/ui-effects.js"></script>

@@ -373,6 +373,79 @@ html { background: var(--bg-dark); }
   box-shadow: 0 0 8px #cc88ff44 !important;
 }
 
+/* Persona history dropdown — slides in between textarea and actions */
+#persona-history-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #cc88ff22;
+  background: #0a0a1266;
+  border-radius: 2px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#persona-history-list .ph-empty {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #cc88ff55;
+  padding: 8px;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+#persona-history-list .ph-section-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: #cc88ff66;
+  padding: 4px 6px 2px;
+  text-transform: uppercase;
+}
+#persona-history-list .ph-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: background 80ms;
+}
+#persona-history-list .ph-row:hover {
+  background: #cc88ff11;
+  border-color: #cc88ff33;
+}
+#persona-history-list .ph-star {
+  flex: 0 0 auto;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: #cc88ff44;
+  padding: 2px;
+  user-select: none;
+}
+#persona-history-list .ph-star.fav { color: #ffdd00; text-shadow: 0 0 4px #ffdd0066; }
+#persona-history-list .ph-star:hover { color: #ffdd88; }
+#persona-history-list .ph-text {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+#persona-history-list .ph-del {
+  flex: 0 0 auto;
+  cursor: pointer;
+  font-size: 11px;
+  color: #cc88ff33;
+  padding: 2px 4px;
+  user-select: none;
+}
+#persona-history-list .ph-del:hover { color: #ff4466; }
+
 /* Tracker popup — Aria's self-chosen counters, floats above TRACK button */
 #tracker-popup {
   position: absolute;
@@ -830,6 +903,48 @@ html { background: var(--bg-dark); }
   z-index: 500;
   text-shadow: 0 0 6px var(--green);
   animation: fadeInOut 2.5s ease forwards;
+}
+
+/* ── Storage size warning banner (1 GB threshold, startup) ──────────────────── */
+#storage-warning {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #1a0c00;
+  border: 1px solid #ff8800;
+  color: #ffaa44;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 8px 12px;
+  max-width: 560px;
+  z-index: 950;
+  box-shadow: 0 0 16px #ff880044;
+  text-shadow: 0 0 6px #ff880055;
+}
+#storage-warning #storage-warning-text {
+  flex: 1 1 auto;
+  line-height: 1.4;
+}
+#storage-warning #storage-warning-dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid #ff880055;
+  color: #ffaa44;
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  padding: 0;
+}
+#storage-warning #storage-warning-dismiss:hover {
+  background: #ff880022;
+  color: #ffdd88;
 }
 
 /* ── Utilities ──────────────────────────────────────────────────────────────── */

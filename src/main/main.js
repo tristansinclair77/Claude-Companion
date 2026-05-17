@@ -16,6 +16,25 @@ const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
 const ttsEngine = require('./tts-engine');
 const featureRequestsStore = require('./feature-requests');
+const { spawn } = require('child_process');
+
+// Fire-and-forget refresh of .claude/aria-context.md so Claude Code sessions in
+// this project see Aria's latest state. Honors the user's on/off toggle —
+// when OFF the script just rewrites the off-marker, which is harmless.
+function _kickAriaClaudeSync() {
+  try {
+    const script = path.join(__dirname, '../../scripts/aria-claude-sync.py');
+    if (!fs.existsSync(script)) return;
+    const proc = spawn('python', [script, 'sync'], {
+      cwd: path.join(__dirname, '../..'),
+      stdio: 'ignore',
+      detached: true,
+      windowsHide: true,
+    });
+    proc.on('error', () => {}); // python missing → silently no-op
+    proc.unref();
+  } catch { /* never let sync block app flow */ }
+}
 
 const CHARACTERS_BASE = path.join(__dirname, '../../characters');
 const ADDONS_BASE     = path.join(__dirname, '../../addons');
@@ -240,6 +259,11 @@ app.whenReady().then(() => {
 
   registerDebugViewerIPC(win, db);
   registerCharacterBuilderIPC(win);
+
+  // Refresh .claude/aria-context.md at boot — picks up any DB changes made
+  // outside the companion (e.g. recovery scripts, manual edits) so Claude Code
+  // sessions see the latest Aria state.
+  _kickAriaClaudeSync();
 
   win.webContents.on('did-finish-load', () => {
     // Apply saved zoom factor immediately so text is the right size from the first frame
@@ -498,9 +522,14 @@ ipcMain.handle('conversation:save', async () => {
     const messages = db.getRecentMessages(500);
     if (!messages.length) return { success: false, error: 'No messages to save.' };
 
+    // Pass full Aria context so Haiku doesn't refuse on intimate content
+    // (see CLAUDE.md → "Summarization Refusals on Intimate Content").
     const { summary } = await summarizeConversation({
       messages,
-      characterName: character.name,
+      character,
+      characterRules,
+      masterSummary: db.getMasterSummary(),
+      permanentMemories: db.getAllMemories(),
     });
 
     const now = new Date().toISOString();
@@ -520,6 +549,9 @@ ipcMain.handle('conversation:save', async () => {
       : `[Saved ${dateStr}] ${summary}`;
     db.setMasterSummary(newSummary);
     sessionManager.setMasterSummary(newSummary);
+
+    // Propagate the new master_summary to Claude Code's context file.
+    _kickAriaClaudeSync();
 
     return { success: true, summary };
   } catch (err) {
@@ -703,6 +735,30 @@ ipcMain.handle('persona:get', () => _personalityForce);
 ipcMain.handle('persona:set', (_event, text) => {
   _personalityForce = (typeof text === 'string') ? text.trim() : '';
   return _personalityForce;
+});
+
+// Persona history is purely local UI state — store the full array in config.json.
+// Entry shape: { id, text, favorite, createdAt, lastUsedAt }
+ipcMain.handle('persona:history-get', () => {
+  const arr = readConfig().personaHistory;
+  return Array.isArray(arr) ? arr : [];
+});
+
+ipcMain.handle('persona:history-set', (_event, arr) => {
+  const safe = Array.isArray(arr) ? arr : [];
+  writeConfig({ personaHistory: safe });
+  return safe;
+});
+
+// ── Chat storage size check ────────────────────────────────────────────────────
+// The renderer calls this on startup to decide whether to show a 1 GB warning.
+ipcMain.handle('storage:get-chat-size', () => {
+  try {
+    const st = fs.statSync(DB_PATH);
+    return { bytes: st.size };
+  } catch (err) {
+    return { bytes: 0, error: err.message };
+  }
 });
 
 // ── UI zoom IPC ────────────────────────────────────────────────────────────

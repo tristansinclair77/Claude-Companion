@@ -57,6 +57,11 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Personality force override
   getPersona: ()     => ipcRenderer.invoke('persona:get'),
   setPersona: (text) => ipcRenderer.invoke('persona:set', text),
+  getPersonaHistory: ()    => ipcRenderer.invoke('persona:history-get'),
+  setPersonaHistory: (arr) => ipcRenderer.invoke('persona:history-set', arr),
+
+  // Chat-storage size check (bytes) — used to show a 1 GB warning on startup
+  getChatStorageSize: () => ipcRenderer.invoke('storage:get-chat-size'),
 
   // Background / display settings
   getBgSettings: ()    => ipcRenderer.invoke('settings:get-bg'),
