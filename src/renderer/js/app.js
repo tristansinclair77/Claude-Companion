@@ -135,7 +135,14 @@
       if (data.characterId) {
         CompanionDisplay.setCharacterDir(`../../characters/${data.characterId}`);
       }
-      CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
+      // Restore the last on-screen state if we have one — keeps the screen
+      // continuous across app restarts. Falls back to the canned greeting on
+      // a fresh install or when no companion message has been saved yet.
+      if (data.lastDisplay && data.lastDisplay.dialogue) {
+        CompanionDisplay.restoreLastDisplay(data.lastDisplay, data.emotionalState || null);
+      } else {
+        CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
+      }
     }
     if (data && data.fastMode !== undefined) {
       _applyFastBtn(data.fastMode);

@@ -280,6 +280,9 @@ app.whenReady().then(() => {
       affection: db.getAffection(),
       fastMode: _fastMode,
       trackers: _trackers,
+      // Last on-screen state — renderer uses this to restore what the user
+      // last saw (dialogue + thoughts + portrait) instead of the canned greeting.
+      lastDisplay: db.getLastCompanionMessage(),
     });
   });
 
@@ -335,7 +338,7 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
     sessionManager.addMessage('companion', response.dialogue, response.emotion);
-    db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion });
+    db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion, thoughts: response.thoughts });
 
     // Update persistent emotional axis state (drift 15% toward emitted emotion)
     const emotionId = response.emotion;

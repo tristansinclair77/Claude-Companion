@@ -701,5 +701,26 @@ var CompanionDisplay = (() => {
     updateMeters(emotionalState || null);
   }
 
-  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
+  /**
+   * Restore the last on-screen state from a saved snapshot (DB lookup at app
+   * startup). Skips the typewriter so the restore is instant — the user sees
+   * what they last saw, not a re-animated message.
+   */
+  function restoreLastDisplay(snapshot, emotionalState) {
+    _preloadEmotionImages();
+
+    const { dialogue = '', thoughts = '', emotion = 'neutral' } = snapshot || {};
+    dialogueEl.textContent = dialogue;
+    thoughtsEl.textContent = thoughts;
+    setEmotion(emotion);
+
+    const avatarEl = document.getElementById('avatar-img');
+    if (avatarEl) {
+      avatarEl.src = `${characterDir}/avatar-small.png`;
+    }
+
+    updateMeters(emotionalState || null);
+  }
+
+  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, restoreLastDisplay, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
 })();

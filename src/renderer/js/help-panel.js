@@ -597,6 +597,20 @@ const HelpPanel = (() => {
         note('There is no --resume flag — every call is a completely fresh Claude session with the full context rebuilt from scratch.')
     },
     {
+      catId: 'memory', id: 'display-restore',
+      title: 'Display Restore on Startup',
+      tags: ['restore', 'reopen', 'restart', 'last message', 'last seen', 'screen', 'continuity', 'persistent', 'portrait', 'dialogue', 'thoughts', 'startup', 'launch'],
+      content:
+        p('When you close and reopen the app, the screen restores to <strong>what you last saw</strong> — the last companion dialogue, thoughts, and emotion portrait — instead of the canned greeting.') +
+        kv([
+          ['What\'s restored', 'Dialogue text + thoughts text + emotion portrait + emotional axes + affection level + trackers'],
+          ['Storage',          'Pulled from the last <code>role=\'companion\'</code> row in <code>conversation_messages</code>. Thoughts live in a column added by a schema migration.'],
+          ['No re-animation',  'Text appears instantly on restore (no typewriter), since it\'s a recall, not a new message.'],
+          ['Fallback',         'On a fresh install (no companion messages yet), the canned <code>character.greeting</code> + <code>initial_emotion</code> shows instead.'],
+        ]) +
+        note('The emotional axes, sensation, and master_summary were already persistent — this completes the picture so the visible companion-display panel stays continuous across restarts too.')
+    },
+    {
       catId: 'memory', id: 'memory-tags',
       title: 'Response Memory Tags',
       tags: ['memory tag', 'memory', 'tag', 'format', 'dialogue', 'thoughts', 'emotion', 'response format'],

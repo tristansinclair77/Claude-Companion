@@ -191,6 +191,10 @@ class KnowledgeDB {
     // Schema migration: add messages_json column to conversation_sessions if not yet present
     try { this.db.exec('ALTER TABLE conversation_sessions ADD COLUMN messages_json TEXT'); } catch {}
 
+    // Schema migration: add thoughts column so the last on-screen state
+    // (dialogue + thoughts + emotion) can be restored on app restart.
+    try { this.db.exec('ALTER TABLE conversation_messages ADD COLUMN thoughts TEXT'); } catch {}
+
     // Schema v2 migration: rebuild FTS index after stop-word list was narrowed.
     // This only runs once, flagged by 'schema_version' in user_profile.
     this._runMigrations();
@@ -580,10 +584,10 @@ class KnowledgeDB {
 
   // ── Conversation Messages ─────────────────────────────────────────────────
 
-  insertMessage({ role, content, emotion }) {
+  insertMessage({ role, content, emotion, thoughts }) {
     this.db.prepare(
-      'INSERT INTO conversation_messages (session_id, role, content, emotion) VALUES (NULL, ?, ?, ?)'
-    ).run(role, content, emotion || 'neutral');
+      'INSERT INTO conversation_messages (session_id, role, content, emotion, thoughts) VALUES (NULL, ?, ?, ?, ?)'
+    ).run(role, content, emotion || 'neutral', thoughts || null);
   }
 
   getRecentMessages(n = 30) {
@@ -592,6 +596,28 @@ class KnowledgeDB {
               CAST(strftime('%s', timestamp) AS INTEGER) * 1000 AS timestamp
        FROM conversation_messages ORDER BY id DESC LIMIT ?`
     ).all(n).reverse();
+  }
+
+  /**
+   * Returns the most recent companion message {dialogue, thoughts, emotion}, or null
+   * if there are no companion messages yet. Used by the renderer to restore the last
+   * on-screen state when the app reopens — so the user sees what they last saw,
+   * not a canned greeting.
+   */
+  getLastCompanionMessage() {
+    const row = this.db.prepare(
+      `SELECT content AS dialogue, thoughts, emotion, timestamp
+       FROM conversation_messages
+       WHERE role = 'companion'
+       ORDER BY id DESC LIMIT 1`
+    ).get();
+    if (!row || !row.dialogue) return null;
+    return {
+      dialogue: row.dialogue,
+      thoughts: row.thoughts || '',
+      emotion: row.emotion || 'neutral',
+      timestamp: row.timestamp,
+    };
   }
 
   /**
