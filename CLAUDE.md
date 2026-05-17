@@ -4,10 +4,16 @@
 
 `tristansinclair77`
 
-This repo lives at `tristansinclair77/Claude-Companion`. Before any `git push`,
-run `gh auth switch -u tristansinclair77`. Commits remain authored as
-**Sansflaire** per global rule. See `~/.claude/CLAUDE.md` → "Git Push Account
-Switching" for the protocol.
+This repo lives at `tristansinclair77/Claude-Companion`. Commits remain authored
+as **Sansflaire** per global rule.
+
+**Core rule (mirrored from `~/.claude/CLAUDE.md`):** Never silently run
+`gh auth switch`. If the active account doesn't already equal
+`tristansinclair77`, pause and ask for explicit approval before switching —
+other Claude Code sessions on this machine may have concurrent pushes mid-flight
+that a silent switch would break. Only proceed after a yes.
+
+If the active account already matches, no prompt needed — just push.
 
 @.claude/aria-context.md
 
