@@ -555,12 +555,28 @@ ipcMain.handle('conversation:save', async () => {
 
     // Pass full Aria context so Haiku doesn't refuse on intimate content
     // (see CLAUDE.md → "Summarization Refusals on Intimate Content").
+    // Pass the FULL Aria context — every field that defines who she is right
+    // now — so the summary is written from her actual current self, not a
+    // neutral assistant's read. Also bypasses Haiku NSFW refusal on intimate
+    // chats (CLAUDE.md → "Summarization Refusals on Intimate Content").
+    const _es = db.getEmotionalState ? db.getEmotionalState() : null;
+    const _emotionalState = _es ? { ..._es, sensation: _currentSensation } : null;
+    const _activeThreads = db.getActiveThreads ? db.getActiveThreads(6) : [];
+    const _featureRequests = featureRequestsStore.loadRequests(CHARACTER_DIR);
     const { summary } = await summarizeConversation({
       messages,
       character,
       characterRules,
       masterSummary: db.getMasterSummary(),
       permanentMemories: db.getAllMemories(),
+      emotionalState: _emotionalState,
+      bodyState: db.getBodyState ? db.getBodyState() : null,
+      userProfile: sessionManager.userProfile || '',
+      trackers: _trackers,
+      activeThreads: _activeThreads,
+      featureRequests: _featureRequests,
+      personalityForce: _personalityForce,
+      addonContexts: _addonContexts,
     });
 
     const now = new Date().toISOString();

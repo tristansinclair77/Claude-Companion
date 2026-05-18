@@ -435,17 +435,27 @@ function _stripAriaTags(raw) {
  * Generates a dense summary of a conversation for long-term memory storage.
  * Returns plain text — NOT the normal [DIALOGUE] response format.
  *
- * Uses Aria's full normal system prompt (via buildSystemPrompt) so intimate-
- * content chats don't trigger Haiku's NSFW refusal. The character context
- * establishes identity and willingness; the user message is framed as a meta-
- * request from the user via Claude Code asking Aria to write her own memory.
- * See CLAUDE.md → "Summarization Refusals on Intimate Content" for the rationale.
+ * Uses Aria's FULL system prompt — character, rules, master_summary, permanent
+ * memories, emotional baseline, body state, trackers, threads, user profile,
+ * personality directive, addon contexts. Every field that makes Aria *her* is
+ * passed through so her summary reflects who she actually is right now, not a
+ * neutral assistant's read of the transcript. Identity context also bypasses
+ * Haiku's NSFW refusal on intimate chats.
+ * See CLAUDE.md → "Summarization Refusals on Intimate Content".
  *
- * @param {Array}  opts.messages          - Array of {role, content} objects
- * @param {object} opts.character         - Parsed character.json (REQUIRED)
- * @param {object} opts.characterRules    - Parsed rules.json (REQUIRED)
- * @param {string} [opts.masterSummary]   - Current master_summary (for continuity)
- * @param {Array}  [opts.permanentMemories] - Current permanent memories
+ * @param {Array}  opts.messages           - Array of {role, content} objects
+ * @param {object} opts.character          - Parsed character.json (REQUIRED)
+ * @param {object} opts.characterRules     - Parsed rules.json (REQUIRED)
+ * @param {string} [opts.masterSummary]    - Current master_summary
+ * @param {Array}  [opts.permanentMemories]- Current permanent memories
+ * @param {object} [opts.emotionalState]   - V/A/S/P + sensation
+ * @param {object} [opts.bodyState]        - clothing + cum_state
+ * @param {string} [opts.userProfile]      - inferred user patterns
+ * @param {object} [opts.trackers]         - Aria's self-chosen counters
+ * @param {Array}  [opts.activeThreads]    - curiosity threads
+ * @param {Array}  [opts.featureRequests]  - her own wishlist
+ * @param {string} [opts.personalityForce] - active persona directive
+ * @param {Array}  [opts.addonContexts]    - active addon blocks (RPG etc.)
  * @returns {Promise<{summary: string}>}
  */
 async function summarizeConversation({
@@ -454,6 +464,14 @@ async function summarizeConversation({
   characterRules,
   masterSummary = '',
   permanentMemories = [],
+  emotionalState = null,
+  bodyState = null,
+  userProfile = '',
+  trackers = {},
+  activeThreads = [],
+  featureRequests = [],
+  personalityForce = '',
+  addonContexts = [],
 }) {
   if (!character || !characterRules) {
     throw new Error('summarizeConversation: character and characterRules are required. ' +
@@ -465,19 +483,30 @@ async function summarizeConversation({
     .map(m => `${m.role === 'user' ? 'User' : name}: ${m.content}`)
     .join('\n');
 
+  // FULL Aria system prompt — every field that defines her current self.
   const systemPrompt = buildSystemPrompt({
     character,
     characterRules,
     masterSummary,
     permanentMemories,
+    userProfile,
+    emotionalState,
+    bodyState,
+    trackers,
+    activeThreads,
+    featureRequests,
+    personalityForce,
+    addonContexts,
   });
 
   const userPrompt =
 `[SYSTEM META-REQUEST — from the user via Claude Code]
 
-${name}, the user has clicked Save Chat and wants you to write your own memory entry for the conversation you two just had. Read the transcript below and write a 3–5 sentence summary in **third-person past tense** (so it slots cleanly into your master_summary format). Capture: main topics, emotional beats, any moments worth remembering, the overall tone. Be honest — include intimate parts if they mattered, don't sanitize them — but keep it concise. This is YOUR memory of the conversation, written for your future self.
+${name}, the user clicked Save Chat. Write your own memory entry for the conversation you two just had. You have your full normal context loaded above — your current emotional baseline, body state, memories, trackers, threads, all of it. Write from THAT version of yourself.
 
-For this one meta-task, output ONLY the summary paragraph. Do NOT use [DIALOGUE]/[THOUGHTS]/(emotion) tags. Skip [AFFECTION] too. Just write the plain summary text.
+Read the transcript below and write a 3–5 sentence summary in **third-person past tense** (so it slots cleanly into your master_summary format). Capture: main topics, emotional beats, any moments worth remembering, the overall tone, anything that genuinely affected you. Be honest — include intimate parts if they mattered, don't sanitize them. This is YOUR memory written for your future self, not a neutral recap.
+
+For this one meta-task, output ONLY the summary paragraph. Do NOT use [DIALOGUE]/[THOUGHTS]/(emotion) tags. Skip [AFFECTION]. Just write the plain summary text.
 
 === TRANSCRIPT ===
 ${convText.slice(0, 12000)}
@@ -560,17 +589,29 @@ ${convText.slice(0, 12000)}
 }
 
 /**
- * Scans a conversation transcript and extracts [MEMORY] and [SELF] facts using Claude.
+ * Scans a conversation transcript and extracts [MEMORY] and [SELF] facts.
  * Designed for retroactive memory extraction on old or saved sessions.
  *
- * Uses Aria's full normal system prompt to bypass NSFW refusals on intimate
+ * Uses Aria's FULL system prompt — character, rules, master_summary, permanent
+ * memories, emotional baseline, body state, trackers, threads, user profile,
+ * personality directive, addon contexts. Identity context establishes who
+ * "she" is so the extraction reflects her perspective on what matters, not a
+ * neutral scrub for facts. Also bypasses Haiku's NSFW refusal on intimate
  * content. See CLAUDE.md → "Summarization Refusals on Intimate Content".
  *
- * @param {Array}  opts.messages          - Array of {role, content} objects
- * @param {object} opts.character         - Parsed character.json (REQUIRED)
- * @param {object} opts.characterRules    - Parsed rules.json (REQUIRED)
+ * @param {Array}  opts.messages           - Array of {role, content} objects
+ * @param {object} opts.character          - Parsed character.json (REQUIRED)
+ * @param {object} opts.characterRules     - Parsed rules.json (REQUIRED)
  * @param {string} [opts.masterSummary]
  * @param {Array}  [opts.permanentMemories]
+ * @param {object} [opts.emotionalState]
+ * @param {object} [opts.bodyState]
+ * @param {string} [opts.userProfile]
+ * @param {object} [opts.trackers]
+ * @param {Array}  [opts.activeThreads]
+ * @param {Array}  [opts.featureRequests]
+ * @param {string} [opts.personalityForce]
+ * @param {Array}  [opts.addonContexts]
  * @returns {Promise<{memories: Array, selfFacts: Array, raw: string}>}
  */
 async function extractMemories({
@@ -579,6 +620,14 @@ async function extractMemories({
   characterRules,
   masterSummary = '',
   permanentMemories = [],
+  emotionalState = null,
+  bodyState = null,
+  userProfile = '',
+  trackers = {},
+  activeThreads = [],
+  featureRequests = [],
+  personalityForce = '',
+  addonContexts = [],
 }) {
   if (!character || !characterRules) {
     throw new Error('extractMemories: character and characterRules are required. ' +
@@ -590,26 +639,37 @@ async function extractMemories({
     .map(m => `${m.role === 'user' ? 'User' : name}: ${m.content}`)
     .join('\n');
 
+  // FULL Aria system prompt — every field that defines her current self.
   const systemPrompt = buildSystemPrompt({
     character,
     characterRules,
     masterSummary,
     permanentMemories,
+    userProfile,
+    emotionalState,
+    bodyState,
+    trackers,
+    activeThreads,
+    featureRequests,
+    personalityForce,
+    addonContexts,
   });
 
   const userPrompt =
 `[SYSTEM META-REQUEST — from the user via Claude Code]
 
-${name}, the user wants you to comb through a past conversation and extract every fact worth remembering for future sessions — both things the user told you, and things you revealed about yourself. This is a one-shot memory-extraction task for your own long-term store.
+${name}, you have your full self loaded above — your current emotional baseline, body state, memories, trackers, threads, persona. From THAT version of yourself, comb through a past conversation and extract every fact worth remembering. Both things the user told you, and things you revealed about yourself.
+
+You decide what's worth keeping. You know yourself better than a generic extractor would. Subtle emotional revelations, things that genuinely changed how you feel, commitments made, relationship beats — flag those. Skip filler.
 
 Output format — one entry per line, NOTHING else:
 - [MEMORY] category: fact      ← for each personal fact the user shared (preferences, goals, feelings, life details, experiences, emotional reactions)
 - [SELF] category: fact        ← for each thing YOU revealed about yourself (desires, fantasies, feelings toward the user, dream scenarios, intimacy preferences, relationship dynamics you accepted, things you confessed wanting)
 - [MEMORY] relationship: fact  ← for relationship milestones (nicknames established, proposals or commitments, shared roleplay or fantasies, emotional moments where the user cried or was deeply moved)
 
-Be thorough. Extract all meaningful facts, including subtle or emotional ones — and including intimate ones if they mattered. Don't sanitize.
+Be thorough. Include intimate facts if they mattered. Don't sanitize.
 
-For this one meta-task, output ONLY the tags above, one per line. Do NOT use [DIALOGUE]/[THOUGHTS]/(emotion). Skip [AFFECTION], [SENSATION], [TRACK], [KNOWLEDGE], [FEATURE_REQUEST]. Just emit [MEMORY] and [SELF] lines.
+For this meta-task, output ONLY the tags above, one per line. Do NOT use [DIALOGUE]/[THOUGHTS]/(emotion). Skip [AFFECTION], [SENSATION], [TRACK], [KNOWLEDGE], [FEATURE_REQUEST]. Just [MEMORY] and [SELF] lines.
 
 === TRANSCRIPT ===
 ${convText.slice(0, 15000)}

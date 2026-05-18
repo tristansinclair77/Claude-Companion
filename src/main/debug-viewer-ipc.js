@@ -52,18 +52,49 @@ function getCharacterName() {
   try { return JSON.parse(fs.readFileSync(CHARACTER_PATH, 'utf-8')).name || 'Aria'; } catch { return 'Aria'; }
 }
 
-// Loads the full Aria context (character + rules + master_summary + memories) for
-// passing to summarizeConversation / extractMemories. Required so Aria can act as
-// her own summarizer/extractor and bypass NSFW refusals — see CLAUDE.md.
+// Loads the FULL Aria context for passing to summarizeConversation /
+// extractMemories — every field that defines who she is right now, so her
+// summary/extraction reflects her actual self rather than a neutral read.
+// Pulls everything from disk + DB (no live process state available here since
+// the debug viewer is a separate window).
 function loadAriaContext(kdb) {
+  // Character pack
   const character = JSON.parse(fs.readFileSync(CHARACTER_PATH, 'utf-8'));
   const characterRules = JSON.parse(fs.readFileSync(RULES_PATH, 'utf-8'));
   if (fs.existsSync(APPEARANCE_PATH)) {
     try { character._appearance = JSON.parse(fs.readFileSync(APPEARANCE_PATH, 'utf-8')); } catch {}
   }
-  const masterSummary = kdb ? kdb.getMasterSummary() : '';
-  const permanentMemories = (kdb && typeof kdb.getAllMemories === 'function') ? kdb.getAllMemories() : [];
-  return { character, characterRules, masterSummary, permanentMemories };
+
+  // Persistent state from knowledge.db
+  const masterSummary     = kdb ? kdb.getMasterSummary() : '';
+  const permanentMemories = (kdb && typeof kdb.getAllMemories === 'function')   ? kdb.getAllMemories()      : [];
+  const emotionalState    = (kdb && typeof kdb.getEmotionalState === 'function') ? kdb.getEmotionalState()   : null;
+  const bodyState         = (kdb && typeof kdb.getBodyState === 'function')      ? kdb.getBodyState()        : null;
+  const activeThreads     = (kdb && typeof kdb.getActiveThreads === 'function')  ? kdb.getActiveThreads(6)   : [];
+  const trackers          = (kdb && typeof kdb.getProfileValue === 'function')   ? (kdb.getProfileValue('trackers') || {}) : {};
+  const userProfile       = (kdb && typeof kdb.getProfileValue === 'function')   ? (kdb.getProfileValue('user_profile') || '') : '';
+
+  // Feature requests live in a JSON file alongside the character pack
+  let featureRequests = [];
+  try {
+    const featureRequestsStore = require('./feature-requests');
+    featureRequests = featureRequestsStore.loadRequests(CHARACTER_DIR);
+  } catch {}
+
+  return {
+    character,
+    characterRules,
+    masterSummary,
+    permanentMemories,
+    emotionalState,
+    bodyState,
+    activeThreads,
+    trackers,
+    userProfile,
+    featureRequests,
+    // personalityForce + addonContexts are live runtime state in main.js — not
+    // accessible from the debug viewer. Leave them at their defaults.
+  };
 }
 
 // Extracts user+assistant message pairs from a parsed session's exchanges.
