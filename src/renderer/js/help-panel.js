@@ -632,6 +632,20 @@ const HelpPanel = (() => {
         note('Aria only uses Special actions when (a) the user clearly asked OR she\'s actively in the position AND (b) she\'s genuinely willing in this moment. If she has any hesitation in <code>[THOUGHTS]</code>, she picks a normal emotion (embarrassed, flustered, pout) and declines gently in <code>[DIALOGUE]</code>. Willingness shifts turn to turn — a yes earlier is not a standing yes. Mid-act she can switch back to a normal emotion (in_pleasure, lustful_desire, embarrassed) on any turn the moment calls for it.')
     },
     {
+      catId: 'memory', id: 'saved-replay',
+      title: 'Replay a Saved Conversation',
+      tags: ['replay', 'saved', 'conversation', 'debug viewer', 'playback', 'space', 'relive', 'rewatch', 'typewriter'],
+      content:
+        p('In the <strong>Debug Viewer</strong>, open the <em>SAVED CONVERSATIONS</em> panel and click any saved chat to enter <strong>replay mode</strong>. It mimics the live companion UI:') +
+        kv([
+          ['[SPACE]',           'Advance one turn — user message typewriters into the input box, "sends" (clears), then Aria\'s portrait flips to her emotion, her thoughts appear, and her dialogue typewriters out.'],
+          ['[R]',               'Restart from the beginning.'],
+          ['[ESC]',             'Exit replay and return to the saved-conversation list.'],
+        ]) +
+        p('Old saves that pre-date the schema migration won\'t have <code>thoughts</code> stored (the field was added later) — those rows replay with an empty internal-state panel. New saves include thoughts.') +
+        note('Saved messages don\'t carry the body-state from the moment of the original chat, so the replay always uses the clothed/base portrait variant. Special-action portraits (showBreasts, showPussy, suckCock, cowgirl, reverseCowgirl, missionary, doggystyle) resolve correctly from their <code>Special/</code> folder.')
+    },
+    {
       catId: 'memory', id: 'display-restore',
       title: 'Display Restore on Startup',
       tags: ['restore', 'reopen', 'restart', 'last message', 'last seen', 'screen', 'continuity', 'persistent', 'portrait', 'dialogue', 'thoughts', 'startup', 'launch'],

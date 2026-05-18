@@ -598,7 +598,7 @@ class KnowledgeDB {
 
   getRecentMessages(n = 30) {
     return this.db.prepare(
-      `SELECT role, content, emotion,
+      `SELECT role, content, emotion, thoughts,
               CAST(strftime('%s', timestamp) AS INTEGER) * 1000 AS timestamp
        FROM conversation_messages ORDER BY id DESC LIMIT ?`
     ).all(n).reverse();

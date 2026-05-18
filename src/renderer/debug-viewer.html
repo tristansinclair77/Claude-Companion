@@ -231,6 +231,186 @@
       color: #224433;
       letter-spacing: 1px;
     }
+
+    /* ── Replay mode — mimics the live companion UI for saved conversations ── */
+    .replay-root {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      gap: 14px;
+      font-family: var(--font-mono);
+      color: var(--cyan-dim);
+      outline: none;
+    }
+    .replay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #aa44ff22;
+      flex-shrink: 0;
+    }
+    .replay-saved-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #aa44ff;
+      text-shadow: 0 0 6px #aa44ff66;
+    }
+    .replay-controls {
+      display: flex;
+      gap: 14px;
+      align-items: baseline;
+    }
+    .replay-counter {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #aa44ff;
+      text-shadow: 0 0 6px #aa44ff44;
+    }
+    .replay-hint {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: #335544;
+    }
+    .replay-summary {
+      font-size: 11px;
+      line-height: 1.6;
+      color: #557788;
+      font-style: italic;
+      padding: 8px 12px;
+      border-left: 2px solid #aa44ff33;
+      background: #aa44ff08;
+      flex-shrink: 0;
+    }
+    .replay-stage {
+      display: flex;
+      gap: 18px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .replay-portrait-col {
+      width: 240px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .replay-portrait-frame {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      border: 2px solid var(--cyan-dim);
+      box-shadow: 0 0 16px #00ffcc22;
+      background: var(--bg-panel);
+    }
+    .replay-portrait {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+    }
+    .replay-portrait-glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .replay-emotion-badge {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      padding: 3px 10px;
+      border: 1px solid #00ffcc44;
+      color: var(--cyan);
+      text-align: center;
+      min-height: 18px;
+    }
+    .replay-text-col {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      padding-right: 6px;
+      scrollbar-width: thin;
+      scrollbar-color: #007755 transparent;
+    }
+    .replay-panel-label {
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      color: var(--cyan-dim);
+      margin-top: 4px;
+    }
+    .replay-dialogue {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--cyan);
+      text-shadow: 0 0 4px color-mix(in srgb, var(--cyan) 27%, transparent);
+      min-height: 32px;
+    }
+    .replay-thoughts {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #997755;
+      font-style: italic;
+      min-height: 18px;
+    }
+    .replay-thoughts-divider {
+      border-top: 1px solid #aa44ff22;
+      margin: 6px 0 2px;
+    }
+    .replay-input-bar {
+      flex-shrink: 0;
+      border-top: 1px solid #aa44ff44;
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .replay-input-label {
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      color: var(--cyan-dim);
+    }
+    .replay-input-box {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--cyan);
+      padding: 8px 12px;
+      background: #0c0c1888;
+      border: 1px solid #00ffcc44;
+      min-height: 36px;
+      text-shadow: 0 0 4px color-mix(in srgb, var(--cyan) 18%, transparent);
+    }
+    .replay-input-box.replay-input-hint {
+      color: #335544;
+      font-style: italic;
+      letter-spacing: 1px;
+      text-shadow: none;
+    }
+    .replay-input-box.replay-input-sent {
+      animation: replay-sent-flash 220ms ease-out;
+    }
+    @keyframes replay-sent-flash {
+      0%   { background: #00ffcc22; }
+      100% { background: #0c0c1888; }
+    }
+    .replay-typing::after {
+      content: '▌';
+      animation: replay-blink 0.6s infinite;
+      margin-left: 1px;
+      color: inherit;
+      opacity: 0.6;
+    }
+    @keyframes replay-blink {
+      0%, 49% { opacity: 0.6; }
+      50%, 100% { opacity: 0; }
+    }
   </style>
 </head>
 <body>
