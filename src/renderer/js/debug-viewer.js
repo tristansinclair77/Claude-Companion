@@ -26,7 +26,6 @@
     pout:            { emoji: '😤', color: '#dd6600' },
     crying:          { emoji: '😭', color: '#6688cc' },
     lustful_desire:  { emoji: '😍', color: '#ff44aa' },
-    exposed_breasts: { emoji: '🫦', color: '#ff66bb' },
   };
 
   // Source badge color map

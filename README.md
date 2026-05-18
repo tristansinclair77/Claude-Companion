@@ -384,7 +384,7 @@ A character pack is a directory under `characters/` containing everything that d
 | `knowledge.db` | The character's full SQLite DB. **Created at runtime, not committed.** WAL files (`-shm`, `-wal`) live alongside. |
 | `rpg.db` | RPG addon's separate DB (if used) |
 
-**Intimate emotions** (e.g. `lustful_desire`, `exposed_breasts`) are only surfaced in the emotion vocabulary if `character.allow_intimate_emotions === true`. Even when allowed, the system-prompt rules make them strictly willingness-gated per-moment.
+**Intimate emotions** (entries flagged `intimate: true` in `EMOTIONS`) are only surfaced in the emotion vocabulary if `character.allow_intimate_emotions === true`. Even when allowed, the system-prompt rules make them strictly willingness-gated per-moment. (No emotion currently carries the `intimate` flag; the framework is retained for future use.)
 
 ---
 

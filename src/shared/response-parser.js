@@ -1,4 +1,4 @@
-const { EMOTION_MAP, COMBINED_EMOTION_MAP, RESPONSE_MARKERS } = require('./constants');
+const { EMOTION_MAP, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, RESPONSE_MARKERS } = require('./constants');
 
 /**
  * Parses a raw Claude response string into structured parts.
@@ -40,10 +40,17 @@ function parseResponse(raw, opts = {}) {
   let emotionTagStart = text.length; // boundary for dialogue/thoughts capture
   let emoMatch;
   while ((emoMatch = emotionRegex.exec(text)) !== null) {
-    const candidate = emoMatch[2].toLowerCase().trim();
-    if (EMOTION_MAP[candidate] || COMBINED_EMOTION_MAP[candidate]) {
+    const candidateRaw = emoMatch[2].trim();
+    const candidateLower = candidateRaw.toLowerCase();
+    // Special emotions (showBreasts, showPussy) preserve camelCase as the ID;
+    // base/combined emotions are snake_case lowercase.
+    if (SPECIAL_EMOTIONS[candidateRaw]) {
+      emotion = candidateRaw;
+      emotionExplicit = true;
+      emotionTagStart = emoMatch.index;
+    } else if (EMOTION_MAP[candidateLower] || COMBINED_EMOTION_MAP[candidateLower]) {
       // Prefer the LAST valid match — keep updating as we scan
-      emotion = candidate;
+      emotion = candidateLower;
       emotionExplicit = true;
       emotionTagStart = emoMatch.index;
     }
@@ -57,10 +64,10 @@ function parseResponse(raw, opts = {}) {
   // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text.
   // The emotion tag (already located above) bounds the search, so we no longer rely
   // on a fragile `\([a-z_]+\)` lookahead that would over-match parens-words in prose.
-  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\])|$)/i);
+  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\])|$)/i);
   const dialogue = dialogueMatch
     ? dialogueMatch[1].trim()
-        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION)\]/gi, '')
+        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE)\]/gi, '')
         .replace(/\\n/g, ' ')  // strip literal \n text Claude occasionally outputs
         .trim()
     : '';
@@ -69,7 +76,7 @@ function parseResponse(raw, opts = {}) {
   // Only match when the tag starts a line; mid-sentence mentions are ignored.
   // Bounded by the emotion tag position (via beforeEmotion) so paren-words in the
   // thoughts text can no longer cut the capture short.
-  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\])|$)/i);
+  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\])|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
   // Extract [MEMORY] tags (new facts)
@@ -136,6 +143,23 @@ function parseResponse(raw, opts = {}) {
   const affectionMatch = text.match(/\[AFFECTION\]\s*(\d+)/i);
   const affectionTarget = affectionMatch ? Math.min(100, Math.max(0, parseInt(affectionMatch[1], 10))) : null;
 
+  // Extract [STATE] tags — body-state directives Aria emits when she changes:
+  //   [STATE] clothing: naked      (or: clothed)
+  //   [STATE] cum: on              (or: off)
+  // Multiple are allowed in one response. Last one wins per key.
+  const stateChanges = {};
+  const stateRegex = /\[STATE\]\s*(clothing|cum)\s*:\s*(\w+)/gi;
+  let stateMatch;
+  while ((stateMatch = stateRegex.exec(text)) !== null) {
+    const key = stateMatch[1].toLowerCase();
+    const val = stateMatch[2].toLowerCase();
+    if (key === 'clothing' && (val === 'clothed' || val === 'naked')) {
+      stateChanges.clothing = val;
+    } else if (key === 'cum' && (val === 'on' || val === 'off' || val === 'yes' || val === 'no')) {
+      stateChanges.cumState = (val === 'on' || val === 'yes');
+    }
+  }
+
   // Extract [THREAD] tags (dead topics / curiosity queue).
   // Only match at the START of a line so Aria mentioning "[THREAD]" in prose doesn't get captured.
   const threads = [];
@@ -191,6 +215,7 @@ function parseResponse(raw, opts = {}) {
     threads,
     featureRequests,
     affectionTarget,
+    stateChanges,
   };
 }
 
@@ -210,6 +235,7 @@ function extractFallbackDialogue(text) {
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .replace(/\[AFFECTION\][^\n]*/gi, '')
+    .replace(/\[STATE\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -227,6 +253,7 @@ function stripMemoryTags(text) {
     .replace(/\[KNOWLEDGE\][^\n]*/gi, '')
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .replace(/\[AFFECTION\][^\n]*/gi, '')
+    .replace(/\[STATE\][^\n]*/gi, '')
     .trim();
 }
 

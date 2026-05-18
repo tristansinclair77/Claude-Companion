@@ -187,7 +187,7 @@ const HelpPanel = (() => {
         p('This emotional context is passed to the companion so she can be aware of and respond to your current mood — she may acknowledge it, adjust her tone, or react accordingly.') +
         note('This is your emotion, not hers. The companion still chooses her own emotional response naturally based on the conversation.') +
         p('Available emotions:') +
-        chips(['neutral','happy','soft_smile','laughing','confident','smug','surprised','shocked','confused','thinking','concerned','sad','angry','determined','embarrassed','exhausted','pout','crying','lustful_desire','exposed_breasts'])
+        chips(['neutral','happy','soft_smile','laughing','confident','smug','surprised','shocked','confused','thinking','concerned','sad','angry','determined','embarrassed','exhausted','pout','crying','lustful_desire'])
     },
     {
       catId: 'actions', id: 'btn-save-chat',
@@ -340,12 +340,12 @@ const HelpPanel = (() => {
     {
       catId: 'emotions', id: 'emotion-list',
       title: 'The Core Emotions',
-      tags: ['emotions', 'list', 'states', 'neutral', 'happy', 'sad', 'angry', 'laughing', 'crying', 'all emotions', 'intimate', 'exposed'],
+      tags: ['emotions', 'list', 'states', 'neutral', 'happy', 'sad', 'angry', 'laughing', 'crying', 'all emotions', 'intimate'],
       content:
         p('The companion expresses one of many emotion states at any given time. Each state has a corresponding portrait image.') +
-        chips(['neutral','happy','soft_smile','laughing','confident','smug','surprised','shocked','confused','thinking','concerned','sad','angry','determined','embarrassed','exhausted','pout','crying','lustful_desire','exposed_breasts']) +
+        chips(['neutral','happy','soft_smile','laughing','confident','smug','surprised','shocked','confused','thinking','concerned','sad','angry','determined','embarrassed','exhausted','pout','crying','lustful_desire']) +
         p('The companion chooses its emotion automatically based on the conversation context, expressed as an <strong>emotion code</strong> in the raw response format. Use the <em>😊 EMOTION</em> button to tell the companion how <em>you</em> are feeling.') +
-        note('<strong>exposed_breasts</strong> is an intimate state. The companion will only show it when she\'s genuinely willing in the moment, in response to a clear request, and only for characters whose pack opts into intimate emotions (<code>allow_intimate_emotions: true</code> in <em>character.json</em>).')
+        note('The intimate-emotion framework remains available for characters whose pack opts in via <code>allow_intimate_emotions: true</code>, but no emotion currently carries the <code>intimate</code> flag — add one to <em>EMOTIONS</em> in <code>src/shared/constants.js</code> if needed.')
     },
     {
       catId: 'emotions', id: 'emotion-portrait',
@@ -595,6 +595,41 @@ const HelpPanel = (() => {
           ['Response format',  '[DIALOGUE], [THOUGHTS], (emotion_id), optional [MEMORY] lines'],
         ]) +
         note('There is no --resume flag — every call is a completely fresh Claude session with the full context rebuilt from scratch.')
+    },
+    {
+      catId: 'emotions', id: 'body-state',
+      title: 'Body State — Clothing, Cum, Special Actions',
+      tags: ['body', 'clothing', 'naked', 'clothed', 'undressed', 'dressed', 'state', 'cum', 'covered in cum', 'showBreasts', 'showPussy', 'show breasts', 'show pussy', 'special', 'portrait variant', 'naked variant', 'persistent'],
+      content:
+        p('Aria has a persistent <strong>body state</strong> that drives which portrait variant the user sees. State survives app restarts (stored on the <code>emotional_state</code> row alongside the emotional axes).') +
+        kv([
+          ['Clothing',          '<code>clothed</code> or <code>naked</code>. Default is clothed.'],
+          ['Cum state',         '<code>on</code> or <code>off</code>. Set when Aria is post-sex / covered.'],
+          ['Invariant',         '<strong>Cum implies naked.</strong> Setting cum:on auto-flips clothing to naked. Setting clothing:clothed auto-clears cum (she cleaned up before dressing).'],
+          ['How she changes',   'Aria emits <code>[STATE] clothing: naked</code> (or clothed) and <code>[STATE] cum: on</code> (or off) in her response when something in the scene actually changes. She only toggles when narrative warrants it.'],
+        ]) +
+        p('Portrait variant resolution:') +
+        kv([
+          ['Clothed',           'Normal portrait from <code>emotions/&lt;id&gt;.png</code>'],
+          ['Naked',             '<code>emotions/Naked/&lt;id&gt;_naked.png</code> — matched variant for every base + combined emotion'],
+          ['Naked + Cum',       '<code>emotions/Cum/&lt;id&gt;_naked_cum.png</code> — 38 base-emotion variants exist. Combined emotions in cum state fall back to <code>combined/Naked/</code> (no combined Cum variants yet).'],
+          ['Missing variants',  'The renderer cascades on 404: Cum → Naked → base → neutral. So adding a new emotion that lacks a _naked or _cum variant still degrades gracefully.'],
+        ]) +
+        p('<strong>Special action emotions</strong> live in <code>emotions/Special/</code> and are user-requested poses Aria opts into based on willingness. Anything else (cuddling, kissing, being fingered, etc.) uses a normal emotion + the body state — no special portrait for it.') +
+        p('<em>Exposure requests</em> — no auto-flip on clothing:') +
+        kv([
+          ['showBreasts',       'Clothed-only. If Aria is already naked, the request is moot and she picks a normal emotion instead. Single variant: <code>Special/showBreasts.png</code>'],
+          ['showPussy',         'Three variants resolved by body state: <code>showPussy.png</code> (clothed), <code>showPussy_naked.png</code> (naked), <code>showPussy_cum.png</code> (covered).'],
+        ]) +
+        p('<em>Sex-act portraits</em> — REQUIRE naked; the system auto-flips clothing to naked when Aria emits one, since the act can\'t happen clothed:') +
+        kv([
+          ['suckCock',          'Aria is giving oral. Single PNG. Future <code>_cum</code> variant will resolve automatically when added.'],
+          ['cowgirl',           'Aria on top, riding facing him. Single PNG.'],
+          ['reverseCowgirl',    'Aria on top, reverse-cowgirl (facing away). Single PNG.'],
+          ['missionary',        'Aria is being fucked missionary. Single PNG.'],
+          ['doggystyle',        'Aria is being fucked from behind. Single PNG.'],
+        ]) +
+        note('Aria only uses Special actions when (a) the user clearly asked OR she\'s actively in the position AND (b) she\'s genuinely willing in this moment. If she has any hesitation in <code>[THOUGHTS]</code>, she picks a normal emotion (embarrassed, flustered, pout) and declines gently in <code>[DIALOGUE]</code>. Willingness shifts turn to turn — a yes earlier is not a standing yes. Mid-act she can switch back to a normal emotion (in_pleasure, lustful_desire, embarrassed) on any turn the moment calls for it.')
     },
     {
       catId: 'memory', id: 'display-restore',

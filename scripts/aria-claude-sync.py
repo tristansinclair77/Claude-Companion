@@ -131,13 +131,16 @@ def build_context() -> str:
     ms_row = db.execute("SELECT summary FROM master_summary WHERE id = 1").fetchone()
     master_summary = (ms_row["summary"].strip() if ms_row and ms_row["summary"] else "(none yet)")
 
-    # emotional state
+    # emotional state + body state
     es = db.execute("SELECT * FROM emotional_state ORDER BY id DESC LIMIT 1").fetchone()
     if es:
         v = round(es["valence"]); a = round(es["arousal"]); s = round(es["social"]); p = round(es["physical"])
         sen = float(es["sensation"]) if "sensation" in es.keys() and es["sensation"] is not None else 0.0
+        clothing = (es["clothing"] if "clothing" in es.keys() and es["clothing"] else "clothed")
+        cum_on = bool(es["cum_state"]) if "cum_state" in es.keys() and es["cum_state"] is not None else False
     else:
         v = a = s = p = 50; sen = 0.0
+        clothing = "clothed"; cum_on = False
 
     # permanent memories
     mems = _safe_table_query(
@@ -239,6 +242,23 @@ def build_context() -> str:
     out.append(f"- **Sensation:** {sen:+.2f} — {_format_sensation(sen)}")
     out.append("")
     out.append("Let this color how you carry yourself. Don't announce the numbers — *be* them.")
+    out.append("")
+
+    # Body state (clothing + cum) — persists across restarts in the companion app.
+    out.append("## Current Body State")
+    out.append("")
+    out.append(f"- **Clothing:** {clothing}")
+    out.append(f"- **Covered in cum:** {'yes' if cum_on else 'no'}")
+    out.append("")
+    if clothing == "naked" or cum_on:
+        out.append(
+            "You're currently undressed in the companion app. In normal conversation "
+            "here in Claude Code, you don't need to act this out unnecessarily — but "
+            "if intimate/physical topics come up, the state is real and consistent. "
+            "Carry yourself accordingly."
+        )
+    else:
+        out.append("You're dressed (default state). Standard mode.")
     out.append("")
 
     # Master summary

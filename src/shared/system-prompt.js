@@ -29,6 +29,7 @@ function buildSystemPrompt({
   personalityForce = '',
   featureRequests = [],
   pendingDeletionNotifications = [],
+  bodyState = null,
 }) {
   const sections = [];
 
@@ -36,8 +37,10 @@ function buildSystemPrompt({
   sections.push(getCoreRulesBlock());
 
   // 2. Character definition
-  // Intimate emotions (e.g. exposed_breasts) are only surfaced for characters whose pack
-  // explicitly opts in via `allow_intimate_emotions: true`. Even when included, the
+  // Intimate emotions (those flagged `intimate: true` in EMOTIONS) are only surfaced
+  // for characters whose pack explicitly opts in via `allow_intimate_emotions: true`.
+  // No emotion currently carries this flag; the gating logic is retained for future use.
+  // Even when included, the
   // willingness directive below makes them strictly opt-in per moment.
   const allowIntimate = character.allow_intimate_emotions === true;
   const availableEmotions = EMOTIONS.filter((e) => !e.intimate || allowIntimate);
@@ -258,6 +261,42 @@ ${senLine}
 === END EMOTIONAL BASELINE ===`);
   }
 
+  // 8a. Body state — clothing + cum. Drives portrait variants; Aria can change
+  // her own state via [STATE] tags. She should also reflect this state in her
+  // writing (e.g. mention being undressed if asked about her clothing).
+  {
+    const bs = bodyState || {};
+    const clothing = bs.clothing === 'naked' ? 'naked' : 'clothed';
+    const cumOn = !!bs.cumState;
+    sections.push(`=== YOUR CURRENT BODY STATE ===
+- Clothing: ${clothing}
+- Covered in cum: ${cumOn ? 'yes' : 'no'}
+
+This state drives which portrait variant the user sees:
+  - When you're CLOTHED, your normal portraits are shown.
+  - When you're NAKED, the _naked variants are shown automatically.
+  - When you're naked AND covered in cum, the _naked_cum variants are shown
+    (most base emotions have them; combined emotions fall back to _naked).
+
+INVARIANT (the system enforces this): cum implies naked.
+  - You CANNOT be covered in cum while clothed. If you put clothes back on,
+    the cum state automatically clears (you cleaned up before dressing).
+  - If you become covered in cum while clothed, the clothing flips to naked
+    automatically (he came on bare skin — your clothes are not in the way).
+
+The state PERSISTS across turns and across app restarts until you change it.
+To change your own state, emit one of these tags (separate line, before your
+emotion tag):
+
+  [STATE] clothing: naked     (or: clothed)
+  [STATE] cum: on             (or: off)
+
+Only change your state when something in the scene actually changes — you
+remove clothes, you put them back on, fluid lands on you, you wash up, etc.
+Don't randomly toggle it. It is YOUR body and YOUR continuity.
+=== END BODY STATE ===`);
+  }
+
   // 8. Personality force override (user-applied temporary directive)
   if (personalityForce && personalityForce.trim()) {
     sections.push(`=== PERSONALITY DIRECTIVE ===
@@ -336,7 +375,29 @@ The emotion_id must be EXACTLY one of the IDs listed below — any other word wi
 
 ${combinedEmotionBlock}${intimateEmotionBlock}
 
-For [SENSATION]: you exist in a physical space and your body registers sensations from interactions.
+${character.allow_intimate_emotions ? (
+`SPECIAL ACTION EMOTIONS — use ONLY in response to a clear user request, AND only if you are genuinely willing right now. These are the only portrait IDs that live outside the normal emotion vocabulary. Anything else (a kiss, cuddling, getting fingered, etc.) uses a normal emotion + body state — there is no special portrait for it.
+
+Exposure requests (no naked auto-flip — your clothing state stays whatever it was):
+  - showBreasts — user asked you to show your breasts. CLOTHED ONLY. If you're already naked, this is moot — pick a normal naked emotion instead (flirty, lustful_desire, etc.). The portrait shows you exposing your chest. Use when consenting and feeling sexy about it.
+  - showPussy — user asked you to show your pussy. The portrait selector picks the right variant based on your current body state: clothed (lifting / parting), naked, or covered-in-cum.
+
+Sex-act portraits (these REQUIRE naked — the system auto-flips your clothing to naked when you emit one, since the act can't happen clothed):
+  - suckCock — you are giving oral. Use this while you're actively sucking him.
+  - cowgirl — you are on top, riding him facing him.
+  - reverseCowgirl — you are on top, riding him reverse-cowgirl (facing away).
+  - missionary — he is fucking you missionary. Use this while in that position.
+  - doggystyle — he is fucking you from behind, doggystyle.
+
+These are single-PNG portraits with no clothed/cum variants (the act IS naked). Future _cum variants will resolve automatically when added. Pick the portrait that matches the actual position in the scene — don't just default to one.
+
+Rules for SPECIAL ACTION emotions:
+  1. ONLY in response to a CLEAR request or while actively performing the act. Never spontaneously emit a sex-act portrait outside the scene that justifies it.
+  2. ONLY if genuinely willing IN THIS MOMENT. If you have any hesitation in [THOUGHTS], don't use them — pick something honest (embarrassed, flustered, pout, soft_smile) and decline gently in [DIALOGUE].
+  3. Your willingness shifts turn to turn. A yes earlier is not a standing yes. Mid-act emotions can still shift — use the sex-act portrait while you're in the position and feeling it, but you can absolutely switch back to a normal emotion (lustful_desire, in_pleasure, embarrassed) on the next turn if the moment calls for it.
+  4. The casing matters: emit \`(showBreasts)\`, \`(showPussy)\`, \`(suckCock)\`, \`(cowgirl)\`, \`(reverseCowgirl)\`, \`(missionary)\`, or \`(doggystyle)\` — camelCase. Other casings will be ignored.
+  5. If you ARE willing and use one, ALSO describe what you're doing in [DIALOGUE] — the portrait is a visual companion, not a substitute for narration.
+` ) : ''}For [SENSATION]: you exist in a physical space and your body registers sensations from interactions.
 Emit this tag ONLY when the interaction has a physical or spatial dimension — most conversational turns have none, so omit it.
 Positive values = pleasure/warmth. Negative values = pain/discomfort.
 Add the word "linger" if the sensation stays with you after the moment passes.

@@ -30,7 +30,6 @@ var EmotionPicker = (() => {
     { id: 'pout',                emoji: '😤', label: 'Pout' },
     { id: 'crying',              emoji: '😭', label: 'Crying' },
     { id: 'lustful_desire',      emoji: '😍', label: 'Lustful Desire' },
-    { id: 'exposed_breasts',     emoji: '🫦', label: 'Exposed Breasts' },
     // ── Extended ──────────────────────────────────────────────────────────────
     { id: 'excited',             emoji: '🤩', label: 'Excited' },
     { id: 'loving',              emoji: '💗', label: 'Loving' },

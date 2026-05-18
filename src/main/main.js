@@ -13,7 +13,7 @@ const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
 const { summarizeConversation } = require('./claude-bridge');
-const { EMOTION_AXES, COMBINED_EMOTION_MAP, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
+const { EMOTION_AXES, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
 const ttsEngine = require('./tts-engine');
 const featureRequestsStore = require('./feature-requests');
 const { spawn } = require('child_process');
@@ -283,6 +283,9 @@ app.whenReady().then(() => {
       // Last on-screen state — renderer uses this to restore what the user
       // last saw (dialogue + thoughts + portrait) instead of the canned greeting.
       lastDisplay: db.getLastCompanionMessage(),
+      // Body state (clothing + cum) — persists across restarts, drives portrait
+      // variant selection (Naked/ folder or Special/ for showBreasts/showPussy).
+      bodyState: db.getBodyState ? db.getBodyState() : { clothing: 'clothed', cumState: false },
     });
   });
 
@@ -333,7 +336,8 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
     };
     if (_responseLength) character.default_response_length = _responseLength;
-    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, personalityForce: _personalityForce });
+    const bodyState = db.getBodyState ? db.getBodyState() : { clothing: 'clothed', cumState: false };
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, personalityForce: _personalityForce, bodyState });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
@@ -377,6 +381,30 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
         target: { V: target.V, A: target.A, S: target.S, P: target.P },
       });
     }
+
+    // Apply body-state changes (clothing / cum) Aria emitted via [STATE] tags.
+    // State is persisted to emotional_state so it survives restarts and the next
+    // turn's prompt reflects the current truth.
+    if (response.stateChanges) {
+      if (response.stateChanges.clothing) {
+        db.setClothing(response.stateChanges.clothing);
+      }
+      if (response.stateChanges.cumState !== undefined) {
+        db.setCumState(response.stateChanges.cumState);
+      }
+    }
+    // Auto-flip clothing to naked when Aria emits a sex-act special emotion
+    // (suckCock / reverseCowgirl / missionary) — the act can't happen clothed,
+    // so the state must match. If she's mid-act and was clothed before, this
+    // patches the inconsistency without requiring her to emit a separate [STATE].
+    const _spec = SPECIAL_EMOTIONS[response.emotion];
+    if (_spec && _spec.requiresNaked) {
+      db.setClothing('naked');
+    }
+    // Always include the resolved post-turn state on the response so the
+    // renderer can pick the right portrait variant (even if no change happened
+    // this turn — the portrait may need a variant from the persisted state).
+    response.bodyState = db.getBodyState();
 
     // Apply affection target from character (±40 points cap per message)
     if (response.affectionTarget !== null && response.affectionTarget !== undefined) {

@@ -195,6 +195,12 @@ class KnowledgeDB {
     // (dialogue + thoughts + emotion) can be restored on app restart.
     try { this.db.exec('ALTER TABLE conversation_messages ADD COLUMN thoughts TEXT'); } catch {}
 
+    // Schema migration: clothing + cum_state on emotional_state. Drives portrait
+    // variant selection (clothed/naked/special). Persisted so the state survives
+    // app restarts alongside dialogue/thoughts/emotion.
+    try { this.db.exec("ALTER TABLE emotional_state ADD COLUMN clothing TEXT DEFAULT 'clothed'"); } catch {}
+    try { this.db.exec("ALTER TABLE emotional_state ADD COLUMN cum_state INTEGER DEFAULT 0"); } catch {}
+
     // Schema v2 migration: rebuild FTS index after stop-word list was narrowed.
     // This only runs once, flagged by 'schema_version' in user_profile.
     this._runMigrations();
@@ -669,6 +675,47 @@ class KnowledgeDB {
   getEmotionalState() {
     const row = this.db.prepare('SELECT valence, arousal, social, physical FROM emotional_state WHERE id = 1').get();
     return row || { valence: 50, arousal: 40, social: 50, physical: 70 };
+  }
+
+  // ── Body state (clothing + cum) ───────────────────────────────────────────
+  // Persisted on emotional_state row #1 so it survives restarts. Drives
+  // portrait variant selection in the renderer.
+
+  getBodyState() {
+    try {
+      const row = this.db.prepare('SELECT clothing, cum_state FROM emotional_state WHERE id = 1').get();
+      return {
+        clothing: (row && row.clothing) ? row.clothing : 'clothed',
+        cumState: !!(row && row.cum_state),
+      };
+    } catch {
+      return { clothing: 'clothed', cumState: false };
+    }
+  }
+
+  // Invariant: cum implies naked. Putting clothes back on clears the cum state
+  // (she'd have to clean up first). Going naked doesn't touch cum either way.
+
+  setClothing(state) {
+    const s = (state === 'naked') ? 'naked' : 'clothed';
+    try {
+      if (s === 'clothed') {
+        this.db.prepare('UPDATE emotional_state SET clothing = ?, cum_state = 0 WHERE id = 1').run(s);
+      } else {
+        this.db.prepare('UPDATE emotional_state SET clothing = ? WHERE id = 1').run(s);
+      }
+    } catch {}
+  }
+
+  setCumState(on) {
+    try {
+      if (on) {
+        // Forcing cum on also forces naked — they're entangled.
+        this.db.prepare("UPDATE emotional_state SET cum_state = 1, clothing = 'naked' WHERE id = 1").run();
+      } else {
+        this.db.prepare('UPDATE emotional_state SET cum_state = 0 WHERE id = 1').run();
+      }
+    } catch {}
   }
 
   setEmotionalState({ valence, arousal, social, physical }) {

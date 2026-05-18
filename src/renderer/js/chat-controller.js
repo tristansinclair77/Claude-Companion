@@ -101,6 +101,7 @@ var ChatController = (() => {
           emotion: response.emotion,
           source: response.source,
           emotionalState: response.emotionalState || null,
+          bodyState: response.bodyState || null,
         });
 
         // Update source indicator

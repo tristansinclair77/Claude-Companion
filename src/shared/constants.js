@@ -1,7 +1,8 @@
-// All 39 companion emotion states.
+// All 38 companion emotion states.
 // Emotions flagged `intimate: true` are body-exposure / explicit states. The system prompt
 // only surfaces them as available when the loaded character has `allow_intimate_emotions: true`,
 // and even then they are gated on the character being genuinely willing in the moment.
+// (No emotions currently carry the `intimate` flag — the framework is retained for future use.)
 const EMOTIONS = [
   // ── Core / Original ────────────────────────────────────────────────────────
   { id: 'neutral',               emoji: '😐', color: '#888888', file: 'neutral.png',               label: 'Neutral' },
@@ -23,7 +24,6 @@ const EMOTIONS = [
   { id: 'pout',                  emoji: '😤', color: '#dd6600', file: 'pout.png',                  label: 'Pout' },
   { id: 'crying',                emoji: '😭', color: '#6688cc', file: 'crying.png',                label: 'Crying' },
   { id: 'lustful_desire',        emoji: '😍', color: '#ff44aa', file: 'lustful_desire.png',        label: 'Lustful Desire' },
-  { id: 'exposed_breasts',       emoji: '🫦', color: '#ff66bb', file: 'exposed_breasts.png',       label: 'Exposed Breasts', intimate: true },
   // ── Extended ───────────────────────────────────────────────────────────────
   { id: 'excited',               emoji: '🤩', color: '#ffaa00', file: 'excited.png',               label: 'Excited' },
   { id: 'loving',                emoji: '💗', color: '#ff6688', file: 'loving.png',                label: 'Loving' },
@@ -114,7 +114,6 @@ const EMOTION_AXES = {
   pout:                 { V: 25, A: 60, S: 40, P: 65 },
   crying:               { V: 10, A: 50, S: 20, P: 45 },
   lustful_desire:       { V: 78, A: 82, S: 58, P: 78 },
-  exposed_breasts:      { V: 80, A: 88, S: 62, P: 80 },
   excited:              { V: 85, A: 90, S: 60, P: 85 },
   loving:               { V: 88, A: 60, S: 55, P: 78 },
   nervous:              { V: 35, A: 70, S: 30, P: 60 },
@@ -165,12 +164,52 @@ const RESPONSE_MARKERS = {
   MEMORY: '[MEMORY]',
 };
 
+// Special emotion IDs — user-requested action portraits whose file lives in
+// emotions/Special/ rather than the base emotions folder. The renderer's variant
+// resolver knows how to pick the right Special PNG based on clothing + cum state.
+//
+//   showBreasts     — user asked Aria to show breasts. Clothed-only:
+//                     if already naked, the request is moot — system prompt tells
+//                     her to pick a normal naked emotion instead.
+//                     Single file: showBreasts.png
+//
+//   showPussy       — user asked Aria to show her pussy. Three variants resolved
+//                     by body state:
+//                       showPussy.png        (clothed)
+//                       showPussy_naked.png  (naked, no cum)
+//                       showPussy_cum.png    (naked, post-cum)
+//
+//   suckCock        — Aria is performing oral. Requires naked (system auto-flips).
+//   reverseCowgirl  — Aria is on top, reverse-cowgirl. Requires naked.
+//   missionary      — Aria is being fucked missionary. Requires naked.
+//                     These three are single-PNG portraits (no clothed/cum variants
+//                     yet — they ARE the act, not a tease). Future _cum variants
+//                     will slot in via the resolver's fallback chain.
+//
+// Aria only emits any of these when (a) the user clearly requested the action AND
+// (b) she's genuinely willing in this moment. See the willingness rules block in
+// system-prompt.js. If she's not willing, she picks an ordinary emotion (embarrassed,
+// pout, flustered, etc.) and says so in [DIALOGUE].
+//
+// `requiresNaked: true` means the system flips clothing to naked when she emits
+// this emotion — the act can't happen clothed.
+const SPECIAL_EMOTIONS = {
+  showBreasts:    { clothedOnly: true,  requiresNaked: false, fileBase: 'showBreasts',    label: 'Showing Breasts'  },
+  showPussy:      { clothedOnly: false, requiresNaked: false, fileBase: 'showPussy'      , label: 'Showing Pussy'    },
+  suckCock:       { clothedOnly: false, requiresNaked: true,  fileBase: 'suckCock',       label: 'Sucking Cock'     },
+  reverseCowgirl: { clothedOnly: false, requiresNaked: true,  fileBase: 'reverseCowgirl', label: 'Reverse Cowgirl'  },
+  cowgirl:        { clothedOnly: false, requiresNaked: true,  fileBase: 'cowgirl',        label: 'Cowgirl'          },
+  missionary:     { clothedOnly: false, requiresNaked: true,  fileBase: 'missionary',     label: 'Missionary'       },
+  doggystyle:     { clothedOnly: false, requiresNaked: true,  fileBase: 'doggystyle',     label: 'Doggystyle'       },
+};
+
 module.exports = {
   EMOTIONS,
   EMOTION_MAP,
   COMBINED_EMOTIONS,
   COMBINED_EMOTION_MAP,
   EMOTION_AXES,
+  SPECIAL_EMOTIONS,
   CONFIDENCE_THRESHOLD,
   CONVERSATION_WINDOW_SIZE,
   SUMMARIZE_CHUNK_SIZE,

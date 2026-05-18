@@ -101,6 +101,7 @@ async function sendToClaude({
   featureRequests = [],
   pendingDeletionNotifications = [],
   previousEmotion = '',
+  bodyState = null,
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -117,6 +118,7 @@ async function sendToClaude({
     personalityForce,
     featureRequests,
     pendingDeletionNotifications,
+    bodyState,
   });
 
   // Build the full user prompt: conversation window + current message

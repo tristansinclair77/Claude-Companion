@@ -13,6 +13,102 @@ var CompanionDisplay = (() => {
   let _streamedText    = null; // tracks last text pushed via showStreamChunk
   let characterDir = '../../characters/default'; // default; updated from app.js
 
+  // Body state — drives portrait variant selection.
+  //   clothing: 'clothed' | 'naked'
+  //   cumState: true => prefer the _cum variant for special-action portraits
+  // Persisted in main process (emotional_state row in knowledge.db). The renderer
+  // mirrors it here so setEmotion can pick the right file synchronously.
+  let _bodyState = { clothing: 'clothed', cumState: false };
+
+  // Special-action portraits live in emotions/Special/ rather than the base
+  // emotions folder. The renderer treats them as emotion IDs but resolves them
+  // through this lookup. Casing matters — these IDs are camelCase, not snake_case.
+  //
+  //   showBreasts / showPussy — body-exposure requests. showBreasts is clothed-only;
+  //                             showPussy has clothed / naked / cum variants.
+  //   suckCock / reverseCowgirl / missionary — sex-act portraits. Single PNG each
+  //                                            (the act IS naked, no variants yet).
+  //                                            Marked requiresNaked so the renderer
+  //                                            and main process auto-flip clothing.
+  const SPECIAL_EMOTIONS = {
+    showBreasts:    { clothedOnly: true,  requiresNaked: false, fileBase: 'showBreasts',    label: 'Showing Breasts',  emoji: '👀', color: '#ff66bb' },
+    showPussy:      { clothedOnly: false, requiresNaked: false, fileBase: 'showPussy',      label: 'Showing Pussy',    emoji: '🍑', color: '#ff44aa' },
+    suckCock:       { clothedOnly: false, requiresNaked: true,  fileBase: 'suckCock',       label: 'Sucking Cock',     emoji: '💋', color: '#ff3388' },
+    reverseCowgirl: { clothedOnly: false, requiresNaked: true,  fileBase: 'reverseCowgirl', label: 'Reverse Cowgirl',  emoji: '🔥', color: '#ff2266' },
+    cowgirl:        { clothedOnly: false, requiresNaked: true,  fileBase: 'cowgirl',        label: 'Cowgirl',          emoji: '🐎', color: '#ff3366' },
+    missionary:     { clothedOnly: false, requiresNaked: true,  fileBase: 'missionary',     label: 'Missionary',       emoji: '💞', color: '#ff4488' },
+    doggystyle:     { clothedOnly: false, requiresNaked: true,  fileBase: 'doggystyle',     label: 'Doggystyle',       emoji: '🐶', color: '#ff2255' },
+  };
+
+  /**
+   * Resolve the on-disk portrait path for (emotionId + bodyState).
+   *
+   *   Special action emotions (Special/ folder, single-PNG-per-state):
+   *     showBreasts          -> Special/showBreasts.png       (clothed only — Aria
+   *                                                             is told not to emit
+   *                                                             this when naked)
+   *     showPussy + cum      -> Special/showPussy_cum.png
+   *     showPussy + naked    -> Special/showPussy_naked.png
+   *     showPussy + clothed  -> Special/showPussy.png
+   *
+   *   Base emotion + cum (naked) -> Cum/<emotion>_naked_cum.png  (38 variants exist;
+   *                                                                onerror falls
+   *                                                                back to _naked)
+   *   Base emotion + naked       -> Naked/<emotion>_naked.png    (38 variants exist)
+   *   Base emotion + clothed     -> <emotion>.png
+   *
+   *   Combined  + naked      -> combined/Naked/<emotion>_naked.png
+   *   Combined  + clothed    -> combined/<emotion>.png
+   *   Combined  + cum        -> falls back to combined/Naked/ (no Cum/ variants for
+   *                              combined yet — handled by onerror chain).
+   *
+   * Invariant: cum implies naked. setBodyState enforces it; resolvePortrait
+   * defends against any out-of-sync state by ignoring cum when not naked.
+   */
+  function resolvePortrait(emotionId, isCombined) {
+    const special = SPECIAL_EMOTIONS[emotionId];
+    if (special) {
+      // showPussy has multiple variants resolved by body state.
+      if (special.fileBase === 'showPussy') {
+        if (_bodyState.cumState && _bodyState.clothing === 'naked') return `${characterDir}/emotions/Special/showPussy_cum.png`;
+        if (_bodyState.clothing === 'naked') return `${characterDir}/emotions/Special/showPussy_naked.png`;
+        return `${characterDir}/emotions/Special/showPussy.png`;
+      }
+      // showBreasts and the sex-act portraits (suckCock / reverseCowgirl /
+      // missionary) are single-PNG. Render the file directly — if a future
+      // _cum variant is added, extend the same branching used for showPussy.
+      return `${characterDir}/emotions/Special/${special.fileBase}.png`;
+    }
+
+    const wantCum   = _bodyState.cumState && _bodyState.clothing === 'naked';
+    const wantNaked = _bodyState.clothing === 'naked' || wantCum;
+
+    if (isCombined) {
+      // Combined emotions now have Cum variants in combined/Cum/.
+      if (wantCum)   return `${characterDir}/emotions/combined/Cum/${emotionId}_naked_cum.png`;
+      if (wantNaked) return `${characterDir}/emotions/combined/Naked/${emotionId}_naked.png`;
+      return `${characterDir}/emotions/combined/${emotionId}.png`;
+    }
+
+    if (wantCum)   return `${characterDir}/emotions/Cum/${emotionId}_naked_cum.png`;
+    if (wantNaked) return `${characterDir}/emotions/Naked/${emotionId}_naked.png`;
+    return `${characterDir}/emotions/${emotionId}.png`;
+  }
+
+  // Invariant: cum implies naked. Setting cum=true forces naked; setting
+  // clothing=clothed clears cum (would have to clean up to dress).
+  function setBodyState(next) {
+    if (!next) return;
+    if (next.clothing === 'clothed' || next.clothing === 'naked') {
+      _bodyState.clothing = next.clothing;
+      if (_bodyState.clothing === 'clothed') _bodyState.cumState = false;
+    }
+    if (typeof next.cumState === 'boolean') {
+      _bodyState.cumState = next.cumState;
+      if (_bodyState.cumState) _bodyState.clothing = 'naked';
+    }
+  }
+
   // ── All 38 single emotions ─────────────────────────────────────────────────
   const EMOTIONS = {
     neutral:              { emoji: '😐', color: '#888888' },
@@ -34,7 +130,6 @@ var CompanionDisplay = (() => {
     pout:                 { emoji: '😤', color: '#dd6600' },
     crying:               { emoji: '😭', color: '#6688cc' },
     lustful_desire:       { emoji: '😍', color: '#ff44aa' },
-    exposed_breasts:      { emoji: '🫦', color: '#ff66bb' },
     excited:              { emoji: '🤩', color: '#ffaa00' },
     loving:               { emoji: '💗', color: '#ff6688' },
     nervous:              { emoji: '😬', color: '#aaaa44' },
@@ -449,7 +544,7 @@ var CompanionDisplay = (() => {
     dialogueEl.classList.add('typewriter-cursor');
   }
 
-  function showResponse({ dialogue, thoughts, emotion, source, emotionalState }) {
+  function showResponse({ dialogue, thoughts, emotion, source, emotionalState, bodyState }) {
     // Cancel any previous audio-sync wait (new message arrived)
     _cancelAudioWait();
 
@@ -458,6 +553,9 @@ var CompanionDisplay = (() => {
 
     // Update thoughts immediately
     thoughtsEl.textContent = thoughts || '';
+
+    // Apply body-state changes BEFORE setEmotion so portrait resolution uses the new state.
+    if (bodyState) setBodyState(bodyState);
 
     // Update emotion badge and portrait
     setEmotion(emotion || 'neutral');
@@ -503,23 +601,27 @@ var CompanionDisplay = (() => {
   }
 
   function setEmotion(emotionId) {
+    const special  = SPECIAL_EMOTIONS[emotionId];
     const combined = COMBINED_EMOTIONS[emotionId];
     const single   = EMOTIONS[emotionId];
-    const info     = combined || single || EMOTIONS.neutral;
+    const info     = special || combined || single || EMOTIONS.neutral;
     const isCombined = !!combined;
 
-    // Badge label
-    const label = combined
-      ? combined.label.toUpperCase()
-      : emotionId.replace(/_/g, ' ').toUpperCase();
+    // Badge label — special action labels are human-friendly already.
+    let label;
+    if (special) {
+      label = special.label.toUpperCase();
+    } else if (combined) {
+      label = combined.label.toUpperCase();
+    } else {
+      label = emotionId.replace(/_/g, ' ').toUpperCase();
+    }
     emotionEl.textContent = `${info.emoji} ${label}`;
     emotionEl.style.color = info.color;
     emotionEl.style.borderColor = info.color + '44';
 
-    // Portrait image path — uses characterDir so custom character packs work
-    const imgPath = isCombined
-      ? `${characterDir}/emotions/combined/${emotionId}.png`
-      : `${characterDir}/emotions/${emotionId}.png`;
+    // Resolve the actual portrait path based on (emotionId, bodyState).
+    const imgPath = resolvePortrait(emotionId, isCombined);
 
     if (portraitEl.getAttribute('src') !== imgPath) {
       // With images preloaded, onload fires from cache in <10ms — transition feels instant.
@@ -528,7 +630,38 @@ var CompanionDisplay = (() => {
       portraitEl.src = imgPath;
       portraitEl.onload  = () => { portraitEl.style.opacity = '1'; };
       portraitEl.onerror = () => {
-        portraitEl.src = `${characterDir}/emotions/neutral.png`;
+        // Fallback chain (cascading down):
+        //   Cum/<id>_naked_cum.png           →  Naked/<id>_naked.png            →  <id>.png  →  neutral.png
+        //   combined/Cum/<id>_naked_cum.png  →  combined/Naked/<id>_naked.png   →  combined/<id>.png  →  neutral.png
+        //   Special/*                        →  neutral.png  (no Naked fallback for specials)
+        let fallback;
+        if (special) {
+          fallback = `${characterDir}/emotions/neutral.png`;
+        } else if (imgPath.includes('/Cum/') || imgPath.includes('_naked_cum.png')) {
+          // Cum variant missing → try the _naked variant
+          fallback = isCombined
+            ? `${characterDir}/emotions/combined/Naked/${emotionId}_naked.png`
+            : `${characterDir}/emotions/Naked/${emotionId}_naked.png`;
+        } else if (imgPath.includes('/Naked/') || imgPath.includes('_naked.png')) {
+          // Naked variant missing → try the clothed base
+          fallback = isCombined
+            ? `${characterDir}/emotions/combined/${emotionId}.png`
+            : `${characterDir}/emotions/${emotionId}.png`;
+        } else {
+          fallback = `${characterDir}/emotions/neutral.png`;
+        }
+        portraitEl.src = fallback;
+        portraitEl.onerror = () => {
+          // Last-resort safety net if even the fallback 404s — try the clothed
+          // base, then neutral, depending on what we just attempted.
+          if (fallback.includes('/Naked/') || fallback.includes('_naked.png')) {
+            portraitEl.src = isCombined
+              ? `${characterDir}/emotions/combined/${emotionId}.png`
+              : `${characterDir}/emotions/${emotionId}.png`;
+          } else {
+            portraitEl.src = `${characterDir}/emotions/neutral.png`;
+          }
+        };
         portraitEl.style.opacity = '1';
       };
     }
@@ -706,8 +839,11 @@ var CompanionDisplay = (() => {
    * startup). Skips the typewriter so the restore is instant — the user sees
    * what they last saw, not a re-animated message.
    */
-  function restoreLastDisplay(snapshot, emotionalState) {
+  function restoreLastDisplay(snapshot, emotionalState, bodyState) {
     _preloadEmotionImages();
+
+    // Body state must be applied first so the portrait variant resolves correctly.
+    if (bodyState) setBodyState(bodyState);
 
     const { dialogue = '', thoughts = '', emotion = 'neutral' } = snapshot || {};
     dialogueEl.textContent = dialogue;
@@ -722,5 +858,5 @@ var CompanionDisplay = (() => {
     updateMeters(emotionalState || null);
   }
 
-  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, restoreLastDisplay, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
+  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, restoreLastDisplay, setBodyState, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
 })();

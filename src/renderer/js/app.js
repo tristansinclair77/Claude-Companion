@@ -135,11 +135,15 @@
       if (data.characterId) {
         CompanionDisplay.setCharacterDir(`../../characters/${data.characterId}`);
       }
+      // Apply persisted body state (clothing + cum) so portrait variants
+      // resolve correctly even before the first Claude turn.
+      if (data.bodyState) CompanionDisplay.setBodyState(data.bodyState);
+
       // Restore the last on-screen state if we have one — keeps the screen
       // continuous across app restarts. Falls back to the canned greeting on
       // a fresh install or when no companion message has been saved yet.
       if (data.lastDisplay && data.lastDisplay.dialogue) {
-        CompanionDisplay.restoreLastDisplay(data.lastDisplay, data.emotionalState || null);
+        CompanionDisplay.restoreLastDisplay(data.lastDisplay, data.emotionalState || null, data.bodyState || null);
       } else {
         CompanionDisplay.setGreeting(data.character, data.emotionalState || null);
       }

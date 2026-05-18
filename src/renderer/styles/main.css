@@ -212,9 +212,10 @@ html { background: var(--bg-dark); }
   text-transform: uppercase;
 }
 
-/* Portrait panel (right, scales with viewport) */
+/* Portrait panel (right). Narrower than before so the freed horizontal space
+   flows into #output-panel (the dialogue/thoughts column on the left). */
 #portrait-panel {
-  width: clamp(260px, 30vw, 540px);
+  width: clamp(240px, 26vw, 480px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -226,21 +227,32 @@ html { background: var(--bg-dark); }
   overflow: hidden;
 }
 
+/* Portrait frame is locked to a 1:1 square so the full portrait is always
+   visible without cropping. `aspect-ratio` + `max-height: 100%` keeps the
+   square inside the panel's available height; if the panel is shorter than
+   it is wide, the frame shrinks proportionally so width still equals height. */
 #portrait-frame {
   position: relative;
-  flex: 1 1 0;               /* grows to fill space remaining after bars */
+  flex: 0 1 auto;            /* allow shrink, don't grow */
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  max-height: 100%;
   min-height: 0;
-  overflow: hidden;          /* aspect-ratio removed — object-fit:cover handles it */
+  align-self: center;        /* center if narrower than the panel */
+  overflow: hidden;
   border: 2px solid var(--cyan-dim);
   box-shadow: 0 0 16px #00ffcc22, inset 0 0 16px #00ffcc08;
   background: var(--bg-panel);
 }
 
+/* `contain` shows the WHOLE portrait inside the square — no cropping. Any
+   leftover space inside the frame is the panel background, which keeps the
+   composition clean. */
 #companion-portrait {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  object-fit: contain;
+  object-position: center;
   display: block;
   image-rendering: auto;
 }
