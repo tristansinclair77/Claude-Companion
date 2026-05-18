@@ -201,6 +201,13 @@ class KnowledgeDB {
     try { this.db.exec("ALTER TABLE emotional_state ADD COLUMN clothing TEXT DEFAULT 'clothed'"); } catch {}
     try { this.db.exec("ALTER TABLE emotional_state ADD COLUMN cum_state INTEGER DEFAULT 0"); } catch {}
 
+    // Schema migration: per-message body-state snapshot on conversation_messages.
+    // Lets saved-chat replay restore the exact portrait variant for every turn
+    // (e.g. she was naked-cum at turn 7), not just the clothed default. Captured
+    // at insert time; existing rows get NULL (replay falls back to defaults).
+    try { this.db.exec("ALTER TABLE conversation_messages ADD COLUMN clothing TEXT"); } catch {}
+    try { this.db.exec("ALTER TABLE conversation_messages ADD COLUMN cum_state INTEGER"); } catch {}
+
     // Schema v2 migration: rebuild FTS index after stop-word list was narrowed.
     // This only runs once, flagged by 'schema_version' in user_profile.
     this._runMigrations();
@@ -590,29 +597,36 @@ class KnowledgeDB {
 
   // ── Conversation Messages ─────────────────────────────────────────────────
 
-  insertMessage({ role, content, emotion, thoughts }) {
+  insertMessage({ role, content, emotion, thoughts, clothing, cumState }) {
     this.db.prepare(
-      'INSERT INTO conversation_messages (session_id, role, content, emotion, thoughts) VALUES (NULL, ?, ?, ?, ?)'
-    ).run(role, content, emotion || 'neutral', thoughts || null);
+      'INSERT INTO conversation_messages (session_id, role, content, emotion, thoughts, clothing, cum_state) VALUES (NULL, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      role,
+      content,
+      emotion || 'neutral',
+      thoughts || null,
+      clothing || null,
+      (cumState === true || cumState === 1) ? 1 : ((cumState === false || cumState === 0) ? 0 : null),
+    );
   }
 
   getRecentMessages(n = 30) {
     return this.db.prepare(
-      `SELECT role, content, emotion, thoughts,
+      `SELECT role, content, emotion, thoughts, clothing, cum_state AS cumState,
               CAST(strftime('%s', timestamp) AS INTEGER) * 1000 AS timestamp
        FROM conversation_messages ORDER BY id DESC LIMIT ?`
     ).all(n).reverse();
   }
 
   /**
-   * Returns the most recent companion message {dialogue, thoughts, emotion}, or null
+   * Returns the most recent companion message {dialogue, thoughts, emotion, body state}, or null
    * if there are no companion messages yet. Used by the renderer to restore the last
    * on-screen state when the app reopens — so the user sees what they last saw,
    * not a canned greeting.
    */
   getLastCompanionMessage() {
     const row = this.db.prepare(
-      `SELECT content AS dialogue, thoughts, emotion, timestamp
+      `SELECT content AS dialogue, thoughts, emotion, clothing, cum_state AS cumState, timestamp
        FROM conversation_messages
        WHERE role = 'companion'
        ORDER BY id DESC LIMIT 1`
@@ -622,6 +636,8 @@ class KnowledgeDB {
       dialogue: row.dialogue,
       thoughts: row.thoughts || '',
       emotion: row.emotion || 'neutral',
+      clothing: row.clothing || null,
+      cumState: row.cumState == null ? null : !!row.cumState,
       timestamp: row.timestamp,
     };
   }

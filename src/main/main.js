@@ -330,19 +330,27 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
   // Stop any in-progress TTS before processing the new message
   mainWindow?.webContents.send('tts:stop');
   try {
-    // DB insert first (persistence only — does not affect prompt context)
-    db.insertMessage({ role: 'user', content: message, emotion: userEmotion });
+    // Snapshot Aria's body state BEFORE the response so the user message row
+    // carries the state that was true while the user was typing. Then insert
+    // the user message with that snapshot.
+    const _preBodyState = db.getBodyState ? db.getBodyState() : { clothing: 'clothed', cumState: false };
+    db.insertMessage({
+      role: 'user', content: message, emotion: userEmotion,
+      clothing: _preBodyState.clothing, cumState: _preBodyState.cumState,
+    });
     const onStreamChunk = (partialDialogue) => {
       mainWindow?.webContents.send('claude:stream-chunk', { text: partialDialogue });
     };
     if (_responseLength) character.default_response_length = _responseLength;
-    const bodyState = db.getBodyState ? db.getBodyState() : { clothing: 'clothed', cumState: false };
+    const bodyState = _preBodyState;
     const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, personalityForce: _personalityForce, bodyState });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
     sessionManager.addMessage('companion', response.dialogue, response.emotion);
-    db.insertMessage({ role: 'companion', content: response.dialogue, emotion: response.emotion, thoughts: response.thoughts });
+    // NB: companion DB insert is deferred — see below — so the body-state
+    // snapshot we save reflects the POST-response state (after [STATE] tags
+    // and any requiresNaked auto-flip are applied).
 
     // Update persistent emotional axis state (drift 15% toward emitted emotion)
     const emotionId = response.emotion;
@@ -405,6 +413,19 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     // renderer can pick the right portrait variant (even if no change happened
     // this turn — the portrait may need a variant from the persisted state).
     response.bodyState = db.getBodyState();
+
+    // Companion DB insert (deferred so it captures POST-response body state).
+    // This row is what replay uses to render the right portrait variant for
+    // this turn, so its body-state snapshot must reflect everything Aria did
+    // (including [STATE] tags + requiresNaked auto-flip).
+    db.insertMessage({
+      role: 'companion',
+      content: response.dialogue,
+      emotion: response.emotion,
+      thoughts: response.thoughts,
+      clothing: response.bodyState && response.bodyState.clothing,
+      cumState: response.bodyState && response.bodyState.cumState,
+    });
 
     // Apply affection target from character (±40 points cap per message)
     if (response.affectionTarget !== null && response.affectionTarget !== undefined) {

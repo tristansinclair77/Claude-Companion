@@ -642,8 +642,8 @@ const HelpPanel = (() => {
           ['[R]',               'Restart from the beginning.'],
           ['[ESC]',             'Exit replay and return to the saved-conversation list.'],
         ]) +
-        p('Old saves that pre-date the schema migration won\'t have <code>thoughts</code> stored (the field was added later) — those rows replay with an empty internal-state panel. New saves include thoughts.') +
-        note('Saved messages don\'t carry the body-state from the moment of the original chat, so the replay always uses the clothed/base portrait variant. Special-action portraits (showBreasts, showPussy, suckCock, cowgirl, reverseCowgirl, missionary, doggystyle) resolve correctly from their <code>Special/</code> folder.')
+        p('Old saves that pre-date the schema migrations won\'t have <code>thoughts</code>, <code>clothing</code>, or <code>cum_state</code> stored — those fields were added later. Those rows replay with empty thoughts and the clothed/base portrait variant. New saves capture all three at insert time.') +
+        note('Per-message body state is mandatory: every message inserted into <code>conversation_messages</code> now snapshots Aria\'s clothing + cum_state at that exact turn. The user message captures the state Aria was in *while you were typing*; the companion message captures the state *after* her response (including any [STATE] tags or auto-flips from sex-act emotions). Replay uses these per-message snapshots so the portrait variant is exact — if she was covered in cum at turn 7, the cum variant shows for turn 7.')
     },
     {
       catId: 'memory', id: 'display-restore',

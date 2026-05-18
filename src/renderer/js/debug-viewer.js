@@ -715,24 +715,42 @@
 
   // ── Playback engine ──────────────────────────────────────────────────────
 
-  // Mirrors companion-display.resolvePortrait. Saved messages don't carry
-  // body-state, so we render the clothed/base variant by default.
-  function resolveReplayPortrait(emotionId) {
+  // Mirrors companion-display.resolvePortrait. Takes the per-message body state
+  // captured at insert time so replay shows the exact variant (Naked / Cum /
+  // Special) that was live at that turn.
+  //
+  // Falls back to the clothed/base variant when body state is missing (pre-
+  // migration rows have NULL — the onerror cascade gives us a clean degrade).
+  function resolveReplayPortrait(emotionId, clothing, cumState) {
     const base = `../../characters/default/emotions`;
-    if (!emotionId || emotionId === 'neutral') return `${base}/neutral.png`;
-    // Special action portraits live under Special/ and are camelCase.
+    if (!emotionId) return `${base}/neutral.png`;
+
     const SPECIALS = ['showBreasts', 'showPussy', 'suckCock', 'cowgirl', 'reverseCowgirl', 'missionary', 'doggystyle'];
     if (SPECIALS.includes(emotionId)) {
+      // showPussy has clothed/naked/cum variants. The others are single-PNG.
+      if (emotionId === 'showPussy') {
+        if (cumState && clothing === 'naked') return `${base}/Special/showPussy_cum.png`;
+        if (clothing === 'naked')              return `${base}/Special/showPussy_naked.png`;
+        return `${base}/Special/showPussy.png`;
+      }
       return `${base}/Special/${emotionId}.png`;
     }
-    // Combined emotions use an underscore in the id and live under combined/
-    if (emotionId.includes('_') && !EMOTIONS[emotionId]) {
+
+    const isCombined = emotionId.includes('_') && !EMOTIONS[emotionId];
+    const wantCum   = cumState && clothing === 'naked';
+    const wantNaked = clothing === 'naked' || wantCum;
+
+    if (isCombined) {
+      if (wantCum)   return `${base}/combined/Cum/${emotionId}_naked_cum.png`;
+      if (wantNaked) return `${base}/combined/Naked/${emotionId}_naked.png`;
       return `${base}/combined/${emotionId}.png`;
     }
+    if (wantCum)   return `${base}/Cum/${emotionId}_naked_cum.png`;
+    if (wantNaked) return `${base}/Naked/${emotionId}_naked.png`;
     return `${base}/${emotionId}.png`;
   }
 
-  function setReplayEmotion(emotionId) {
+  function setReplayEmotion(emotionId, clothing, cumState) {
     if (!_replay) return;
     const emo = EMOTIONS[emotionId] || { emoji: '✨', color: '#cc88ff' };
     _replay.emotionEl.textContent = `${emo.emoji} ${(emotionId || 'neutral').replace(/_/g, ' ').toUpperCase()}`;
@@ -740,10 +758,30 @@
     _replay.emotionEl.style.borderColor = emo.color + '66';
     _replay.emotionEl.style.textShadow = `0 0 6px ${emo.color}88`;
     _replay.glowEl.style.boxShadow = `inset 0 0 24px ${emo.color}33, 0 0 18px ${emo.color}33`;
-    const src = resolveReplayPortrait(emotionId);
+    const src = resolveReplayPortrait(emotionId, clothing, cumState);
     if (_replay.portraitEl.getAttribute('src') !== src) {
       _replay.portraitEl.src = src;
-      _replay.portraitEl.onerror = () => { _replay.portraitEl.src = `../../characters/default/emotions/neutral.png`; };
+      // Cascading fallback so a missing variant degrades gracefully:
+      //   Cum -> Naked -> base -> neutral
+      _replay.portraitEl.onerror = () => {
+        const cur = _replay.portraitEl.getAttribute('src') || '';
+        const baseDir = `../../characters/default/emotions`;
+        const isCombined = emotionId.includes('_') && !EMOTIONS[emotionId];
+        let fb;
+        if (cur.includes('/Cum/') || cur.includes('_naked_cum.png')) {
+          fb = isCombined
+            ? `${baseDir}/combined/Naked/${emotionId}_naked.png`
+            : `${baseDir}/Naked/${emotionId}_naked.png`;
+        } else if (cur.includes('/Naked/') || cur.includes('_naked.png')) {
+          fb = isCombined
+            ? `${baseDir}/combined/${emotionId}.png`
+            : `${baseDir}/${emotionId}.png`;
+        } else {
+          fb = `${baseDir}/neutral.png`;
+        }
+        _replay.portraitEl.src = fb;
+        _replay.portraitEl.onerror = () => { _replay.portraitEl.src = `${baseDir}/neutral.png`; };
+      };
     }
   }
 
@@ -788,8 +826,13 @@
 
     // Step 2: Aria's response
     if (pair.aria) {
-      // Portrait + emotion flip happen immediately so the user sees her react
-      setReplayEmotion(pair.aria.emotion || 'neutral');
+      // Portrait + emotion flip happen immediately so the user sees her react.
+      // Per-message body state drives the variant (Naked / Cum / Special).
+      setReplayEmotion(
+        pair.aria.emotion || 'neutral',
+        pair.aria.clothing || null,
+        pair.aria.cumState
+      );
       // Thoughts appear instantly (mirrors the real companion app)
       _replay.thoughtsEl.textContent = pair.aria.thoughts || '';
       // Dialogue typewrites
