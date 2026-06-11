@@ -7,6 +7,16 @@
 This repo lives at `tristansinclair77/Claude-Companion`. Commits remain authored
 as **Sansflaire** per global rule.
 
+## Aria Character Data Repo
+
+Aria's character data (portraits, emotions, `knowledge.db`, `rpg.db`, config) is
+tracked separately at **`tristansinclair77/Aria-WorkPC`** (private).
+
+This repo lives at `characters/default/` inside the companion repo and has its
+own `.git`. To sync to another machine: clone it into that path. To push a
+snapshot from this machine: close the app, then from `characters/default/` run
+`git add -A && git commit -m "sync" && git push`.
+
 **Core rule (mirrored from `~/.claude/CLAUDE.md`):** Never silently run
 `gh auth switch`. If the active account doesn't already equal
 `tristansinclair77`, pause and ask for explicit approval before switching —
