@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Chat-storage size check (bytes) — used to show a 1 GB warning on startup
   getChatStorageSize: () => ipcRenderer.invoke('storage:get-chat-size'),
 
+  // Portrait panel visibility
+  getPortraitVisible: ()      => ipcRenderer.invoke('settings:get-portrait-visible'),
+  setPortraitVisible: (val)   => ipcRenderer.invoke('settings:set-portrait-visible', val),
+
   // Background / display settings
   getBgSettings: ()    => ipcRenderer.invoke('settings:get-bg'),
   setBgSettings: (bg)  => ipcRenderer.invoke('settings:set-bg', bg),

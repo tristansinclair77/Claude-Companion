@@ -866,6 +866,16 @@ ipcMain.handle('settings:set-zoom', (_event, pct) => {
 
 // ── Background / display settings IPC ─────────────────────────────────────
 
+ipcMain.handle('settings:get-portrait-visible', () => {
+  const cfg = readConfig();
+  return cfg.portraitVisible !== false; // default true
+});
+
+ipcMain.handle('settings:set-portrait-visible', (_event, val) => {
+  writeConfig({ portraitVisible: val });
+  return val;
+});
+
 ipcMain.handle('settings:get-bg', () => {
   return readConfig().background || {};
 });

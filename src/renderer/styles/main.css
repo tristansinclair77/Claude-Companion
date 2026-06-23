@@ -214,6 +214,32 @@ html { background: var(--bg-dark); }
 
 /* Portrait panel (right). Narrower than before so the freed horizontal space
    flows into #output-panel (the dialogue/thoughts column on the left). */
+body.portrait-hidden #portrait-panel { display: none; }
+
+#btn-portrait {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--cyan-dim);
+  font-size: 12px;
+  font-weight: bold;
+  width: 24px;
+  height: 20px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+#btn-portrait:hover { color: var(--cyan); border-color: var(--border-glow); }
+#btn-portrait.active {
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan);
+  border-color: var(--border-glow);
+}
+
 #portrait-panel {
   width: clamp(240px, 26vw, 480px);
   flex-shrink: 0;

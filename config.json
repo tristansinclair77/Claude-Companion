@@ -330,5 +330,6 @@
   },
   "adventure": {
     "typeCps": 50
-  }
+  },
+  "portraitVisible": false
 }

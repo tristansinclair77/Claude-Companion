@@ -72,7 +72,7 @@ const HelpPanel = (() => {
     {
       catId: 'overview', id: 'window-controls',
       title: 'Title Bar & Window Controls',
-      tags: ['title bar', 'window', 'minimize', 'maximize', 'close', 'controls', 'frameless'],
+      tags: ['title bar', 'window', 'minimize', 'maximize', 'close', 'controls', 'frameless', 'portrait', 'toggle', 'hide portrait', 'show portrait'],
       content:
         p('Claude Companion uses a custom frameless title bar. All window management is handled by buttons on the right side of the title bar.') +
         kv([
@@ -81,6 +81,7 @@ const HelpPanel = (() => {
           ['✕  Close',     'Exit the application.'],
           ['⚙  Settings',  'Open the Display Settings panel (visual packages, effects, TTS, etc.).'],
           ['?  Help',      'Open this help reference panel.'],
+          ['◨  Portrait',  'Toggle the portrait panel on or off. Hides/shows Aria\'s portrait and emotion meters. State is remembered across sessions.'],
           ['◈  Character', 'Top-left — click to switch the active character.'],
         ])
     },

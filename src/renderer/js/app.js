@@ -7,6 +7,20 @@
   document.getElementById('btn-maximize').addEventListener('click', () => window.claudeAPI.maximize());
   document.getElementById('btn-close').addEventListener('click',    () => window.claudeAPI.close());
 
+  // Portrait panel toggle
+  const btnPortrait = document.getElementById('btn-portrait');
+  function _applyPortraitVisible(visible) {
+    document.body.classList.toggle('portrait-hidden', !visible);
+    btnPortrait.classList.toggle('active', !visible);
+    btnPortrait.title = visible ? 'Hide portrait panel' : 'Show portrait panel';
+  }
+  window.claudeAPI.getPortraitVisible().then(_applyPortraitVisible);
+  btnPortrait.addEventListener('click', async () => {
+    const visible = document.body.classList.contains('portrait-hidden');
+    const next = await window.claudeAPI.setPortraitVisible(visible);
+    _applyPortraitVisible(next);
+  });
+
   // Initialize modules
   UIEffects.init();
 
