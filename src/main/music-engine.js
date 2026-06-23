@@ -15,7 +15,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const BIBLE_PATH = path.join(__dirname, '..', '..', 'ref', '_bible.json');
+const BIBLE_PATH = path.join(__dirname, '..', '..', 'music', '_bible.json');
 const MUSIC_DIR  = path.join(__dirname, '..', '..', 'music');
 
 let _tracks       = [];   // raw bible track array
