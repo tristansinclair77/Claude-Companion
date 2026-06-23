@@ -1025,6 +1025,16 @@ body.portrait-hidden #portrait-panel { display: none; }
 /* Mic recording state */
 .recording { animation: mic-pulse 0.6s ease-in-out infinite alternate; }
 
+/* ── Adventure Terminal — Package-wide font + UI overrides ───────────────────── */
+[data-package="adventure_terminal"] {
+  --font-mono: 'Courier New', 'Lucida Console', monospace;
+}
+[data-package="adventure_terminal"] .char-selector { letter-spacing: 2px; }
+[data-package="adventure_terminal"] .source-badge  { letter-spacing: 2px; }
+[data-package="adventure_terminal"] .panel-label   { letter-spacing: 2px; }
+[data-package="adventure_terminal"] .loading-text  { letter-spacing: 2px; }
+[data-package="adventure_terminal"] #title-bar     { letter-spacing: 2px; }
+
 /* ── Fantasy RPG — Package-wide font override ────────────────────────────────── */
 /* Redefines --font-mono so every element using var(--font-mono) automatically   */
 /* gets the serif/antiquarian face. Attributed to: Fantasy RPG package            */

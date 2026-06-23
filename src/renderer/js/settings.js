@@ -136,6 +136,47 @@ const BackgroundSettings = (() => {
     _save();
   }
 
+  // Temporary package override — used by adventure mode to switch theme without
+  // persisting the change. Saves current package+effects so restorePackageAfterTemporary
+  // can put everything back exactly as it was.
+  let _tempOverride = null; // { id, effects } snapshot of the pre-override state
+
+  function switchPackageTemporary(id) {
+    if (_tempOverride) return; // don't stack overrides
+    if (!id || id === _activePackageId) return;
+
+    _syncEffectStateToPackage();
+    _tempOverride = { id: _activePackageId, effects: { ...state } };
+    _activePackageId = id;
+    document.body.dataset.package = id;
+
+    const pkg = _getActivePackage();
+    if (!pkg) return;
+    _applyColorScheme(pkg.colors);
+    Object.assign(state, pkg.effects || {});
+    _applyAll();
+    _applyEffectModuleVisibility();
+    // Intentionally skips: _renderPackageSelector, _syncUI, _save
+    // — the user's chosen package is unchanged; this is a transient overlay.
+  }
+
+  function restorePackageAfterTemporary() {
+    if (!_tempOverride) return;
+    const { id: savedId, effects: savedEffects } = _tempOverride;
+    _tempOverride = null;
+    _activePackageId = savedId;
+    document.body.dataset.package = savedId;
+    Object.assign(state, savedEffects);
+
+    const pkg = _getActivePackage();
+    if (!pkg) return;
+    _applyColorScheme(pkg.colors);
+    _applyAll();
+    _applyEffectModuleVisibility();
+    _renderPackageSelector();
+    // Intentionally skips _save — the package was already persisted before the override.
+  }
+
   // ── Zoom state ────────────────────────────────────────────────────────────
 
   const _ZOOM_STEPS = [75, 90, 100, 110, 125, 150, 175, 200];
@@ -1029,7 +1070,7 @@ const BackgroundSettings = (() => {
     console.log('[BackgroundSettings] initialized, package:', _activePackageId);
   }
 
-  return { init };
+  return { init, switchPackageTemporary, restorePackageAfterTemporary };
 
 })();
 

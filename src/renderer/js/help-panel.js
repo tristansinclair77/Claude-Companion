@@ -388,15 +388,17 @@ const HelpPanel = (() => {
     {
       catId: 'display', id: 'visual-packages',
       title: 'Visual Packages',
-      tags: ['visual package', 'package', 'theme', 'cybernetic', 'fantasy', 'rpg', 'arcade', 'cabinet', 'appearance', 'skin'],
+      tags: ['visual package', 'package', 'theme', 'cybernetic', 'fantasy', 'rpg', 'arcade', 'cabinet', 'adventure', 'terminal', 'crt', 'green', 'phosphor', 'appearance', 'skin'],
       content:
         p('A <strong>Visual Package</strong> is a complete UI theme that controls background effects, ambient animations, and which settings sections are available. Select one from the top of the settings panel.') +
         kv([
-          ['Cybernetic',     'Neon cyan/purple grid aesthetic. Features: background grid, film grain, overlay effects (data rain, circuit traces, edge glow, chromatic aberration), scanlines, VU bounce on emotion meters.'],
-          ['Fantasy RPG',    'Warm parchment-and-ink medieval aesthetic. Features: seasonal weather effects (snow, rain, sun, leaves), parchment overlay.'],
-          ['Arcade Cabinet', 'Retro gaming cabinet look. Features: TV glass surface, pixel-art arcade bezel, five random mini-game events (Space Invaders, Asteroids, Pong, Side Scroller, Pac-Man), ambient pixel effects.'],
+          ['Cybernetic',          'Neon cyan/purple grid aesthetic. Features: background grid, film grain, overlay effects (data rain, circuit traces, edge glow, chromatic aberration), scanlines, VU bounce on emotion meters.'],
+          ['Fantasy RPG',         'Warm parchment-and-ink medieval aesthetic. Features: seasonal weather effects (snow, rain, sun, leaves), parchment overlay.'],
+          ['Arcade Cabinet',      'Retro gaming cabinet look. Features: TV glass surface, pixel-art arcade bezel, five random mini-game events (Space Invaders, Asteroids, Pong, Side Scroller, Pac-Man), ambient pixel effects.'],
+          ['Adventure Terminal',  'Green phosphor CRT terminal aesthetic. Applied automatically when Adventure Mode is active — the full app switches to this package and restores your normal package on exit. Features: heavy CRT scanlines, static film grain.'],
         ]) +
-        note('Settings sections that belong to a package are hidden automatically when that package is not active.')
+        note('Settings sections that belong to a package are hidden automatically when that package is not active.') +
+        note('The Adventure Terminal package is applied automatically — it cannot be selected manually. Your chosen package is always restored when you exit Adventure Mode.')
     },
     {
       catId: 'display', id: 'ui-scale',

@@ -15,25 +15,6 @@ body.adventure-mode #main-content {
   height: calc(100vh - var(--title-h));
 }
 
-/* Green CRT terminal theme while in adventure mode */
-body.adventure-mode {
-  --cyan:         #66ff8b;
-  --cyan-dim:     #1a6b33;
-  --green:        #00ff66;
-  --magenta:      #ff4466;
-  --purple:       #aa44ff;
-  --orange:       #ffaa00;
-  --red:          #ff2244;
-  --yellow:       #ffdd00;
-  --bg-dark:      #000c02;
-  --bg-panel:     #001204;
-  --bg-mid:       #001806;
-  --bg-input:     #000a02;
-  --border:       #003308;
-  --border-glow:  rgba(102, 255, 139, 0.15);
-  --thoughts-color: #1a6b33;
-}
-
 /* Exit button shown under portrait only in adventure mode */
 #adventure-exit-wrap {
   display: none;

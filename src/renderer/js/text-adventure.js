@@ -97,6 +97,10 @@ const TextAdventure = (function () {
     }
     document.body.classList.add('adventure-mode');
     root.classList.remove('hidden');
+    // Switch the full app to the Adventure Terminal visual package
+    if (window.BackgroundSettings?.switchPackageTemporary) {
+      window.BackgroundSettings.switchPackageTemporary('adventure_terminal');
+    }
     if (!unsubscribeUpdate) {
       unsubscribeUpdate = window.adventureAPI.onUpdate(_handleUpdate);
     }
@@ -126,6 +130,10 @@ const TextAdventure = (function () {
   function _exit() {
     document.body.classList.remove('adventure-mode');
     root.classList.add('hidden');
+    // Restore the user's normal visual package
+    if (window.BackgroundSettings?.restorePackageAfterTemporary) {
+      window.BackgroundSettings.restorePackageAfterTemporary();
+    }
     if (drawer) drawer.classList.remove('open');
     _hideSideChat();
     // Adventure music belongs to adventure mode — stop on exit so it doesn't
