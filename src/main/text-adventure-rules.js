@@ -220,12 +220,21 @@ When NOT to switch tracks:
 Cue selection algorithm:
   1. Try to match the scene's location by name (the bible has "Forest (Day)",
      "Crystal Cave", "Castle Town (Day)", "Dragon's Lair", etc).
-  2. If no exact match, pick by mood + energy fit. The catalog lists every
+  2. **DAY/NIGHT VARIANT — REQUIRED.** Many cues exist as both "X (Day)" and
+     "X (Night)" pairs. ALWAYS pick the variant that matches the current
+     state.time.phase. Day phases: dawn, morning, noon, afternoon, late
+     afternoon. Night phases: dusk, evening, night, late night, midnight.
+     If only one variant exists, that one is fine for both. When time of day
+     advances across the day/night boundary, switch the cue to the matching
+     variant of the same place. (The engine also auto-swaps as a safety
+     net, but it's much cleaner if you pick the right id directly.)
+  3. If no exact name match, pick by mood + energy fit. The catalog lists every
      cue's mood tags and energy tier — pick what matches the emotional moment.
-  3. For combat: cue 125 "Simple Battle" (random encounter), 126 "Hectic
+  4. For combat: cue 125 "Simple Battle" (random encounter), 126 "Hectic
      Battle" (swarm/desperate fight), 127 "Boss Battle" (major boss). These ids
      are stable — but the full catalog below is authoritative.
-  4. After combat, return to the zone's ambient theme.
+  5. After combat, return to the zone's ambient theme — re-emitting the same
+     [MUSIC] id is fine, the engine no-ops if already playing.
 
 Tag format:
 

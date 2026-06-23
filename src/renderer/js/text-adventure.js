@@ -55,12 +55,31 @@ const TextAdventure = (function () {
   let _drawerActiveTab = 'inventory';
   let _savedChatEmotion = null;   // Aria's portrait emotion before adventure mode took over
 
+  // ── Typewriter settings + queue ─────────────────────────────────────────
+  let _typewriterOn  = true;
+  let _typeCps       = 80;
+  let _skipOnClick   = true;
+  // Queue of pending typewriter jobs: { el, text, idx, timer }
+  let _typeQueue     = [];
+  let _typing        = null;   // currently animating job
+
+  function setTypeSettings(s) {
+    if (!s) return;
+    if (typeof s.typewriter  === 'boolean') _typewriterOn = s.typewriter;
+    if (typeof s.typeCps     === 'number')  _typeCps      = Math.max(10, Math.min(800, s.typeCps));
+    if (typeof s.skipOnClick === 'boolean') _skipOnClick  = s.skipOnClick;
+  }
+
   // ── Init ─────────────────────────────────────────────────────────────────
   function init() {
     root = document.getElementById('text-adventure');
     if (!root) return;
     _renderShell();
     _wireEvents();
+    // Pull persisted display settings (typewriter speed etc.)
+    if (window.adventureAPI && typeof window.adventureAPI.getDisplaySettings === 'function') {
+      window.adventureAPI.getDisplaySettings().then(setTypeSettings).catch(() => {});
+    }
   }
 
   function toggle() {
@@ -545,6 +564,14 @@ const TextAdventure = (function () {
     root.querySelector('#ta-btn-reset').addEventListener('click', _confirmReset);
     root.querySelector('#ta-btn-sidechat').addEventListener('click', _openSideChat);
 
+    // Click in the terminal scroll area while typewriter is animating →
+    // finish all in-progress + queued jobs instantly. Ignore clicks on the
+    // enemy panel / HUD.
+    scrollEl.addEventListener('click', () => {
+      if (!_skipOnClick) return;
+      if (_typing || _typeQueue.length > 0) _typeFinishAll();
+    });
+
     // Music badge — click toggles pause/resume; updates from MusicPlayer events.
     const musicBadge = root.querySelector('#ta-music-badge');
     musicBadge.addEventListener('click', () => {
@@ -675,8 +702,8 @@ const TextAdventure = (function () {
     _activeState = state;
 
     if (turnResponse) {
-      if (turnResponse.narrator) _addEntry('narrator', turnResponse.narrator);
-      if (turnResponse.aria)     _addEntry('aria', turnResponse.aria.dialogue);
+      if (turnResponse.narrator) _addEntryAnimated('narrator', turnResponse.narrator);
+      if (turnResponse.aria)     _addEntryAnimated('aria', turnResponse.aria.dialogue);
       // Portrait reflects Aria's in-story emotional state this turn — driven
       // by the parser's portraitEmotion which prefers meta-comment (emotion)
       // over standalone [ARIA_EMOTION] when both are present.
@@ -760,6 +787,75 @@ const TextAdventure = (function () {
     div.className = 'ta-entry ' + (kind || 'narrator');
     div.textContent = text;
     scrollEl.appendChild(div);
+  }
+
+  // Typewriter-animated entry. Appends an empty div first then types into it
+  // at _typeCps characters/second. Queues subsequent calls so they appear in
+  // order. A click in the terminal area finishes the current job instantly.
+  function _addEntryAnimated(kind, text) {
+    if (!_typewriterOn || !text) {
+      _addEntry(kind, text);
+      return;
+    }
+    const div = document.createElement('div');
+    div.className = 'ta-entry ' + (kind || 'narrator') + ' ta-typing';
+    div.textContent = '';
+    scrollEl.appendChild(div);
+    _scrollToBottom();
+    _typeQueue.push({ el: div, text, idx: 0, timer: null });
+    if (!_typing) _typeStartNext();
+  }
+
+  function _typeStartNext() {
+    _typing = _typeQueue.shift() || null;
+    if (!_typing) return;
+    _typeTick();
+  }
+
+  function _typeTick() {
+    if (!_typing) return;
+    const job = _typing;
+    const msPerChar = Math.max(1, Math.round(1000 / Math.max(10, _typeCps)));
+    // Burst-write so very high cps doesn't cripple the setTimeout loop:
+    // characters per tick = ceil(burst). We always tick every ~10ms minimum.
+    const burst = Math.max(1, Math.round(10 / msPerChar));
+    const delay = Math.max(10, msPerChar * burst);
+    const advance = () => {
+      if (!_typing || _typing !== job) return;
+      job.idx = Math.min(job.text.length, job.idx + burst);
+      job.el.textContent = job.text.slice(0, job.idx);
+      _scrollToBottomSoft();
+      if (job.idx >= job.text.length) {
+        job.el.classList.remove('ta-typing');
+        _typing = null;
+        _typeStartNext();
+        return;
+      }
+      job.timer = setTimeout(advance, delay);
+    };
+    job.timer = setTimeout(advance, delay);
+  }
+
+  function _typeFinishAll() {
+    if (_typing) {
+      if (_typing.timer) { clearTimeout(_typing.timer); _typing.timer = null; }
+      _typing.el.textContent = _typing.text;
+      _typing.el.classList.remove('ta-typing');
+      _typing = null;
+    }
+    for (const job of _typeQueue) {
+      if (job.timer) clearTimeout(job.timer);
+      job.el.textContent = job.text;
+      job.el.classList.remove('ta-typing');
+    }
+    _typeQueue = [];
+    _scrollToBottom();
+  }
+
+  // Soft scroll — only scroll if the user hasn't manually scrolled up.
+  function _scrollToBottomSoft() {
+    const nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 60;
+    if (nearBottom) scrollEl.scrollTop = scrollEl.scrollHeight;
   }
 
   let _thinkingEl = null;
@@ -903,7 +999,7 @@ const TextAdventure = (function () {
       .replace(/>/g, '&gt;');
   }
 
-  return { init, toggle };
+  return { init, toggle, setTypeSettings };
 })();
 
 window.TextAdventure = TextAdventure;

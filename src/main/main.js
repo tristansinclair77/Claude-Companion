@@ -968,6 +968,26 @@ ipcMain.handle('music:get-bible', () => {
   return { tracks: musicEngine.hasLibrary() ? require('../../ref/_bible.json').tracks : [] };
 });
 
+// ── Adventure display settings ────────────────────────────────────────────────
+// Stored under config.adventure = { typewriter: bool, typeCps: chars/sec, skipOnClick: bool }
+ipcMain.handle('adventure-display:get-settings', () => {
+  const c = (readConfig().adventure) || {};
+  return {
+    typewriter:  c.typewriter !== false,
+    typeCps:     typeof c.typeCps     === 'number' ? c.typeCps     : 80,
+    skipOnClick: c.skipOnClick !== false,
+  };
+});
+ipcMain.handle('adventure-display:set-settings', (_event, partial = {}) => {
+  const cur = (readConfig().adventure) || {};
+  const next = { ...cur };
+  if (typeof partial.typewriter  === 'boolean') next.typewriter  = partial.typewriter;
+  if (typeof partial.typeCps     === 'number')  next.typeCps     = Math.max(10, Math.min(800, partial.typeCps));
+  if (typeof partial.skipOnClick === 'boolean') next.skipOnClick = partial.skipOnClick;
+  writeConfig({ adventure: next });
+  return next;
+});
+
 // ── Feature Requests IPC ──────────────────────────────────────────────────────
 
 ipcMain.handle('feature-requests:get', () => {

@@ -113,7 +113,9 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
 
 // Translates a [MUSIC] tag value into a payload the renderer can play.
 // Returns { kind, cue? } or null for invalid / empty directives.
-function _resolveMusicDirective(value) {
+// `timeOfDay` is the phase string from state.time.phase — used as a hint so
+// the engine can auto-swap to the matching Day/Night variant when needed.
+function _resolveMusicDirective(value, { timeOfDay } = {}) {
   if (!value) return null;
   const v = String(value).trim();
   if (!v) return null;
@@ -121,10 +123,13 @@ function _resolveMusicDirective(value) {
   if (lower === 'pause')  return { kind: 'pause'  };
   if (lower === 'resume') return { kind: 'resume' };
   if (lower === 'stop' || lower === 'silence') return { kind: 'stop' };
-  const cue = musicEngine.resolveCueForPayload(v);
+  const cue = musicEngine.resolveCueForPayload(v, { timeOfDay });
   if (!cue.ok) {
     console.warn('[Adventure] music directive could not resolve:', v, '—', cue.reason);
     return null;
+  }
+  if (cue.swappedFrom) {
+    console.log(`[Adventure] music swap: ${cue.swappedFrom} → ${cue.name} (phase: ${timeOfDay})`);
   }
   return { kind: 'play', cue };
 }
@@ -400,7 +405,11 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
       // can resume music without waiting for Claude to re-emit the directive.
       let musicDirective = null;
       if (parsed.music) {
-        musicDirective = _resolveMusicDirective(parsed.music);
+        // Pass the post-diff time phase so auto-swap uses the updated value
+        // (Claude often advances time AND switches music in the same turn).
+        musicDirective = _resolveMusicDirective(parsed.music, {
+          timeOfDay: state.time && state.time.phase,
+        });
         if (musicDirective && mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('music:cue', musicDirective);
         }

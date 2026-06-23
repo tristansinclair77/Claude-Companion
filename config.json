@@ -327,5 +327,8 @@
   ],
   "music": {
     "volume": 0.17
+  },
+  "adventure": {
+    "typeCps": 50
   }
 }

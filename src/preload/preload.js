@@ -124,6 +124,8 @@ contextBridge.exposeInMainWorld('musicAPI', {
 
 // ── Text Adventure API ─────────────────────────────────────────────────────────
 contextBridge.exposeInMainWorld('adventureAPI', {
+  getDisplaySettings: ()        => ipcRenderer.invoke('adventure-display:get-settings'),
+  setDisplaySettings: (partial) => ipcRenderer.invoke('adventure-display:set-settings', partial),
   getState:      ()             => ipcRenderer.invoke('adventure:get-state'),
   newGame:       (opts)         => ipcRenderer.invoke('adventure:new-game', opts),
   takeAction:    (action)       => ipcRenderer.invoke('adventure:take-action', { action }),

@@ -249,6 +249,28 @@
         </div>
       </div>
 
+      <!-- Adventure Text -->
+      <div class="settings-section">
+        <div class="settings-section-title">ADVENTURE TEXT</div>
+        <div class="settings-row">
+          <span class="settings-label">TYPEWRITER</span>
+          <button class="settings-toggle active" id="adv-typewriter-btn">ON</button>
+        </div>
+        <div class="settings-slider-row">
+          <span class="settings-label">SPEED</span>
+          <input class="settings-slider" type="range" id="adv-type-cps" min="20" max="400" value="80" step="5" />
+          <span class="settings-slider-val" id="adv-type-cps-val">80 cps</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">SKIP CLICK</span>
+          <button class="settings-toggle active" id="adv-skip-click-btn">ON</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">HINT</span>
+          <span class="settings-hint">Click the terminal to finish typing instantly.</span>
+        </div>
+      </div>
+
       <!-- Adventure Music -->
       <div class="settings-section">
         <div class="settings-section-title">ADVENTURE MUSIC</div>
@@ -624,6 +646,7 @@
   <script src="js/music-player.js"></script>
   <script src="js/music-settings.js"></script>
   <script src="js/text-adventure.js"></script>
+  <script src="js/adventure-settings.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

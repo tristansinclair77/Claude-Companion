@@ -376,6 +376,16 @@ body:not(.adventure-mode) #text-adventure {
 }
 @keyframes ta-blink { 50% { opacity: 0.2; } }
 
+/* While a typewriter entry is still typing, show a blinking caret after the text. */
+.ta-entry.ta-typing::after {
+  content: "▌";
+  display: inline-block;
+  margin-left: 2px;
+  color: #ffea88;
+  animation: ta-caret-blink 0.9s steps(2) infinite;
+}
+@keyframes ta-caret-blink { 50% { opacity: 0; } }
+
 /* ── Overlays: new game, death, drawer, side-chat ────────────────── */
 
 .ta-overlay {

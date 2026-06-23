@@ -178,22 +178,86 @@ function formatBibleForPrompt() {
   return lines.join('\n');
 }
 
+// Time-of-day phase classification — must match the rules doc.
+const _NIGHT_PHASES = new Set(['dusk','evening','night','late night','midnight']);
+const _DAY_PHASES   = new Set(['dawn','morning','noon','afternoon','late afternoon','day','midday']);
+function _isNightPhase(phase) {
+  if (!phase) return false;
+  return _NIGHT_PHASES.has(String(phase).toLowerCase().trim());
+}
+function _isDayPhase(phase) {
+  if (!phase) return false;
+  return _DAY_PHASES.has(String(phase).toLowerCase().trim());
+}
+
+// Given a track whose name ends with "(Day)" or "(Night)", return the paired
+// variant from the bible if it exists. Returns null otherwise.
+function _findPairedVariant(track, want /* 'Day' | 'Night' */) {
+  if (!track) return null;
+  const m = track.name.match(/^(.+)\s*\((Day|Night)\)\s*$/i);
+  if (!m) return null;
+  const base = m[1].trim();
+  const have = m[2];
+  if (have.toLowerCase() === want.toLowerCase()) return track;  // already correct
+  const wantName = `${base} (${want})`;
+  return getTrackByName(wantName);
+}
+
 // Resolve a cue and produce the payload the renderer needs to play it.
-function resolveCueForPayload(idOrName) {
+// Accepts an optional `timeOfDay` hint — if the requested cue's name carries
+// a (Day) or (Night) suffix that mismatches the current time, we auto-swap
+// to the matching paired variant when one exists. Defensive net for when
+// Claude picks the wrong half of a Day/Night pair.
+function resolveCueForPayload(idOrName, { timeOfDay } = {}) {
   const r = resolveCue(idOrName);
   if (!r) return { ok: false, reason: `cue "${idOrName}" not found in bible` };
-  if (!r.available) return { ok: false, reason: `cue ${r.track.id} (${r.track.name}) has no MP3 on disk` };
+
+  let track = r.track;
+  let swappedFrom = null;
+  if (timeOfDay) {
+    const wantNight = _isNightPhase(timeOfDay);
+    const wantDay   = _isDayPhase(timeOfDay);
+    if (wantNight || wantDay) {
+      const want = wantNight ? 'Night' : 'Day';
+      const paired = _findPairedVariant(track, want);
+      if (paired && paired.id !== track.id) {
+        // Only swap if the paired variant actually has an mp3 on disk.
+        const pairedVariants = getVariantPathsForId(paired.id);
+        if (pairedVariants.length > 0) {
+          swappedFrom = track.name;
+          track = paired;
+        }
+      }
+    }
+  }
+
+  // If we swapped, re-resolve to get a fresh variant from the new track
+  let chosenFile = r.file;
+  let chosenVariant = r.variant;
+  let chosenBasename = r.basename;
+  if (swappedFrom) {
+    const variants = getVariantPathsForId(track.id);
+    const pick = variants[Math.floor(Math.random() * variants.length)];
+    chosenFile     = pick.path;
+    chosenVariant  = pick.variant;
+    chosenBasename = pick.basename;
+  }
+  if (!chosenFile) {
+    return { ok: false, reason: `cue ${track.id} (${track.name}) has no MP3 on disk` };
+  }
+
   return {
     ok:        true,
-    bibleId:   r.track.id,
-    name:      r.track.name,
-    category:  r.track.category,
-    mood:      r.track.mood,
-    energy:    r.track.energy,
-    function:  r.track.function,
-    variant:   r.variant,
-    file:      r.file,
-    basename:  r.basename,
+    bibleId:   track.id,
+    name:      track.name,
+    category:  track.category,
+    mood:      track.mood,
+    energy:    track.energy,
+    function:  track.function,
+    variant:   chosenVariant,
+    file:      chosenFile,
+    basename:  chosenBasename,
+    swappedFrom,
   };
 }
 
