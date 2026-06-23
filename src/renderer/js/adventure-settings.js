@@ -6,6 +6,8 @@
   const cps     = document.getElementById('adv-type-cps');
   const cpsVal  = document.getElementById('adv-type-cps-val');
   const skip    = document.getElementById('adv-skip-click-btn');
+  const expBtn  = document.getElementById('adv-export-btn');
+  const impBtn  = document.getElementById('adv-import-btn');
 
   if (!tw || !cps || !skip || !window.adventureAPI) return;
 
@@ -49,4 +51,19 @@
     window.adventureAPI.setDisplaySettings({ skipOnClick: next });
     _pushLive({ skipOnClick: next });
   });
+
+  if (expBtn) {
+    expBtn.addEventListener('click', () => {
+      if (window.TextAdventure && typeof window.TextAdventure.exportGame === 'function') {
+        window.TextAdventure.exportGame();
+      }
+    });
+  }
+  if (impBtn) {
+    impBtn.addEventListener('click', () => {
+      if (window.TextAdventure && typeof window.TextAdventure.importGame === 'function') {
+        window.TextAdventure.importGame();
+      }
+    });
+  }
 })();

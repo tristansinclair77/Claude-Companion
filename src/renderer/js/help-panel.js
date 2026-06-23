@@ -743,7 +743,7 @@ const HelpPanel = (() => {
         kv([
           ['Two players',     'You (Trist) AND Aria are both real party members with stats and HP.'],
           ['Permadeath',      'If either of you takes a lethal blow, the run ends. Reset wipes everything.'],
-          ['Persistent run',  'Exiting saves your progress. Come back and pick up where you left off. Use EXPORT / IMPORT in the HUD to move a run to another machine.'],
+          ['Persistent run',  'Exiting saves your progress. Come back and pick up where you left off. Use EXPORT / IMPORT in <em>Settings → ADVENTURE TEXT</em> to move a run to another machine.'],
           ['Long-term memory','Story memory (NPCs, locations, quests, events, lore, recap) survives across turns and sessions.'],
           ['Tone choice',     'Eight tones to pick from at new-game (classic fantasy, gothic horror, comedic, eldritch, etc.) or describe your own setting.'],
           ['Side chat',       'A separate paused conversation channel for talking to Aria one-on-one without polluting the story.'],
@@ -752,9 +752,9 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-export-import',
       title: 'Export & Import a Story',
-      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure'],
+      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure', 'settings'],
       content:
-        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons in the adventure HUD let you save a run to a portable <code>.adventure</code> file and reload it on any machine.') +
+        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons live in <em>Settings → ADVENTURE TEXT</em>. They save a run to a portable <code>.adventure</code> file and reload it on any machine.') +
         kv([
           ['EXPORT', 'Bundles the current state, full narrative log, and side-chat transcript into a single <code>.adventure</code> file. A save dialog lets you choose where to put it. The filename defaults to the current scene and day number.'],
           ['IMPORT', 'Opens a file picker, loads the <code>.adventure</code> file, and replaces the active run. The HUD, enemy panel, and log all update immediately. A confirmation prompt protects against accidental overwrites.'],
@@ -789,8 +789,6 @@ const HelpPanel = (() => {
           ['SUM',   'Bound entities and summons — creatures you\'ve captured or sworn to you. See Summons article.'],
           ['SAGA',  'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
           ['LORE',  'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
-          ['EXP',   'Export the current run to a portable .adventure file.'],
-          ['IMP',   'Import a .adventure file, replacing the current run.'],
           ['RST',   'Reset — wipes all progress, memory, and side-chat.'],
           ['EXIT',  'Leave adventure mode and return to normal chat.'],
         ]) +
