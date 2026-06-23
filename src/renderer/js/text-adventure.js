@@ -675,6 +675,31 @@ const TextAdventure = (function () {
     _showNewGameOverlay();
   }
 
+  // Safety net: if adventure:update never arrives (main process crash, silent
+  // error, etc.) unfreeze the UI after 150 s so the user isn't stuck forever.
+  const _ACTION_TIMEOUT_MS = 150_000;
+  let _actionTimeoutId = null;
+
+  function _clearActionTimeout() {
+    if (_actionTimeoutId !== null) {
+      clearTimeout(_actionTimeoutId);
+      _actionTimeoutId = null;
+    }
+  }
+
+  function _armActionTimeout() {
+    _clearActionTimeout();
+    _actionTimeoutId = setTimeout(() => {
+      _actionTimeoutId = null;
+      if (!_busy) return;
+      _removeThinkingEntry();
+      _addEntry('system', 'ERROR — No response after 150 s. The turn may have timed out — try again.');
+      _busy = false;
+      sendBtn.disabled = false;
+      _focusInput();
+    }, _ACTION_TIMEOUT_MS);
+  }
+
   async function _submitAction() {
     if (_busy) return;
     const text = inputEl.value.trim();
@@ -689,9 +714,11 @@ const TextAdventure = (function () {
     _busy = true;
     sendBtn.disabled = true;
     _addThinkingEntry();
+    _armActionTimeout();
     try {
       await window.adventureAPI.takeAction(text);
     } catch (e) {
+      _clearActionTimeout();
       console.error('[TextAdventure] action failed:', e);
       _removeThinkingEntry();
       _addEntry('system', 'ERROR — ' + (e.message || 'unknown'));
@@ -703,6 +730,7 @@ const TextAdventure = (function () {
 
   // ── Update handler ───────────────────────────────────────────────────────
   function _handleUpdate(payload) {
+    _clearActionTimeout();
     _removeThinkingEntry();
     _busy = false;
     sendBtn.disabled = false;

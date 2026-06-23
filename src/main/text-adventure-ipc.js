@@ -343,26 +343,31 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
 
   // ── Take action — the main adventure loop ─────────────────────────────────
   ipcMain.handle('adventure:take-action', async (_event, { action } = {}) => {
+    const cleanAction = String(action || '').trim();
+    if (!cleanAction) return { success: false, error: 'Empty action.' };
+
+    const state = store.loadState(characterDir);
+    if (!state) return { success: false, error: 'No game in progress. Start a new game first.' };
+    if (!state.alive) {
+      return { success: false, error: 'Game over. Reset to start a new game.', dead: true };
+    }
+
+    let payload = null;
+    let raw     = null;
+
     try {
-      const cleanAction = String(action || '').trim();
-      if (!cleanAction) return { success: false, error: 'Empty action.' };
-
-      const state = store.loadState(characterDir);
-      if (!state) return { success: false, error: 'No game in progress. Start a new game first.' };
-      if (!state.alive) {
-        return { success: false, error: 'Game over. Reset to start a new game.', dead: true };
-      }
-
       let log = store.appendLog(characterDir, { kind: 'action', text: cleanAction });
       const ctx = (typeof getCharacterContext === 'function') ? getCharacterContext() : {};
 
-      const { parsed, raw } = await runAdventureTurn({
+      const result = await runAdventureTurn({
         characterDir,
         action: cleanAction,
         state,
         log,
         characterContext: ctx,
       });
+      const parsed = result.parsed;
+      raw = result.raw;
 
       if (parsed.gameStateDiff) {
         store.applyStateDiff(state, parsed.gameStateDiff);
@@ -385,7 +390,6 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
 
       // Narrative death override — Claude declared a death even if HP wasn't 0.
       if (parsed.deathCause && state.alive) {
-        // Default to player death unless the narrator explicitly mentions Aria.
         const who = /\baria\b/i.test(parsed.deathCause) ? 'aria' : 'player';
         state[who].hp = 0;
         state[who].alive = false;
@@ -399,14 +403,9 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
 
       store.saveState(characterDir, state);
 
-      // Music directive — translate [MUSIC] into a renderer-bound payload.
-      // Idempotency (same cue already playing) is handled in the renderer.
-      // Persist the last play-cue id on the state so re-entering the run later
-      // can resume music without waiting for Claude to re-emit the directive.
+      // Music directive
       let musicDirective = null;
       if (parsed.music) {
-        // Pass the post-diff time phase so auto-swap uses the updated value
-        // (Claude often advances time AND switches music in the same turn).
         musicDirective = _resolveMusicDirective(parsed.music, {
           timeOfDay: state.time && state.time.phase,
         });
@@ -436,7 +435,8 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
         }
       }
 
-      const payload = {
+      payload = {
+        success: true,
         state,
         log,
         turnResponse: {
@@ -450,15 +450,29 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
           featureRequestsAdded,
         },
       };
+
+    } catch (err) {
+      console.error('[Adventure] take-action error:', err.message);
+      // Reload last-saved state so the renderer gets a consistent view.
+      const savedState = store.loadState(characterDir);
+      const savedLog   = store.loadLog   ? store.loadLog(characterDir) : [];
+      payload = {
+        success:      false,
+        error:        err.message,
+        state:        savedState,
+        log:          savedLog,
+        turnResponse: null,
+      };
+
+    } finally {
+      // Always send adventure:update so the renderer never stays stuck in
+      // "rolling the dice..." — even if an error occurred mid-turn.
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('adventure:update', payload);
       }
-
-      return { success: true, ...payload, raw };
-    } catch (err) {
-      console.error('[Adventure] take-action error:', err.message);
-      return { success: false, error: err.message };
     }
+
+    return payload ? { ...payload, raw } : { success: false, error: 'Internal error.' };
   });
 
   // ── Side-chat: paused private conversation ────────────────────────────────
