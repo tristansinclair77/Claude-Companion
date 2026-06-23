@@ -6,6 +6,7 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 body.adventure-mode #output-panel,
+body.adventure-mode #portrait-panel,
 body.adventure-mode #input-row,
 body.adventure-mode #tts-playbar {
   display: none !important;
