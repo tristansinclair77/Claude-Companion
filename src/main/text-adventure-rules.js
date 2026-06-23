@@ -421,6 +421,13 @@ Top-level shape:
   "memory": { ... see LONG-TERM STORY MEMORY ... }
 }
 
+  "summons": {
+    "add":    [ { "id":"forest-wraith-guardian", "name":"Forest Wraith", "boundTo":"wraith-medallion", "hp":40, "maxHp":40, "desc":"A bound wraith — passive guardian.", "abilities":["intercept-attack","phase-scout"], "notes":"Hostile but bound. Hates fire." } ],
+    "remove": [ "id-of-released-entity" ],
+    "update": [ { "id":"forest-wraith-guardian", "hp":35 } ]
+  }
+}
+
 Rules for the diff:
   - "enemy": null clears combat. Omit the key if no change.
   - "slug" on an enemy MUST be one of the monster slugs below.
@@ -443,6 +450,28 @@ MONSTER ROSTER (slug → display)
 Use these slugs in [ENEMY] and in the enemy.slug field. Story-only NPCs
 (merchants, quest-givers, etc.) do NOT use [ENEMY] — they live purely
 in narration + memory.npcs.
+
+SUMMONS / BOUND ENTITIES
+
+state.summons[] tracks entities that are bound to the party but are NOT
+full party members (they have no HUD row, don't trigger a death screen
+if destroyed). Use it for:
+  - Creatures trapped in objects (medallion wraith, bottle djinn, etc.)
+  - Familiars, summoned guardians, sworn spirits
+  - Any bound entity with its own stats and independent existence
+
+Schema for a summon entry:
+  { "id":"...", "name":"...", "boundTo":"<item id or name>",
+    "hp":N, "maxHp":N, "desc":"...", "abilities":["..."],
+    "notes":"..." }
+
+All fields except id and name are optional. HP is clamped each turn
+but hitting 0 does NOT end the run — the summon is incapacitated or
+destroyed. Use summons.remove to permanently remove it.
+
+When a bound entity intervenes (intercepts a blow, scouts an area, etc.)
+narrate it. Update HP via summons.update if it took damage. Do NOT put
+it in [ENEMY] — it's not a hostile.
 
 DEATH
 

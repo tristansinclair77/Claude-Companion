@@ -137,6 +137,7 @@ function _freshState({ tone, setting }) {
     player:   _freshPlayer(),
     aria:     _freshAria(),
     memory:   _freshMemory(),
+    summons:      [],   // bound/summoned entities — NOT full party members
     enemy:        null,
     encounterIdx: 0,
     turnCount:    0,
@@ -157,9 +158,10 @@ function loadState(characterDir) {
     if (!fs.existsSync(p)) return null;
     const state = JSON.parse(fs.readFileSync(p, 'utf8'));
     // Forward-compat: backfill any new top-level fields older saves are missing.
-    if (!state.aria)   state.aria   = _freshAria();
-    if (!state.memory) state.memory = _freshMemory();
-    if (!state.time)   state.time   = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
+    if (!state.aria)    state.aria    = _freshAria();
+    if (!state.memory)  state.memory  = _freshMemory();
+    if (!state.time)    state.time    = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
+    if (!state.summons) state.summons = [];
     return state;
   } catch (e) {
     console.warn('[TextAdventure] loadState failed:', e.message);
@@ -373,6 +375,14 @@ function applyStateDiff(state, diff) {
     }
   }
 
+  // Summons
+  if (diff.summons) {
+    if (!state.summons) state.summons = [];
+    _addCollection   (state.summons, diff.summons.add    || []);
+    _removeCollection(state.summons, diff.summons.remove || []);
+    _updateCollection(state.summons, diff.summons.update || []);
+  }
+
   // Enemy
   if (Object.prototype.hasOwnProperty.call(diff, 'enemy')) {
     const wasEnemy = !!state.enemy;
@@ -454,6 +464,12 @@ function tickStateAfterDiff(state) {
     if (state.enemy.hp === 0) state.enemy = null;
   }
 
+  for (const s of (state.summons || [])) {
+    if (typeof s.hp === 'number' && typeof s.maxHp === 'number') {
+      s.hp = Math.max(0, Math.min(s.maxHp, s.hp));
+    }
+  }
+
   // Either-died → game over
   if (!state.player.alive || !state.aria.alive) {
     state.alive = false;
@@ -490,6 +506,10 @@ function formatStateSummary(state) {
   parts.push(`Trist: lvl ${p.level} • HP ${p.hp}/${p.maxHp} • MP ${p.mp}/${p.maxMp}${p.illness ? ` • ${p.illness}` : ''}`);
   parts.push(`Aria:  lvl ${a.level} • HP ${a.hp}/${a.maxHp} • MP ${a.mp}/${a.maxMp}${a.illness ? ` • ${a.illness}` : ''}`);
   if (state.enemy) parts.push(`Active enemy: ${state.enemy.name} (HP ${state.enemy.hp}/${state.enemy.maxHp})`);
+  const activeSummons = (state.summons || []).filter((s) => typeof s.hp !== 'number' || s.hp > 0);
+  if (activeSummons.length) {
+    parts.push('Bound entities: ' + activeSummons.map((s) => `${s.name}${s.boundTo ? ` (bound to ${s.boundTo})` : ''}`).join(', '));
+  }
   const activeQuests = (m.quests || []).filter((q) => q.status === 'active' || !q.status);
   if (activeQuests.length) {
     parts.push('Active quests:');

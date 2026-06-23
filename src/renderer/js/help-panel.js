@@ -774,25 +774,48 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-hud',
       title: 'HUD & Drawer',
-      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore'],
+      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore'],
       content:
         p('The HUD across the top shows the current scene, plus two rows of vitals: yours and Aria\'s. Each row has HP, MP, and level + XP bar.') +
-        p('The action drawer slides in from the right when you click a HUD button:') +
+        p('The action drawer slides in from the right when you click a HUD button. Hover any button for a tooltip:') +
         kv([
-          ['INV',     'Your inventory (items, stack counts, equipped markers).'],
-          ['EQUIP',   'Your equipped weapon, armor, accessory slots.'],
-          ['SPELLS',  'Your known spells and abilities.'],
-          ['STATS',   'Your full stat block, gold, illness, active buffs/debuffs.'],
-          ['ARIA',    'Aria\'s parallel stat block, equipment, inventory, and spells.'],
-          ['STORY',   'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
-          ['WORLD',   'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
+          ['CHAT',  'Talk to Aria — opens side chat, pauses the story.'],
+          ['INV',   'Your inventory (items, stack counts, equipped markers).'],
+          ['EQP',   'Your equipped weapon, armor, and accessory slots.'],
+          ['SPL',   'Your known spells (MP cost shown).'],
+          ['ABL',   'Your passive and active abilities (no MP cost).'],
+          ['STA',   'Your full stat block, gold, illness, and active buffs/debuffs.'],
+          ['ARIA',  'Aria\'s parallel stat block, equipment, inventory, spells, and abilities.'],
+          ['SUM',   'Bound entities and summons — creatures you\'ve captured or sworn to you. See Summons article.'],
+          ['SAGA',  'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
+          ['LORE',  'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
+          ['EXP',   'Export the current run to a portable .adventure file.'],
+          ['IMP',   'Import a .adventure file, replacing the current run.'],
+          ['RST',   'Reset — wipes all progress, memory, and side-chat.'],
+          ['EXIT',  'Leave adventure mode and return to normal chat.'],
         ]) +
         note('Claude updates these continuously via the [GAME_STATE].memory diff each turn. You can browse them any time without pausing the story.')
     },
     {
+      catId: 'rpg', id: 'ta-summons',
+      title: 'Summons & Bound Entities (SUM)',
+      tags: ['summons', 'bound', 'captured', 'guardian', 'familiar', 'wraith', 'medallion', 'djinn', 'spirit', 'entity', 'bound creature', 'sum', 'trap'],
+      content:
+        p('The <em>SUM</em> drawer tracks bound entities — creatures you\'ve captured in objects, spirits that have sworn themselves to you, or familiars. These are distinct from party members (they don\'t appear in the HUD health bars) and from enemies (they\'re not in the enemy panel).') +
+        p('Each entry shows the entity\'s HP (if trackable), what it\'s bound to, what it can do, and any notes the gamemaster has set.') +
+        kv([
+          ['HP',        'If the entity has a health pool, it\'s shown here. Hitting 0 incapacitates it — it does NOT end the run.'],
+          ['Bound to',  'The item or oath that holds the entity. Losing or destroying the binding may release or destroy it.'],
+          ['Can',       'The abilities or actions the entity can perform on your behalf.'],
+          ['Notes',     'The gamemaster\'s notes — personality, weaknesses, conditions of the binding.'],
+        ]) +
+        p('Bound entities that intervene (intercepting a blow, scouting ahead, intimidating enemies) are narrated by the gamemaster. You can instruct them through your action text like any in-story action.') +
+        note('A summon incapacitated at 0 HP shows grayed out. Use summons.remove in the game state to permanently release or destroy it.')
+    },
+    {
       catId: 'rpg', id: 'ta-side-chat',
-      title: 'TALK TO ARIA — Side Chat',
-      tags: ['side chat', 'talk to aria', 'pause', 'private chat', 'discuss', 'meta'],
+      title: 'CHAT — Side Chat with Aria',
+      tags: ['side chat', 'talk to aria', 'chat', 'pause', 'private chat', 'discuss', 'meta'],
       content:
         p('The <em>TALK TO ARIA</em> button opens a paused side-chat overlay. The story holds exactly where it was. You and Aria talk one-on-one in a normal chat interface. She knows what\'s happening in the paused adventure (she\'s sent a summary each side-chat turn) so you can discuss the story freely.') +
         p('Side-chat history is its own channel:') +

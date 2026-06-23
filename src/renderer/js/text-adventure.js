@@ -24,12 +24,14 @@ const TextAdventure = (function () {
 
   const DRAWER_TABS = [
     { id: 'inventory', label: 'INV' },
-    { id: 'equipment', label: 'EQUIP' },
-    { id: 'spells',    label: 'SPELLS' },
-    { id: 'stats',     label: 'STATS' },
+    { id: 'equipment', label: 'EQP' },
+    { id: 'spells',    label: 'SPL' },
+    { id: 'abilities', label: 'ABL' },
+    { id: 'stats',     label: 'STA' },
     { id: 'aria',      label: 'ARIA', cls: 'aria' },
-    { id: 'story',     label: 'STORY' },
-    { id: 'memory',    label: 'WORLD' },
+    { id: 'summons',   label: 'SUM' },
+    { id: 'story',     label: 'SAGA' },
+    { id: 'memory',    label: 'LORE' },
   ];
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
@@ -154,17 +156,19 @@ const TextAdventure = (function () {
           <div class="ta-hud-time" id="ta-time-label" title="In-world time">Day 1 — Morning</div>
           <div class="ta-music-badge" id="ta-music-badge" title="Now playing — click to pause/resume">♫ —</div>
           <div class="ta-hud-actions">
-            <button class="ta-hud-btn aria" id="ta-btn-sidechat">TALK TO ARIA</button>
-            <button class="ta-hud-btn" data-drawer="inventory">INV</button>
-            <button class="ta-hud-btn" data-drawer="equipment">EQUIP</button>
-            <button class="ta-hud-btn" data-drawer="spells">SPELLS</button>
-            <button class="ta-hud-btn" data-drawer="stats">STATS</button>
-            <button class="ta-hud-btn aria" data-drawer="aria">ARIA</button>
-            <button class="ta-hud-btn" data-drawer="story">STORY</button>
-            <button class="ta-hud-btn" data-drawer="memory">WORLD</button>
-            <button class="ta-hud-btn" id="ta-btn-export" title="Export story to a portable file">EXPORT</button>
-            <button class="ta-hud-btn" id="ta-btn-import" title="Import a story from file (replaces current run)">IMPORT</button>
-            <button class="ta-hud-btn warn" id="ta-btn-reset">RESET</button>
+            <button class="ta-hud-btn aria" id="ta-btn-sidechat" title="Talk to Aria — pauses the story">CHAT</button>
+            <button class="ta-hud-btn" data-drawer="inventory" title="Inventory">INV</button>
+            <button class="ta-hud-btn" data-drawer="equipment" title="Equipment">EQP</button>
+            <button class="ta-hud-btn" data-drawer="spells" title="Spells">SPL</button>
+            <button class="ta-hud-btn" data-drawer="abilities" title="Abilities">ABL</button>
+            <button class="ta-hud-btn" data-drawer="stats" title="Stats &amp; Buffs">STA</button>
+            <button class="ta-hud-btn aria" data-drawer="aria" title="Aria — stats, gear, spells">ARIA</button>
+            <button class="ta-hud-btn" data-drawer="summons" title="Summons &amp; Bound Entities">SUM</button>
+            <button class="ta-hud-btn" data-drawer="story" title="Story — recap, events, goals">SAGA</button>
+            <button class="ta-hud-btn" data-drawer="memory" title="World — NPCs, quests, lore">LORE</button>
+            <button class="ta-hud-btn" id="ta-btn-export" title="Export story to .adventure file">EXP</button>
+            <button class="ta-hud-btn" id="ta-btn-import" title="Import story from file (replaces current run)">IMP</button>
+            <button class="ta-hud-btn warn" id="ta-btn-reset" title="Reset — wipes all progress">RST</button>
             <button class="ta-hud-btn" id="ta-btn-exit">EXIT</button>
           </div>
         </div>
@@ -343,11 +347,15 @@ const TextAdventure = (function () {
     } else if (_drawerActiveTab === 'equipment') {
       _renderEquipmentDrawer(p.equipment || {});
     } else if (_drawerActiveTab === 'spells') {
-      _renderSpellsDrawer(p.spells || [], p.abilities || []);
+      _renderSpellsDrawer(p.spells || []);
+    } else if (_drawerActiveTab === 'abilities') {
+      _renderAbilitiesDrawer(p.abilities || []);
     } else if (_drawerActiveTab === 'stats') {
       _renderStatsDrawer(p, 'TRIST');
     } else if (_drawerActiveTab === 'aria') {
       _renderAriaDrawer(state.aria || {});
+    } else if (_drawerActiveTab === 'summons') {
+      _renderSummonsDrawer(state.summons || []);
     } else if (_drawerActiveTab === 'story') {
       _renderStoryDrawer(state.memory || {});
     } else if (_drawerActiveTab === 'memory') {
@@ -388,25 +396,59 @@ const TextAdventure = (function () {
     }).join('');
   }
 
-  function _renderSpellsDrawer(spells, abilities) {
-    let html = '';
-    if (spells.length) {
-      html += '<div class="ta-section-title">// SPELLS</div>';
-      html += spells.map((s) => `<div class="ta-list-row">
+  function _renderSpellsDrawer(spells) {
+    if (!spells || !spells.length) {
+      drawerSections.innerHTML = '<div class="ta-list-empty">// no spells known</div>';
+      return;
+    }
+    drawerSections.innerHTML = '<div class="ta-section-title">// SPELLS</div>' +
+      spells.map((s) => `<div class="ta-list-row">
         <span class="name">${_escape(s.name || s.id)}</span>
         ${typeof s.cost === 'number' ? `<span class="qty">${s.cost} MP</span>` : ''}
         ${s.desc ? `<div class="desc">${_escape(s.desc)}</div>` : ''}
       </div>`).join('');
+  }
+
+  function _renderAbilitiesDrawer(abilities) {
+    if (!abilities || !abilities.length) {
+      drawerSections.innerHTML = '<div class="ta-list-empty">// no abilities learned</div>';
+      return;
     }
-    if (abilities.length) {
-      html += '<div class="ta-section-title">// ABILITIES</div>';
-      html += abilities.map((a) => `<div class="ta-list-row">
+    drawerSections.innerHTML = '<div class="ta-section-title">// ABILITIES</div>' +
+      abilities.map((a) => `<div class="ta-list-row">
         <span class="name">${_escape(a.name || a.id)}</span>
+        ${a.cost ? `<span class="qty">${_escape(a.cost)}</span>` : ''}
         ${a.desc ? `<div class="desc">${_escape(a.desc)}</div>` : ''}
       </div>`).join('');
+  }
+
+  function _renderSummonsDrawer(summons) {
+    if (!summons || !summons.length) {
+      drawerSections.innerHTML = '<div class="ta-list-empty">// no bound entities</div>';
+      return;
     }
-    if (!html) html = '<div class="ta-list-empty">// no spells or abilities known</div>';
-    drawerSections.innerHTML = html;
+    drawerSections.innerHTML = '<div class="ta-section-title">// BOUND ENTITIES</div>' +
+      summons.map((s) => {
+        const incap  = (typeof s.hp === 'number' && s.hp === 0);
+        const hpLine = (typeof s.hp === 'number' && typeof s.maxHp === 'number')
+          ? `<div class="ta-stat-row"><span class="label">HP</span><span class="val">${s.hp}/${s.maxHp}</span></div>`
+          : '';
+        const boundTo = s.boundTo
+          ? `<div class="desc"><span style="color:#ffea88">Bound to:</span> ${_escape(s.boundTo)}</div>`
+          : '';
+        const cans = Array.isArray(s.abilities) && s.abilities.length
+          ? `<div class="desc"><span style="color:#ffea88">Can:</span> ${s.abilities.map(_escape).join(', ')}</div>`
+          : '';
+        const notes = s.notes ? `<div class="desc" style="opacity:0.6">${_escape(s.notes)}</div>` : '';
+        return `<div class="ta-list-row"${incap ? ' style="opacity:0.45"' : ''}>
+          <span class="name">${_escape(s.name || s.id)}${incap ? ' <span style="color:#ff5577">[INCAPACITATED]</span>' : ''}</span>
+          ${hpLine}
+          ${s.desc ? `<div class="desc">${_escape(s.desc)}</div>` : ''}
+          ${boundTo}
+          ${cans}
+          ${notes}
+        </div>`;
+      }).join('');
   }
 
   function _renderStatsDrawer(p, label) {
@@ -465,6 +507,13 @@ const TextAdventure = (function () {
       ${typeof s.cost === 'number' ? `<span class="qty">${s.cost} MP</span>` : ''}
       ${s.desc ? `<div class="desc">${_escape(s.desc)}</div>` : ''}
     </div>`).join('') || '<div class="ta-list-empty">// no spells known</div>';
+    const abilitiesHtml = (aria.abilities || []).length
+      ? (aria.abilities || []).map((a) => `<div class="ta-list-row">
+          <span class="name">${_escape(a.name || a.id)}</span>
+          ${a.cost ? `<span class="qty">${_escape(a.cost)}</span>` : ''}
+          ${a.desc ? `<div class="desc">${_escape(a.desc)}</div>` : ''}
+        </div>`).join('')
+      : '';
 
     drawerSections.innerHTML = `
       <div class="ta-section-title pink">// ARIA — STATS</div>
@@ -481,6 +530,7 @@ const TextAdventure = (function () {
       ${invHtml}
       <div class="ta-section-title pink">// SPELLS</div>
       ${spellsHtml}
+      ${abilitiesHtml ? '<div class="ta-section-title pink">// ABILITIES</div>' + abilitiesHtml : ''}
     `;
   }
 
