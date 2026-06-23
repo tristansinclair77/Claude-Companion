@@ -561,6 +561,7 @@ const TextAdventure = (function () {
     });
 
     root.querySelector('#ta-btn-exit').addEventListener('click', _exit);
+    document.getElementById('btn-adventure-exit')?.addEventListener('click', _exit);
     root.querySelector('#ta-btn-reset').addEventListener('click', _confirmReset);
     root.querySelector('#ta-btn-sidechat').addEventListener('click', _openSideChat);
 
