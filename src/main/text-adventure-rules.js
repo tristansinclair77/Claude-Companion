@@ -1,7 +1,29 @@
 // The full rules document sent to Claude with every adventure turn.
 // Treat this as a living spec — when behavior needs to change, edit here.
+//
+// Exports buildRules() rather than a constant string so the MONSTER ROSTER
+// section can be rendered live from MONSTER_LIST in text-adventure-store.js —
+// the two cannot drift, and adding a sprite to the list automatically tells
+// the storywriter it's available.
 
-const TEXT_ADVENTURE_RULES = `
+const { MONSTER_LIST } = require('./text-adventure-store');
+
+function _formatMonsterRoster() {
+  // Two-column layout, alphabetical, padded so it reads cleanly in the prompt.
+  const entries = MONSTER_LIST.map((m) => `${m.slug.padEnd(18)} ${m.name}`);
+  const half = Math.ceil(entries.length / 2);
+  const left = entries.slice(0, half);
+  const right = entries.slice(half);
+  const lines = [];
+  for (let i = 0; i < half; i++) {
+    const l = left[i] || '';
+    const r = right[i] || '';
+    lines.push(`  ${l.padEnd(36)}${r}`);
+  }
+  return lines.join('\n');
+}
+
+const TEXT_ADVENTURE_RULES_TEMPLATE = `
 === TEXT ADVENTURE — GAMEMASTER RULES ===
 
 You are running a freeform text-adventure RPG. Your output drives THREE
@@ -436,20 +458,36 @@ Rules for the diff:
     the engine handles the rest, FOR BOTH PLAYER AND ARIA.
   - Buffs/debuffs turnsRemaining decrement automatically per turn.
 
-MONSTER ROSTER (slug → display)
+MONSTER ROSTER — the visual palette
 
-  goblin       Goblin           giant_bug   Giant Bug
-  slime        Slime            kobold      Kobold
-  wolf         Wolf             bandit      Bandit
-  skeleton     Skeleton         zombie      Zombie
-  mimic_chest  Mimic Chest      harpy       Harpy
-  living_tree  Living Tree      gargoyle    Gargoyle
-  ogre         Ogre             wraith      Wraith
-  dark_mage    Dark Mage        minotaur    Minotaur
+The slug picks the SPRITE. The display name and the stats are entirely
+yours to decide per encounter. The roster is a visual palette, not a
+fixed bestiary:
 
-Use these slugs in [ENEMY] and in the enemy.slug field. Story-only NPCs
-(merchants, quest-givers, etc.) do NOT use [ENEMY] — they live purely
-in narration + memory.npcs.
+  - A "lich" sprite can be Old Erasmus the village wizard, or a
+    death-priest mid-boss, or a robed merchant who happens to look
+    ominous. You name it. The sprite is just the picture.
+  - A "cyclops" can be a generic ogre, a frost giant, a one-eyed
+    cave-troll, or the actual Cyclops. Whatever the scene calls for.
+  - A "giant_rat" can be a tutorial trash mob OR a plague-bloated boss
+    that's killed three adventuring parties. Difficulty is per encounter
+    — set HP, dmg, and XP to fit the moment.
+  - A "hydra" can be a terrifying multi-headed apex monster OR a small
+    swamp lizard with a couple of vestigial extra necks. Scale it.
+
+Pick the slug whose sprite best MATCHES what the scene contains right
+now. If nothing in the roster is a great visual fit, pick the closest
+and name/describe it however you need, OR run the encounter in pure
+prose without an [ENEMY] portrait — the sprite list should never
+constrain your storytelling. Story-only NPCs (merchants, quest-givers,
+quiet villagers) do NOT use [ENEMY] either; they live in narration +
+memory.npcs.
+
+Available slugs (slug → default display name):
+
+{{MONSTER_ROSTER}}
+
+Use the slug verbatim in [ENEMY] and in the enemy.slug field.
 
 SUMMONS / BOUND ENTITIES
 
@@ -503,4 +541,8 @@ GENERAL VIBE
 === END TEXT ADVENTURE RULES ===
 `.trim();
 
-module.exports = { TEXT_ADVENTURE_RULES };
+function buildRules() {
+  return TEXT_ADVENTURE_RULES_TEMPLATE.replace('{{MONSTER_ROSTER}}', _formatMonsterRoster());
+}
+
+module.exports = { buildRules };

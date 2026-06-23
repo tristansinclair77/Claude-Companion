@@ -197,22 +197,31 @@ appear in `MONSTER_LIST` in [src/main/text-adventure-store.js](src/main/text-adv
 Sprite files in [assets/monsters/](assets/monsters/) that aren't in that list
 are invisible to Claude — he literally cannot reference them.
 
-**Rule:** Whenever new monster sprites are added (e.g. by running
+**Rule:** Whenever monster sprites are added or removed (e.g. by running
 `scripts/slice-monster-grid.js` after dropping new `ref/monster grid*.png`
 sources), `MONSTER_LIST` MUST be updated in the same batch so every PNG in
-`assets/monsters/` has a corresponding entry. The reverse also holds: if a
-sprite is removed, its `MONSTER_LIST` entry must be removed.
+`assets/monsters/` has a corresponding entry, and vice versa.
 
-Each entry needs:
+Each entry has just two fields:
 - `slug` — must exactly match the PNG filename without extension
-- `name` — pretty display label shown to the user / used by Claude in prose
-- `difficulty` — integer used by the encounter system; pick a sensible tier
-  (roughly: 1=trash, 2=low, 3=mid, 4=high, 5=elite, 6+=boss)
+- `name` — DEFAULT display label only. The storywriter is free to call any
+  instance whatever the scene needs (a `lich` sprite can be "Old Erasmus the
+  Wizard", a `cyclops` can be a generic giant, a `giant_rat` can be a
+  boss-level plague-bloat). The slug picks the portrait; everything else is
+  per-encounter.
 
-Before committing a monster-related change, sanity-check that every file in
-`assets/monsters/*.png` has a `MONSTER_LIST` entry and vice versa — a simple
-diff between `fs.readdirSync('assets/monsters')` and `MONSTER_LIST.map(m =>
-m.slug + '.png')` should be empty in both directions.
+Do NOT add a `difficulty` field. Difficulty / HP / damage are storywriter
+calls per encounter — a tutorial mini hydra and a campaign-ending boss rat
+are both valid. Hardcoding tiers would just constrain the GM.
+
+The MONSTER ROSTER section in [src/main/text-adventure-rules.js](src/main/text-adventure-rules.js)
+is rendered dynamically from `MONSTER_LIST` by `buildRules()` — don't
+duplicate the roster as static text anywhere; let it pull from the source of
+truth.
+
+A startup sanity check in `text-adventure-store.js` (`_verifyMonsterRoster`)
+warns on drift in both directions. If you see those warnings in the console
+on app boot, fix them before committing.
 
 ## Project: Claude Companion
 

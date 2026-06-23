@@ -28,26 +28,126 @@ const MEMORY_CAPS = {
   lore:      80,
 };
 
-// Sixteen monsters available — names must match the slug filenames in
-// assets/monsters/<slug>.png. Pretty labels are what Claude/UI display.
+// Every monster sprite the storywriter is allowed to spawn. `slug` MUST
+// match the filename in assets/monsters/<slug>.png — the renderer builds the
+// sprite URL directly from it. `name` is just a default display label; the
+// storywriter is free to call any instance whatever the scene demands (a
+// `lich` sprite can be "Old Erasmus the Wizard", a `cyclops` can be a
+// generic giant, etc.). Difficulty is NOT intrinsic — the storywriter picks
+// stats per encounter (a boss-level rat is fine; a tutorial mini hydra is
+// fine). See the CLAUDE.md rule "Keep the Adventure Monster Roster Current"
+// — this list must stay in sync with assets/monsters/*.png in both
+// directions, every time sprites are added or removed.
 const MONSTER_LIST = [
-  { slug: 'goblin',      name: 'Goblin',       difficulty: 1 },
-  { slug: 'giant_bug',   name: 'Giant Bug',    difficulty: 1 },
-  { slug: 'slime',       name: 'Slime',        difficulty: 1 },
-  { slug: 'kobold',      name: 'Kobold',       difficulty: 1 },
-  { slug: 'wolf',        name: 'Wolf',         difficulty: 2 },
-  { slug: 'bandit',      name: 'Bandit',       difficulty: 2 },
-  { slug: 'skeleton',    name: 'Skeleton',     difficulty: 2 },
-  { slug: 'zombie',      name: 'Zombie',       difficulty: 2 },
-  { slug: 'mimic_chest', name: 'Mimic Chest',  difficulty: 3 },
-  { slug: 'harpy',       name: 'Harpy',        difficulty: 3 },
-  { slug: 'living_tree', name: 'Living Tree',  difficulty: 3 },
-  { slug: 'gargoyle',    name: 'Gargoyle',     difficulty: 4 },
-  { slug: 'ogre',        name: 'Ogre',         difficulty: 4 },
-  { slug: 'wraith',      name: 'Wraith',       difficulty: 4 },
-  { slug: 'dark_mage',   name: 'Dark Mage',    difficulty: 5 },
-  { slug: 'minotaur',    name: 'Minotaur',     difficulty: 5 },
+  { slug: 'animated_sword',  name: 'Animated Sword'  },
+  { slug: 'assassin',        name: 'Assassin'        },
+  { slug: 'bandit',          name: 'Bandit'          },
+  { slug: 'basilisk',        name: 'Basilisk'        },
+  { slug: 'bat_swarm',       name: 'Bat Swarm'       },
+  { slug: 'bone_dragon',     name: 'Bone Dragon'     },
+  { slug: 'cave_dweller',    name: 'Cave Dweller'    },
+  { slug: 'chimera',         name: 'Chimera'         },
+  { slug: 'crab_warrior',    name: 'Crab Warrior'    },
+  { slug: 'cultist',         name: 'Cultist'         },
+  { slug: 'cyclops',         name: 'Cyclops'         },
+  { slug: 'dark_knight',     name: 'Dark Knight'     },
+  { slug: 'dark_mage',       name: 'Dark Mage'       },
+  { slug: 'dire_bear',       name: 'Dire Bear'       },
+  { slug: 'earth_golem',     name: 'Earth Golem'     },
+  { slug: 'fire_elemental',  name: 'Fire Elemental'  },
+  { slug: 'gargoyle',        name: 'Gargoyle'        },
+  { slug: 'ghoul',           name: 'Ghoul'           },
+  { slug: 'giant_bat',       name: 'Giant Bat'       },
+  { slug: 'giant_bug',       name: 'Giant Bug'       },
+  { slug: 'giant_crab',      name: 'Giant Crab'      },
+  { slug: 'giant_eel',       name: 'Giant Eel'       },
+  { slug: 'giant_frog',      name: 'Giant Frog'      },
+  { slug: 'giant_jellyfish', name: 'Giant Jellyfish' },
+  { slug: 'giant_leech',     name: 'Giant Leech'     },
+  { slug: 'giant_lizard',    name: 'Giant Lizard'    },
+  { slug: 'giant_moth',      name: 'Giant Moth'      },
+  { slug: 'giant_mushroom',  name: 'Giant Mushroom'  },
+  { slug: 'giant_rat',       name: 'Giant Rat'       },
+  { slug: 'giant_scorpion',  name: 'Giant Scorpion'  },
+  { slug: 'giant_snail',     name: 'Giant Snail'     },
+  { slug: 'giant_wasp',      name: 'Giant Wasp'      },
+  { slug: 'goblin',          name: 'Goblin'          },
+  { slug: 'griffin',         name: 'Griffin'         },
+  { slug: 'harpy',           name: 'Harpy'           },
+  { slug: 'hydra',           name: 'Hydra'           },
+  { slug: 'ice_elemental',   name: 'Ice Elemental'   },
+  { slug: 'imp',             name: 'Imp'             },
+  { slug: 'kappa',           name: 'Kappa'           },
+  { slug: 'kobold',          name: 'Kobold'          },
+  { slug: 'lich',            name: 'Lich'            },
+  { slug: 'living_tree',     name: 'Living Tree'     },
+  { slug: 'manticore',       name: 'Manticore'       },
+  { slug: 'medusa',          name: 'Medusa'          },
+  { slug: 'mercenary',       name: 'Mercenary'       },
+  { slug: 'merfolk',         name: 'Merfolk'         },
+  { slug: 'mimic_chest',     name: 'Mimic Chest'     },
+  { slug: 'minotaur',        name: 'Minotaur'        },
+  { slug: 'mummy',           name: 'Mummy'           },
+  { slug: 'necromancer',     name: 'Necromancer'     },
+  { slug: 'ogre',            name: 'Ogre'            },
+  { slug: 'orc',             name: 'Orc'             },
+  { slug: 'phantom',         name: 'Phantom'         },
+  { slug: 'piranha_swarm',   name: 'Piranha Swarm'   },
+  { slug: 'pirate',          name: 'Pirate'          },
+  { slug: 'poacher',         name: 'Poacher'         },
+  { slug: 'possessed_doll',  name: 'Possessed Doll'  },
+  { slug: 'rat_swarm',       name: 'Rat Swarm'       },
+  { slug: 'revenant',        name: 'Revenant'        },
+  { slug: 'scarecrow',       name: 'Scarecrow'       },
+  { slug: 'sea_serpent',     name: 'Sea Serpent'     },
+  { slug: 'shadow_demon',    name: 'Shadow Demon'    },
+  { slug: 'skeleton',        name: 'Skeleton'        },
+  { slug: 'skeleton_archer', name: 'Skeleton Archer' },
+  { slug: 'slime',           name: 'Slime'           },
+  { slug: 'spore_pod',       name: 'Spore Pod'       },
+  { slug: 'stone_statue',    name: 'Stone Statue'    },
+  { slug: 'storm_elemental', name: 'Storm Elemental' },
+  { slug: 'thorn_beast',     name: 'Thorn Beast'     },
+  { slug: 'troll',           name: 'Troll'           },
+  { slug: 'vampire',         name: 'Vampire'         },
+  { slug: 'venus_flytrap',   name: 'Venus Flytrap'   },
+  { slug: 'vine_creature',   name: 'Vine Creature'   },
+  { slug: 'werewolf',        name: 'Werewolf'        },
+  { slug: 'witch',           name: 'Witch'           },
+  { slug: 'wolf',            name: 'Wolf'            },
+  { slug: 'wraith',          name: 'Wraith'          },
+  { slug: 'wyvern',          name: 'Wyvern'          },
+  { slug: 'zombie',          name: 'Zombie'          },
+  { slug: 'zombie_horde',    name: 'Zombie Horde'    },
 ];
+
+// Boot-time sanity check: every MONSTER_LIST slug must have a matching PNG in
+// assets/monsters/, and every PNG should have a list entry. Logs warnings on
+// drift — non-fatal so a dev mid-edit isn't blocked, but loud enough that a
+// missed sync gets caught before it ships.
+function _verifyMonsterRoster() {
+  try {
+    const spritesDir = path.join(__dirname, '..', '..', 'assets', 'monsters');
+    if (!fs.existsSync(spritesDir)) return;
+    const onDisk = new Set(
+      fs.readdirSync(spritesDir)
+        .filter((f) => f.endsWith('.png'))
+        .map((f) => f.slice(0, -4))
+    );
+    const inList = new Set(MONSTER_LIST.map((m) => m.slug));
+    const missingSprites = [...inList].filter((s) => !onDisk.has(s));
+    const missingEntries = [...onDisk].filter((s) => !inList.has(s));
+    if (missingSprites.length > 0) {
+      console.warn('[monster-roster] MONSTER_LIST has slugs with NO sprite file:', missingSprites.join(', '));
+    }
+    if (missingEntries.length > 0) {
+      console.warn('[monster-roster] assets/monsters has sprites with NO MONSTER_LIST entry (storywriter cannot use them):', missingEntries.join(', '));
+    }
+  } catch (e) {
+    console.warn('[monster-roster] sanity check failed:', e.message);
+  }
+}
+_verifyMonsterRoster();
 
 function _statePath   (characterDir) { return path.join(characterDir, STATE_FILENAME);     }
 function _logPath     (characterDir) { return path.join(characterDir, LOG_FILENAME);       }
