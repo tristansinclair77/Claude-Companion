@@ -15,8 +15,12 @@
 const fs   = require('fs');
 const path = require('path');
 
-const BIBLE_PATH = path.join(__dirname, '..', '..', 'music', '_bible.json');
 const MUSIC_DIR  = path.join(__dirname, '..', '..', 'music');
+const REF_DIR    = path.join(__dirname, '..', '..', 'ref');
+// Primary: music/_bible.json (co-located with the tracks). Fallback: ref/_bible.json.
+const BIBLE_PATH = fs.existsSync(path.join(MUSIC_DIR, '_bible.json'))
+  ? path.join(MUSIC_DIR, '_bible.json')
+  : path.join(REF_DIR,   '_bible.json');
 
 let _tracks       = [];   // raw bible track array
 let _byId         = new Map();
