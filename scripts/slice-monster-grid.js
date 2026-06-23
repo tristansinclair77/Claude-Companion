@@ -5,6 +5,7 @@
 const sharp = require('sharp');
 const path  = require('path');
 const fs    = require('fs');
+const { cleanDirectory } = require('./clean-monster-sprites');
 
 const REF = path.join(__dirname, '..', 'ref');
 const OUT = path.join(__dirname, '..', 'assets', 'monsters');
@@ -115,6 +116,16 @@ async function main() {
     total += await sliceGrid(g);
   }
   console.log(`[slicer] done — ${total} tiles written to ${OUT}`);
+
+  // Chain into the cleaner so the output is the final, label-stripped,
+  // edge-cleaned, centered art — not the raw labeled tiles.
+  console.log('[slicer] running cleaner on ' + OUT + '…');
+  const cleanFiles = fs.readdirSync(OUT)
+    .filter((f) => f.endsWith('.png'))
+    .sort()
+    .map((f) => path.join(OUT, f));
+  const okCount = await cleanDirectory(cleanFiles);
+  console.log(`[slicer] cleaner done — ${okCount}/${cleanFiles.length} sprites cleaned`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
