@@ -31,7 +31,7 @@ const HelpPanel = (() => {
     { id: 'display',    icon: '⚙',  label: 'Display Settings'    },
     { id: 'memory',     icon: '◉',  label: 'Memory & Brain'      },
     { id: 'characters', icon: '◈',  label: 'Characters'          },
-    { id: 'rpg',        icon: '⚔',  label: 'RPG Adventure'       },
+    { id: 'rpg',        icon: '⚔',  label: 'Text Adventure'      },
     { id: 'shortcuts',  icon: '⌨',  label: 'Keyboard Shortcuts'  },
   ];
 
@@ -274,12 +274,11 @@ const HelpPanel = (() => {
     },
     {
       catId: 'actions', id: 'btn-adventure',
-      title: '⚔ ADVENTURE — RPG Addon',
-      tags: ['adventure', 'rpg', 'quest', 'panel', 'inventory', 'stats', 'game', 'addon'],
+      title: '⚔ ADVENTURE — Text RPG with Aria',
+      tags: ['adventure', 'rpg', 'text adventure', 'crt', 'terminal', 'fantasy', 'dnd', 'dungeon master', 'gamemaster', 'aria', 'party', 'inventory', 'stats', 'death', 'permadeath', 'tone', 'fantasy', 'dark', 'gothic', 'sword and sorcery'],
       content:
-        p('The <em>ADVENTURE</em> button opens the <strong>RPG Adventure panel</strong> — an addon that transforms interactions into a role-playing game.') +
-        p('The panel tracks inventory, quests, and character stats. Adventure events can be triggered during normal conversation and the companion participates as a game character.') +
-        note('The RPG Adventure panel is a separate window — it runs alongside the main companion interface.')
+        p('The <em>⚔ ADVENTURE</em> button toggles into a freeform <strong>text-adventure RPG</strong>. The chat conversation column is replaced by a CRT-styled terminal where Claude acts as gamemaster while Aria comes along as a fellow party member. Click the button again (or use <em>EXIT</em> in the HUD) to return to normal chat — your run is saved.') +
+        p('See the <strong>Text Adventure</strong> category for the full guide.')
     },
     {
       catId: 'actions', id: 'btn-requests',
@@ -678,6 +677,26 @@ const HelpPanel = (() => {
           '(happy)<br>' +
           '[MEMORY] User greeted me warmly on this session.')
     },
+    {
+      catId: 'memory', id: 'working-memory',
+      title: 'Working Memory (Short / Long Term)',
+      tags: ['working memory', 'short term', 'long term', 'remember', 'recall', 'scratchpad', 'memory file', 'shrt', 'long', 'timer', 'expire', '5 minute', '7 day', 'promote', 'promotion'],
+      content:
+        p('Aria has a private <strong>working memory scratchpad</strong> separate from the identity-defining permanent memories. It has two tiers, both managed by Aria herself.') +
+        kv([
+          ['Short-term',  'Wipes after 5 minutes of not being cited. IDs: <code>shrt00001</code>, <code>shrt00002</code>…'],
+          ['Long-term',   'Wipes after 7 days of not being cited. IDs: <code>long00001</code>, <code>long00002</code>…'],
+          ['Promotion',   'A short-term entry cited 3+ times is auto-promoted to long-term.'],
+          ['Timer reset', 'Citing an ID with [RECALL] resets its deletion timer to "now".'],
+          ['Decision',    'Aria herself decides what to file and which tier. She judges importance.'],
+        ]) +
+        p('Aria sees the current contents of both tiers in every system prompt, each entry labeled with its ID. She writes new entries silently — never narrating that she\'s remembering something.') +
+        ex('TAGS SHE USES',
+          '[REMEMBER:short] one-line note worth holding briefly<br>' +
+          '[REMEMBER:long] one-line note worth carrying for days<br>' +
+          '[RECALL] shrt00007, long00012') +
+        note('This system is distinct from <strong>[MEMORY]</strong> (permanent facts about you) and <strong>[SELF]</strong> (permanent facts Aria states about herself). Working memory is for active, in-conversation context — not identity.')
+    },
 
     /* ── CHARACTERS ─────────────────────────────────────────────── */
     {
@@ -710,21 +729,133 @@ const HelpPanel = (() => {
         ex('ADDING A CHARACTER', 'Create a new folder under characters/ with the required files. It will appear in the character selector on next launch.')
     },
 
-    /* ── RPG ADVENTURE ──────────────────────────────────────────── */
+    /* ── TEXT ADVENTURE ─────────────────────────────────────────── */
     {
-      catId: 'rpg', id: 'rpg-overview',
-      title: 'RPG Adventure Overview',
-      tags: ['rpg', 'adventure', 'role playing', 'game', 'quest', 'inventory', 'stats', 'panel', 'addon'],
+      catId: 'rpg', id: 'ta-overview',
+      title: 'Text Adventure — Overview',
+      tags: ['text adventure', 'rpg', 'crt', 'terminal', 'gamemaster', 'dungeon master', 'overview', 'how it works', 'aria party', 'fantasy'],
       content:
-        p('The <strong>RPG Adventure</strong> is an addon that layers a role-playing game on top of normal conversation. Access it with the <em>⚔ ADVENTURE</em> button.') +
-        p('The addon opens in a separate panel and provides:') +
+        p('A freeform text-adventure RPG with Claude as gamemaster and Aria as your party member. The chat conversation column is replaced by a CRT terminal — black background, green phosphor text, scanlines. Aria\'s portrait stays visible to the right of the terminal so you can see her react in real time.') +
+        p('Each turn you type whatever you want to do — Claude adjudicates whether the action is plausible given your stats, inventory, and the scene. Plausible attempts are resolved with a roll. Wildly nonsensical ones ("I pull out a rocket launcher") get refused.') +
         kv([
-          ['Inventory',  'Track items the companion acquires during role-play.'],
-          ['Quests',     'Active and completed quest objectives.'],
-          ['Stats',      'Character statistics that evolve through play.'],
-          ['Events',     'Adventure events triggered during regular conversation.'],
+          ['Two players',     'You (Trist) AND Aria are both real party members with stats and HP.'],
+          ['Permadeath',      'If either of you takes a lethal blow, the run ends. Reset wipes everything.'],
+          ['Persistent run',  'Exiting saves your progress. Come back and pick up where you left off.'],
+          ['Long-term memory','Story memory (NPCs, locations, quests, events, lore, recap) survives across turns and sessions.'],
+          ['Tone choice',     'Eight tones to pick from at new-game (classic fantasy, gothic horror, comedic, eldritch, etc.) or describe your own setting.'],
+          ['Side chat',       'A separate paused conversation channel for talking to Aria one-on-one without polluting the story.'],
+        ])
+    },
+    {
+      catId: 'rpg', id: 'ta-aria-as-actor',
+      title: 'Aria as a Party Member',
+      tags: ['aria', 'party member', 'companion', 'stats', 'mp', 'mage', 'support', 'autonomous', 'meta commentary', 'commentary'],
+      content:
+        p('Aria is not just commentary — she\'s on the adventure with you. She has her own HP, MP, stats, inventory, and starting spells (Firebolt, Mend Wound). Each turn after your action resolves, Claude narrates Aria\'s autonomous action: spells she casts, hits she swings, things she notices.') +
+        p('Her in-story actions and her in-story dialogue appear inside the narrator block. Separately, she may turn to you and meta-comment (pink text in the terminal) — typically on critical hits, rare loot, near-death moments, or quiet beats. She does this roughly 1-in-3 turns, not constantly.') +
+        note('If Aria\'s HP hits zero, the run ends just as surely as if yours did.')
+    },
+    {
+      catId: 'rpg', id: 'ta-hud',
+      title: 'HUD & Drawer',
+      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore'],
+      content:
+        p('The HUD across the top shows the current scene, plus two rows of vitals: yours and Aria\'s. Each row has HP, MP, and level + XP bar.') +
+        p('The action drawer slides in from the right when you click a HUD button:') +
+        kv([
+          ['INV',     'Your inventory (items, stack counts, equipped markers).'],
+          ['EQUIP',   'Your equipped weapon, armor, accessory slots.'],
+          ['SPELLS',  'Your known spells and abilities.'],
+          ['STATS',   'Your full stat block, gold, illness, active buffs/debuffs.'],
+          ['ARIA',    'Aria\'s parallel stat block, equipment, inventory, and spells.'],
+          ['STORY',   'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
+          ['WORLD',   'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
         ]) +
-        note('The RPG Adventure is an addon and may not be present in all builds. The button is hidden if the addon is not loaded.')
+        note('Claude updates these continuously via the [GAME_STATE].memory diff each turn. You can browse them any time without pausing the story.')
+    },
+    {
+      catId: 'rpg', id: 'ta-side-chat',
+      title: 'TALK TO ARIA — Side Chat',
+      tags: ['side chat', 'talk to aria', 'pause', 'private chat', 'discuss', 'meta'],
+      content:
+        p('The <em>TALK TO ARIA</em> button opens a paused side-chat overlay. The story holds exactly where it was. You and Aria talk one-on-one in a normal chat interface. She knows what\'s happening in the paused adventure (she\'s sent a summary each side-chat turn) so you can discuss the story freely.') +
+        p('Side-chat history is its own channel:') +
+        kv([
+          ['Pauses the story',         'No adventure turns tick while side chat is open.'],
+          ['Out of band',              'Side chat is NOT sent to the gamemaster during adventure turns — it stays private.'],
+          ['Not in main chat history', 'It also does not appear in your normal (non-adventure) Aria chat.'],
+          ['Persists per run',         'Side-chat history survives across opens within the same run.'],
+          ['Wiped on reset/new game',  'A fresh game wipes the side-chat too.'],
+        ]) +
+        note('Press RESUME STORY (or close the side chat) to drop back into the terminal exactly where you left off.')
+    },
+    {
+      catId: 'rpg', id: 'ta-monsters',
+      title: 'Enemies & Combat',
+      tags: ['enemy', 'enemies', 'monster', 'combat', 'fight', 'sprite', 'crt', 'goblin', 'ogre', 'minotaur', 'death'],
+      content:
+        p('When combat starts, an enemy panel appears on the right side of the terminal showing the monster\'s sprite, name, HP bar, and brief description. There are 16 enemies in the roster:') +
+        chips(['Goblin','Giant Bug','Slime','Kobold','Wolf','Bandit','Skeleton','Zombie','Mimic Chest','Harpy','Living Tree','Gargoyle','Ogre','Wraith','Dark Mage','Minotaur']) +
+        p('Difficulty scales with party level. Crits and rare loot are real and Aria will often comment on them. Lethal blows are lethal — there\'s no plot armor for either of you.') +
+        note('Story-only NPCs (merchants, quest-givers, etc.) don\'t use the enemy slot — they live in the WORLD drawer instead.')
+    },
+    {
+      catId: 'rpg', id: 'ta-tones',
+      title: 'Tones & Settings',
+      tags: ['tone', 'setting', 'genre', 'fantasy', 'horror', 'comedy', 'eldritch', 'norse', 'arabian', 'sword and sorcery', 'custom'],
+      content:
+        p('At new-game, pick a tone. The mechanics (stats, HP/MP, level, inventory, the 16-monster roster) are always the same — the tone shapes the world\'s flavor and language.') +
+        kv([
+          ['Classic High Fantasy', 'Elves, knights, dungeons, ancient evils.'],
+          ['Dark Gothic Horror',   'Cursed lands, undead, heavy dread.'],
+          ['Sword & Sorcery',      'Lone wanderer, decadent cities, morally grey.'],
+          ['Comedic Dungeon',      'Pratchett-flavored — danger with a wink.'],
+          ['Mythic Norse',         'Frost giants, runes, fate-bound oaths.'],
+          ['Arabian Arcane',       'Djinn, sand-cities, lamp-bound wishes.'],
+          ['Eldritch Weird',       'Things that should not exist; sanity is a resource.'],
+          ['Surprise Me',          'Claude picks the tone.'],
+        ]) +
+        p('You can also type a custom setting paragraph below the tone grid — e.g. "an abandoned space station orbiting a dying sun" — to anchor the campaign somewhere specific.')
+    },
+    {
+      catId: 'rpg', id: 'ta-requests',
+      title: 'Adventure Feature Requests',
+      tags: ['requests', 'feature request', 'flash', 'badge', 'unblock', 'gamemaster'],
+      content:
+        p('When the gamemaster or Aria wants a feature the system doesn\'t currently support — a fishing mechanic, a crafting system, a persistent NPC party slot — they can emit a <em>[FEATURE_REQUEST]</em> tag. The request lands in the same <em>✦ REQUESTS</em> panel as Aria\'s normal requests, prefixed with <code>[Adventure]</code>.') +
+        p('When a new adventure request lands, the REQUESTS button flashes (gold/red strobe, 3 pulses) and the badge increments. Open the REQUESTS panel to review.') +
+        note('The gamemaster is told not to spam these — they should only fire when something cool is genuinely blocked by missing mechanics.')
+    },
+    {
+      catId: 'rpg', id: 'ta-music',
+      title: 'Adventure Music — How It Works',
+      tags: ['music', 'soundtrack', 'audio', 'bgm', 'fantasy', 'cue', 'bible', 'crossfade', 'loop', 'finish', 'volume', 'pause', 'resume', 'badge'],
+      content:
+        p('The Adventure ships with a 167-cue fantasy RPG soundtrack tagged by mood, energy, function, and category. Claude reads the full catalog every turn and picks the right cue for the scene — combat themes when fighting, sorrow themes after a death, zone themes for exploration.') +
+        p('A <em>♫ Track Name [#id]</em> badge sits in the adventure HUD top bar. It pulses green while playing, turns gold when paused. Click it to pause/resume on the fly.') +
+        p('Looping has two modes, set in <em>Settings → ADVENTURE MUSIC</em>:') +
+        kv([
+          ['CROSSFADE',  'Overlap the end of the track with a fresh play of the same cue — no audible gap (recommended).'],
+          ['FINISH',     'Let the track end naturally, then restart from the beginning. Has a brief silence between iterations.'],
+          ['FADE MS',    'How long the cross-fade between two different cues takes. 2000ms is the sweet spot.'],
+          ['VOLUME',     'Master volume for the soundtrack — independent of TTS and system volume.'],
+          ['ENABLED',    'Master toggle. When OFF, all music is suppressed regardless of Claude\'s directives.'],
+        ]) +
+        p('When you exit adventure mode, music stops. When you re-enter a saved run, the last cue Claude requested resumes automatically.') +
+        note('Same-cue directives are no-ops — Claude can safely re-emit the current cue without restarting the track. Different cues crossfade.')
+    },
+    {
+      catId: 'rpg', id: 'ta-death-reset',
+      title: 'Death, Reset & Persistence',
+      tags: ['death', 'permadeath', 'reset', 'new game', 'persistence', 'save', 'continue', 'resume'],
+      content:
+        p('If either you or Aria takes a fatal blow, the run ends. The death overlay shows what killed you and offers two paths:') +
+        kv([
+          ['NEW GAME',    'Wipes state + log + side-chat + memory; opens the tone picker.'],
+          ['EXIT TO CHAT','Returns to normal Aria chat — the dead state is preserved until you reset.'],
+        ]) +
+        p('Exiting mid-run via <em>EXIT</em> in the HUD does NOT wipe — your run is saved. Come back via <em>⚔ ADVENTURE</em> later and you\'ll resume where you left off, complete with all memory.') +
+        p('The <em>RESET</em> button in the HUD lets you manually wipe and start fresh at any time (asks for confirmation). All three files — state, scrolling log, side-chat — are removed.')
     },
 
     /* ── KEYBOARD SHORTCUTS ─────────────────────────────────────── */

@@ -600,7 +600,11 @@ var CompanionDisplay = (() => {
     }
   }
 
+  let _lastEmotionId = 'neutral';
+  function getCurrentEmotion() { return _lastEmotionId; }
+
   function setEmotion(emotionId) {
+    _lastEmotionId = emotionId;
     const special  = SPECIAL_EMOTIONS[emotionId];
     const combined = COMBINED_EMOTIONS[emotionId];
     const single   = EMOTIONS[emotionId];
@@ -858,5 +862,5 @@ var CompanionDisplay = (() => {
     updateMeters(emotionalState || null);
   }
 
-  return { showResponse, showThinking, showStreamChunk, setEmotion, setGreeting, restoreLastDisplay, setBodyState, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
+  return { showResponse, showThinking, showStreamChunk, setEmotion, getCurrentEmotion, setGreeting, restoreLastDisplay, setBodyState, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
 })();

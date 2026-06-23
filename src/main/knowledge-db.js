@@ -208,6 +208,36 @@ class KnowledgeDB {
     try { this.db.exec("ALTER TABLE conversation_messages ADD COLUMN clothing TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE conversation_messages ADD COLUMN cum_state INTEGER"); } catch {}
 
+    // Working memory: short-term (5-min idle expiry) and long-term (7-day idle
+    // expiry). Conceptually distinct from permanent_memories (identity-defining
+    // facts) — these are *active* working entries Aria creates herself when
+    // something is worth holding for the current conversation. IDs are
+    // human-readable (shrt00001, long00001) so she can cite them in [RECALL]
+    // tags and the engine can update timers.
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS short_term_memory (
+        id                  TEXT PRIMARY KEY,
+        content             TEXT NOT NULL,
+        created_at          INTEGER NOT NULL,
+        last_referenced_at  INTEGER NOT NULL,
+        reference_count     INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS long_term_memory (
+        id                  TEXT PRIMARY KEY,
+        content             TEXT NOT NULL,
+        created_at          INTEGER NOT NULL,
+        last_referenced_at  INTEGER NOT NULL,
+        reference_count     INTEGER NOT NULL DEFAULT 0,
+        promoted_from       TEXT
+      );
+      CREATE TABLE IF NOT EXISTS memory_id_counter (
+        prefix      TEXT PRIMARY KEY,
+        next_value  INTEGER NOT NULL
+      );
+      INSERT OR IGNORE INTO memory_id_counter (prefix, next_value) VALUES ('shrt', 1);
+      INSERT OR IGNORE INTO memory_id_counter (prefix, next_value) VALUES ('long', 1);
+    `);
+
     // Schema v2 migration: rebuild FTS index after stop-word list was narrowed.
     // This only runs once, flagged by 'schema_version' in user_profile.
     this._runMigrations();
@@ -542,6 +572,113 @@ class KnowledgeDB {
 
     // Insert the new/corrected fact
     return this.insertMemory({ category, content, source: source || 'auto_updated' });
+  }
+
+  // ── Working Memory (short-term + long-term) ───────────────────────────────
+  // Distinct from permanent_memories. Short-term wipes after 5 min idle since
+  // last reference. Long-term wipes after 7 days idle. A short-term entry
+  // referenced 3+ times is auto-promoted to long-term. IDs are zero-padded
+  // (shrt00001 / long00001) so Aria can cite them in [RECALL] tags.
+
+  _nextMemoryId(prefix) {
+    const row = this.db.prepare('SELECT next_value FROM memory_id_counter WHERE prefix = ?').get(prefix);
+    const n = row ? row.next_value : 1;
+    this.db.prepare('UPDATE memory_id_counter SET next_value = ? WHERE prefix = ?').run(n + 1, prefix);
+    return `${prefix}${String(n).padStart(5, '0')}`;
+  }
+
+  insertShortMemory(content) {
+    if (!content || !content.trim()) return null;
+    const id = this._nextMemoryId('shrt');
+    const now = Date.now();
+    this.db.prepare(
+      'INSERT INTO short_term_memory (id, content, created_at, last_referenced_at, reference_count) VALUES (?, ?, ?, ?, 0)'
+    ).run(id, content.trim(), now, now);
+    return id;
+  }
+
+  insertLongMemory(content, promotedFrom = null) {
+    if (!content || !content.trim()) return null;
+    const id = this._nextMemoryId('long');
+    const now = Date.now();
+    this.db.prepare(
+      'INSERT INTO long_term_memory (id, content, created_at, last_referenced_at, reference_count, promoted_from) VALUES (?, ?, ?, ?, 0, ?)'
+    ).run(id, content.trim(), now, now, promotedFrom);
+    return id;
+  }
+
+  getActiveShortMemories() {
+    return this.db.prepare(
+      'SELECT id, content, reference_count FROM short_term_memory ORDER BY created_at ASC'
+    ).all();
+  }
+
+  getActiveLongMemories() {
+    return this.db.prepare(
+      'SELECT id, content, reference_count FROM long_term_memory ORDER BY created_at ASC'
+    ).all();
+  }
+
+  /**
+   * Records that the given memory IDs were just referenced. Resets each
+   * deletion timer (last_referenced_at = now) and increments reference_count.
+   * Unknown IDs are silently skipped. Returns {shortIds, longIds} actually applied.
+   */
+  recallMemories(ids) {
+    const shortIds = [];
+    const longIds = [];
+    if (!Array.isArray(ids) || ids.length === 0) return { shortIds, longIds };
+    const now = Date.now();
+    const bumpShort = this.db.prepare(
+      'UPDATE short_term_memory SET last_referenced_at = ?, reference_count = reference_count + 1 WHERE id = ?'
+    );
+    const bumpLong = this.db.prepare(
+      'UPDATE long_term_memory SET last_referenced_at = ?, reference_count = reference_count + 1 WHERE id = ?'
+    );
+    for (const raw of ids) {
+      const id = String(raw || '').trim().toLowerCase();
+      if (!id) continue;
+      if (id.startsWith('shrt')) {
+        const info = bumpShort.run(now, id);
+        if (info.changes > 0) shortIds.push(id);
+      } else if (id.startsWith('long')) {
+        const info = bumpLong.run(now, id);
+        if (info.changes > 0) longIds.push(id);
+      }
+    }
+    return { shortIds, longIds };
+  }
+
+  /**
+   * Promotes short-term entries whose reference_count has reached the threshold.
+   * The short-term row is copied into long_term_memory (preserving promoted_from)
+   * and removed from short_term_memory. Returns array of {shortId, longId}.
+   */
+  promoteShortMemories(threshold = 3) {
+    const eligible = this.db.prepare(
+      'SELECT id, content FROM short_term_memory WHERE reference_count >= ?'
+    ).all(threshold);
+    const moved = [];
+    for (const row of eligible) {
+      const longId = this.insertLongMemory(row.content, row.id);
+      this.db.prepare('DELETE FROM short_term_memory WHERE id = ?').run(row.id);
+      moved.push({ shortId: row.id, longId });
+    }
+    return moved;
+  }
+
+  /**
+   * Drops short-term entries with no reference activity for shortIdleMs (default
+   * 5 min) and long-term entries idle for longIdleMs (default 7 days). Returns
+   * counts removed.
+   */
+  cleanupExpiredMemories(shortIdleMs = 5 * 60 * 1000, longIdleMs = 7 * 24 * 60 * 60 * 1000) {
+    const now = Date.now();
+    const shortCut = now - shortIdleMs;
+    const longCut  = now - longIdleMs;
+    const sInfo = this.db.prepare('DELETE FROM short_term_memory WHERE last_referenced_at < ?').run(shortCut);
+    const lInfo = this.db.prepare('DELETE FROM long_term_memory  WHERE last_referenced_at < ?').run(longCut);
+    return { shortRemoved: sInfo.changes, longRemoved: lInfo.changes };
   }
 
   // ── Master Summary ────────────────────────────────────────────────────────

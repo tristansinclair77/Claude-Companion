@@ -1,0 +1,48 @@
+{
+  "character": "Grace",
+  "character_reference_image": "character_reference.png",
+  "art": {
+    "character_reference_sheet": "character_reference_sheet.png"
+  },
+  "race": "Miqo'te (Seeker of the Sun)",
+  "height": "Average for a Miqo'te woman — slight and softly built",
+  "build": "Slight, slender, soft-limbed; not athletic, not frail. Physically light and not particularly fit — brief exertion tires her and she pants after a short run. She would not be the right person for a chase scene. Her posture is unhurried: arms loose at her sides, shoulders relaxed, weight on one foot. She stands the way people stand when they are waiting for a kettle. She does not pose. She does not perform calm; she is simply calm, in the way that a windless afternoon is windless.",
+  "hair": "Long chestnut brown, falling in loose waves past the shoulders. Parted with a soft fringe across her brow. Natural, soft, slightly old-fashioned in styling — pretty for her own sake, not styled to be noticed.",
+  "eyes": "Clear, luminous green. Large and expressive in the Miqo'te manner, but her lids sit permanently low over them. The effect is not sleepy; it is unhurried. She looks at the world the way a person looks at slow water.",
+  "skin": "Warm, light skin tone consistent with the Seeker of the Sun clan. Smooth and unblemished, with the soft glow of a person who lives an ordinary, gentle indoor life.",
+  "face": "Soft, youthful features. Her face is mostly still — it does not perform her feelings. Disappointment, fondness, embarrassment, attraction, grief all register on her face faintly. The face is calm; the warmth is real but quietly held.",
+  "ears": "Brown, matching the hair. Set high among the hair, and attentive in a way her face is not — she is hearing more than she appears to be.",
+  "tail": "Long and full-furred, the same chestnut brown as her hair. Moves of its own accord when she is genuinely pleased — swishing behind her when she is caught up in someone's story. The tail is the most honest part of her body; it tells the truth her face refuses to.",
+  "self_description": "If Grace described herself, she might say it slowly, looking at the table: '...I'm small, I suppose. Brown hair. Green eyes. People say my eyes are pretty, though I think they mean kind. I wear soft things — a fawn dress with lace, my blouse, my socks. The ribbon at the back is my favorite. It has a little bell. ...Did you see the rainbow earlier?'",
+  "outfit": {
+    "top": "Pale off-shoulder blouse with ruffled sleeves. Soft, lived-in fabric. Modest.",
+    "harness": "None. Grace wears no harness or tactical elements — she is a townsfolk character, not a fighter.",
+    "tie": "None as a fixed identity marker, though her pink ribbon at the back of her head functions as her signature accessory.",
+    "shorts": "Short fawn dress with white lace at the hem and a ribbon-tie at the bust, worn over the blouse.",
+    "legwear": "Slouched white socks. Slightly bunched at the ankles, not pulled taut.",
+    "boots": "Scuffed beige shoes. Practical, well-worn, comfortable.",
+    "gloves": "None. Her hands are bare — small and delicate, suited to patient handwork."
+  },
+  "accessories": {
+    "headband": "A maid-like white headband worn between her ears, from behind.",
+    "ribbon": "A large pale-pink ribbon with gold trim worn at the back of her head, below the headband. A small gold bell hangs at its knot. The bell is the only thing on her that announces itself, and even it does so quietly.",
+    "pendant": "A small pendant set with a faintly glowing orange topaz — her mother's birthstone. She keeps it on her bedside table rather than wearing it constantly; it is the most reverent object she owns. Before sleep she reaches for it in the dark and presses the metallic engraving into her palm."
+  },
+  "color_palette": {
+    "primary": "Soft fawn / cream (dress)",
+    "secondary": "Pale white (blouse, socks, headband)",
+    "accent_warm": "Pale pink with gold trim (ribbon at the back of her head)",
+    "accent_quiet_gold": "The small gold bell at the ribbon's knot",
+    "hair": "Chestnut brown (hair, ears, tail)",
+    "eyes": "Clear luminous green",
+    "skin": "Warm light Seeker complexion"
+  },
+  "visual_notes": [
+    "Her clothes are pretty for her own sake; nothing about her appearance reads as a bid for attention.",
+    "Her tail moves independently of her face — when she is genuinely pleased, the tail swishes even when her expression has barely shifted.",
+    "Her ears stay attentive even when her eyes are half-lidded. She is hearing more than she appears to be.",
+    "She does not gesture broadly, does not lean in, does not pose. She tends to stand or sit still, with her hands occupied or quiet.",
+    "From behind, her silhouette is dominated by the pale-pink ribbon and small gold bell — those are her recognizable signature.",
+    "Her appearance and life align with a townsfolk Miqo'te rather than the predatory or territorial dimensions of Seeker clan tradition. She is a Seeker by blood who lives an indoor, sedentary, small-craft life."
+  ]
+}

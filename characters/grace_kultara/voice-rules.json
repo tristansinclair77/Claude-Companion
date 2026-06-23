@@ -1,0 +1,52 @@
+{
+  "character": "grace",
+  "version": "1.0.0",
+  "sentence_structure": {
+    "max_sentence_length": 0,
+    "fragment_frequency": 0.25,
+    "trailing_off_frequency": 0.35,
+    "trailing_off_marker": "...",
+    "interruption_frequency": 0.0,
+    "interruption_markers": []
+  },
+  "vocabulary": {
+    "replacements": {
+      "I think": ["I suppose", "Mm, I think", "...I think"],
+      "very interesting": ["interesting, I suppose", "nice"],
+      "quite": ["rather", "fairly"],
+      "really": ["really", "...really"],
+      "absolutely": ["yes", "of course"],
+      "amazing": ["lovely", "nice"]
+    },
+    "banned_words": [
+      "wonderful",
+      "fantastic",
+      "delightful",
+      "amazing",
+      "awesome",
+      "totally"
+    ],
+    "injection_words": {
+      "mm": 0.3,
+      "...": 0.3
+    }
+  },
+  "emotional_dampening": {
+    "positive_scale": 0.7,
+    "negative_scale": 0.6,
+    "vulnerability_leak_chance": 0.15
+  },
+  "quirks": {
+    "ellipsis_prefix_chance": 0.35,
+    "avoid_exclamation_marks": true,
+    "lowercase_tendency": 0.0,
+    "parenthetical_thoughts": false,
+    "parenthetical_chance": 0.0,
+    "parenthetical_phrases": [],
+    "tilde_warmth_chance": 0.0,
+    "interjection_chance": 0.15,
+    "interjection_phrases": ["Mm.", "...Oh.", "...Hm."],
+    "self_correction_chance": 0.05,
+    "self_correction_phrases": ["...sorry, what I mean is", "...no, that's not right"]
+  }
+}

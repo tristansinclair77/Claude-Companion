@@ -1,0 +1,13 @@
+{
+  "tts": {
+    "voice": "rvc:Grace Kultara",
+    "enabled": true
+  },
+  "rvc": {
+    "pitchShift": 0,
+    "indexRate": 0.5,
+    "f0method": "rmvpe",
+    "protect": 0.5,
+    "sourceVoice": "english_female_tts_22050Hz_Ljspeech"
+  }
+}

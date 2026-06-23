@@ -56,7 +56,7 @@ function extractPartialDialogue(text) {
   const start = text.indexOf('[DIALOGUE]');
   if (start === -1) return null;
   const after = text.slice(start + '[DIALOGUE]'.length);
-  const terminatorRe = /\n[ \t]*\[(?:THOUGHTS|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|KNOWLEDGE|FEATURE_REQUEST|AFFECTION)\]/i;
+  const terminatorRe = /\n[ \t]*\[(?:THOUGHTS|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|REMEMBER|RECALL)\]/i;
   const m = after.search(terminatorRe);
   const raw = m === -1 ? after : after.slice(0, m);
   return raw.trim() || null;
@@ -102,6 +102,8 @@ async function sendToClaude({
   pendingDeletionNotifications = [],
   previousEmotion = '',
   bodyState = null,
+  workingShortMemories = [],
+  workingLongMemories = [],
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -119,6 +121,8 @@ async function sendToClaude({
     featureRequests,
     pendingDeletionNotifications,
     bodyState,
+    workingShortMemories,
+    workingLongMemories,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -179,6 +183,12 @@ async function sendToClaude({
   }
 
   fullPrompt += `User: ${userMessage}`;
+
+  // Final structural anchor — last thing the model reads before generating.
+  // The system prompt is long; this tiny tail in the user prompt sits at peak
+  // recency and prevents drift into pure-prose replies that drop [DIALOGUE] /
+  // [THOUGHTS] / (emotion) entirely.
+  fullPrompt += `\n\n[Reply now. Required structure: a [DIALOGUE] line, a [THOUGHTS] line, and a final (emotion_id) on its own line. Action narration like *she smiles* goes INSIDE [DIALOGUE].]`;
 
   logger.log('claude_call', {
     systemPrompt,
@@ -415,7 +425,7 @@ async function generateGreeting({ character, characterRules, masterSummary, perm
  * asked not to, and we don't want that in master_summary.
  */
 function _stripAriaTags(raw) {
-  const dlgMatch = raw.match(/\[DIALOGUE\]([\s\S]*?)(?=\n\s*\[(?:THOUGHTS|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|KNOWLEDGE|FEATURE_REQUEST|AFFECTION)\]|\n\s*\([a-z_]+\)\s*$|$)/i);
+  const dlgMatch = raw.match(/\[DIALOGUE\]([\s\S]*?)(?=\n\s*\[(?:THOUGHTS|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|REMEMBER|RECALL)\]|\n\s*\([a-z_]+\)\s*$|$)/i);
   let body = dlgMatch ? dlgMatch[1] : raw;
   body = body
     .replace(/\[THOUGHTS\][\s\S]*$/i, '')
@@ -426,6 +436,8 @@ function _stripAriaTags(raw) {
     .replace(/\[KNOWLEDGE\][\s\S]*$/i, '')
     .replace(/\[FEATURE_REQUEST\][\s\S]*$/i, '')
     .replace(/\[AFFECTION\][\s\S]*$/i, '')
+    .replace(/\[REMEMBER:(?:short|long)\][\s\S]*$/i, '')
+    .replace(/\[RECALL\][\s\S]*$/i, '')
     .replace(/\n\s*\([a-z_]+\)\s*$/i, '')
     .trim();
   return body;

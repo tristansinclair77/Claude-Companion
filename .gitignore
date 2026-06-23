@@ -33,6 +33,14 @@ src/main/neural/models/*.json
 # Personal reference assets (not part of repo)
 ref/
 
+# Personal music backup (Suno workspace downloads)
+music/
+
+# Text-adventure runtime state (per-character — generated at play time)
+characters/*/text-adventure.json
+characters/*/text-adventure-log.json
+characters/*/text-adventure-side-chat.json
+
 # RVC server Python 3.10 venv (large, recreatable — see scripts/rvc-server/requirements.txt)
 scripts/rvc-server/venv/
 

@@ -141,6 +141,41 @@ factual questions, tracker maintenance), the generic summarizer is fine and uses
 fewer tokens. Use the Aria-context pattern only when the input might contain
 content a vanilla Haiku would refuse on.
 
+### Memory Systems — Three Distinct Stores
+
+Aria has THREE separate memory stores. Do not conflate them when adding features
+or extracting/inserting facts:
+
+1. **`permanent_memories` (identity definition)** — facts about who Aria is and
+   what she's stated about herself, plus stable facts she's learned about Trist.
+   Source flags: `companion_self` for Aria's self-facts, `auto_detected` /
+   `auto_updated` for user facts. Written via `[MEMORY]`, `[MEMORY_UPDATE]`,
+   `[SELF]` tags. **Persist forever.** This store DEFINES identity — it is not
+   a working memory system. Aria sees these as "Permanent Memories" and "What
+   You've Told The User About Yourself" in the system prompt.
+
+2. **`short_term_memory` (working — 5-min idle)** — Aria's own in-conversation
+   scratchpad for things she wants to hold briefly. Written via `[REMEMBER:short]`.
+   Cited via `[RECALL] shrtNNNNN`. Wipes after 5 minutes of not being cited.
+   Cited 3+ times → auto-promoted to `long_term_memory`.
+
+3. **`long_term_memory` (working — 7-day idle)** — Aria's own scratchpad for
+   things worth carrying across days. Written via `[REMEMBER:long]` or
+   auto-promoted from short-term. Cited via `[RECALL] longNNNNN`. Wipes after
+   7 days of not being cited.
+
+Both working stores are managed in [src/main/knowledge-db.js](src/main/knowledge-db.js)
+(`insertShortMemory`, `insertLongMemory`, `recallMemories`, `promoteShortMemories`,
+`cleanupExpiredMemories`) and surfaced into the prompt by the "YOUR WORKING
+MEMORY" section in [src/shared/system-prompt.js](src/shared/system-prompt.js).
+Lifecycle is driven from [src/main/local-brain.js](src/main/local-brain.js) on
+every Claude turn: cleanup → load → send → write back RECALL/REMEMBER → promote.
+
+When building new features that "save what Aria said":
+- Permanent identity fact about her or Trist → `permanent_memories` (existing `[SELF]`/`[MEMORY]`).
+- Short-lived in-scene context she wants to hold → `short_term_memory`.
+- Something worth carrying for days → `long_term_memory`.
+
 ### Keep the Help Panel Current
 `src/renderer/js/help-panel.js` is the in-app reference manual. It **must always
 be kept up-to-date** with every feature in the app.

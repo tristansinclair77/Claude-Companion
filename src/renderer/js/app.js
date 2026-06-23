@@ -175,12 +175,12 @@
     CompanionDisplay?.updateSensationReadout?.(data.current);
   });
 
-  // ── RPG Adventure — opens as a pop-out window ─────────────────────────────
-  if (typeof RPGPanel !== 'undefined') {
-    RPGPanel.init();
+  // ── Text Adventure — inline CRT terminal swaps the chat conversation column ──
+  if (typeof TextAdventure !== 'undefined') {
+    TextAdventure.init();
     const btnAdventure = document.getElementById('btn-adventure');
     if (btnAdventure) {
-      btnAdventure.addEventListener('click', () => window.rpgAPI.openWindow('adventure'));
+      btnAdventure.addEventListener('click', () => TextAdventure.toggle());
     }
   }
 

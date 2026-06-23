@@ -12,6 +12,8 @@ const { openFilePicker, openFolderPicker } = require('./file-handler');
 const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
+const { register: registerTextAdventureIPC } = require('./text-adventure-ipc');
+const musicEngine = require('./music-engine');
 const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
 const ttsEngine = require('./tts-engine');
@@ -232,6 +234,7 @@ app.whenReady().then(() => {
   loadCharacterPack();
   initBrain();
   loadAddons();
+  try { musicEngine.load(); } catch (e) { console.warn('[App] music engine load failed:', e.message); }
   ttsEngine.startVitsServer();
 
   // Configure and start RVC voice conversion server
@@ -259,6 +262,27 @@ app.whenReady().then(() => {
 
   registerDebugViewerIPC(win, db);
   registerCharacterBuilderIPC(win);
+
+  // Text-Adventure IPC — needs live access to Aria's full context per turn.
+  registerTextAdventureIPC({
+    ipcMain,
+    mainWindow: win,
+    characterDir: CHARACTER_DIR,
+    getCharacterContext: () => ({
+      character,
+      characterRules,
+      masterSummary:     sessionManager.masterSummary,
+      permanentMemories: sessionManager.permanentMemories,
+      userProfile:       sessionManager.userProfile || '',
+      emotionalState:    db.getEmotionalState ? db.getEmotionalState() : null,
+      bodyState:         db.getBodyState ? db.getBodyState() : null,
+      trackers:          _trackers,
+      activeThreads:     db.getActiveThreads ? db.getActiveThreads(6) : [],
+      personalityForce:  _personalityForce,
+      featureRequests:   featureRequestsStore.loadRequests(CHARACTER_DIR),
+      addonContexts:     _addonContexts,
+    }),
+  });
 
   // Refresh .claude/aria-context.md at boot — picks up any DB changes made
   // outside the companion (e.g. recovery scripts, manual edits) so Claude Code
@@ -895,6 +919,53 @@ ipcMain.handle('character:switch', (_event, charId) => {
     console.error('[Character] switch error:', e.message);
     return { success: false, error: e.message };
   }
+});
+
+// ── Music IPC ──────────────────────────────────────────────────────────────────
+//
+// Settings are stored under config.music = { enabled, volume, loopMode, crossfadeMs }.
+// The renderer is the single source of truth for what's currently playing; the
+// main process resolves bible cues → file paths and pushes them to the renderer
+// via `music:cue` events.
+
+ipcMain.handle('music:get-settings', () => {
+  const c = readConfig().music || {};
+  return {
+    enabled:     c.enabled  === undefined ? true : !!c.enabled,
+    volume:      typeof c.volume   === 'number' ? c.volume   : 0.55,
+    loopMode:    c.loopMode === 'finish_restart' ? 'finish_restart' : 'crossfade',
+    crossfadeMs: typeof c.crossfadeMs === 'number' ? c.crossfadeMs : 2000,
+  };
+});
+
+ipcMain.handle('music:set-settings', (_event, partial = {}) => {
+  const cur = (readConfig().music) || {};
+  const next = { ...cur };
+  if (typeof partial.enabled  === 'boolean') next.enabled  = partial.enabled;
+  if (typeof partial.volume   === 'number')  next.volume   = Math.max(0, Math.min(1, partial.volume));
+  if (typeof partial.loopMode === 'string')  next.loopMode = partial.loopMode === 'finish_restart' ? 'finish_restart' : 'crossfade';
+  if (typeof partial.crossfadeMs === 'number') next.crossfadeMs = Math.max(200, Math.min(8000, partial.crossfadeMs));
+  writeConfig({ music: next });
+  return next;
+});
+
+// Direct play (used by debug UI, settings preview, and the adventure IPC).
+// idOrName is a numeric bible_id or a track name. Pushes a 'play' cue to the
+// renderer via the active main window.
+ipcMain.handle('music:play-cue', (_event, { idOrName } = {}) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return { success: false, error: 'no window' };
+  const payload = musicEngine.resolveCueForPayload(idOrName);
+  if (!payload.ok) return { success: false, error: payload.reason };
+  mainWindow.webContents.send('music:cue', { kind: 'play', cue: payload });
+  return { success: true, cue: payload };
+});
+
+ipcMain.handle('music:pause',  () => { mainWindow?.webContents.send('music:cue', { kind: 'pause'  }); return { ok: true }; });
+ipcMain.handle('music:resume', () => { mainWindow?.webContents.send('music:cue', { kind: 'resume' }); return { ok: true }; });
+ipcMain.handle('music:stop',   () => { mainWindow?.webContents.send('music:cue', { kind: 'stop'   }); return { ok: true }; });
+
+ipcMain.handle('music:get-bible', () => {
+  return { tracks: musicEngine.hasLibrary() ? require('../../ref/_bible.json').tracks : [] };
 });
 
 // ── Feature Requests IPC ──────────────────────────────────────────────────────

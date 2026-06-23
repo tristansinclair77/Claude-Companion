@@ -128,15 +128,35 @@
 
   // ── Live updates from main process ───────────────────────────────────────────
 
-  window.claudeAPI.on('feature-requests:updated', () => {
-    // Always refresh badge; refresh list only if panel is open
+  window.claudeAPI.on('feature-requests:updated', (payload) => {
+    // Always refresh badge; refresh list only if panel is open.
+    // payload may be { flash: true, source: 'adventure' } — if so, briefly
+    // pulse the button + badge so the user notices a new request arrived.
     window.claudeAPI.getFeatureRequests().then((requests) => {
       updateBadge((requests || []).length);
       if (!panel.classList.contains('hidden')) {
         render(requests || []);
       }
+      if (payload && payload.flash) {
+        _flashRequestsButton();
+      }
     }).catch(() => {});
   });
+
+  function _flashRequestsButton() {
+    if (!btnOpen) return;
+    // Restart the animation by removing then re-adding the class on the next
+    // frame — without this, repeat flashes in a row don't replay.
+    btnOpen.classList.remove('flash-new');
+    if (badge) badge.classList.remove('flash-new');
+    void btnOpen.offsetWidth;  // force reflow
+    btnOpen.classList.add('flash-new');
+    if (badge) badge.classList.add('flash-new');
+    setTimeout(() => {
+      btnOpen.classList.remove('flash-new');
+      if (badge) badge.classList.remove('flash-new');
+    }, 5200);  // matches 1.6s × 3 iterations in CSS
+  }
 
   // ── Initial badge load ────────────────────────────────────────────────────────
 

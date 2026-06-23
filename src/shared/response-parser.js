@@ -22,7 +22,7 @@ function parseResponse(raw, opts = {}) {
     : 'neutral';
 
   if (!raw || typeof raw !== 'string') {
-    return { dialogue: '', thoughts: '', emotion: fallbackEmotion, emotionExplicit: false, memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [] };
+    return { dialogue: '', thoughts: '', emotion: fallbackEmotion, emotionExplicit: false, memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [], rememberShort: [], rememberLong: [], recalledMemoryIds: [] };
   }
 
   const text = raw.trim();
@@ -64,10 +64,10 @@ function parseResponse(raw, opts = {}) {
   // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text.
   // The emotion tag (already located above) bounds the search, so we no longer rely
   // on a fragile `\([a-z_]+\)` lookahead that would over-match parens-words in prose.
-  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\])|$)/i);
+  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\])|$)/i);
   const dialogue = dialogueMatch
     ? dialogueMatch[1].trim()
-        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE)\]/gi, '')
+        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE|REMEMBER(?::(?:short|long))?|RECALL)\]/gi, '')
         .replace(/\\n/g, ' ')  // strip literal \n text Claude occasionally outputs
         .trim()
     : '';
@@ -76,7 +76,7 @@ function parseResponse(raw, opts = {}) {
   // Only match when the tag starts a line; mid-sentence mentions are ignored.
   // Bounded by the emotion tag position (via beforeEmotion) so paren-words in the
   // thoughts text can no longer cut the capture short.
-  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\])|$)/i);
+  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\])|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
   // Extract [MEMORY] tags (new facts)
@@ -197,6 +197,34 @@ function parseResponse(raw, opts = {}) {
     }
   }
 
+  // Extract [REMEMBER:short|long] tags — Aria's request to file a working memory.
+  // Format: [REMEMBER:short] content here  OR  [REMEMBER:long] content here
+  // Line-anchored so prose mentions don't get captured.
+  const rememberShort = [];
+  const rememberLong  = [];
+  const rememberRegex = /^[ \t]*\[REMEMBER:(short|long)\]\s*(.+)$/gim;
+  let remMatch;
+  while ((remMatch = rememberRegex.exec(text)) !== null) {
+    const tier = remMatch[1].toLowerCase();
+    const content = remMatch[2].trim();
+    if (!content) continue;
+    if (tier === 'short') rememberShort.push(content);
+    else if (tier === 'long') rememberLong.push(content);
+  }
+
+  // Extract [RECALL: ...] tag — comma-separated working-memory IDs that this
+  // response actually drew on. Multiple [RECALL] lines accumulate.
+  const recalledMemoryIds = [];
+  const recallRegex = /^[ \t]*\[RECALL\]\s*(.+)$/gim;
+  let recMatch;
+  while ((recMatch = recallRegex.exec(text)) !== null) {
+    const body = recMatch[1].trim();
+    const ids = body.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    for (const id of ids) {
+      if (/^(?:shrt|long)\d+$/.test(id)) recalledMemoryIds.push(id);
+    }
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -216,6 +244,9 @@ function parseResponse(raw, opts = {}) {
     featureRequests,
     affectionTarget,
     stateChanges,
+    rememberShort,
+    rememberLong,
+    recalledMemoryIds,
   };
 }
 
@@ -225,7 +256,7 @@ function parseResponse(raw, opts = {}) {
 function extractFallbackDialogue(text) {
   // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD], [KNOWLEDGE], [FEATURE_REQUEST] parts
   let cleaned = text
-    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|\[KNOWLEDGE\]|$)/gi, '')
+    .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|\[KNOWLEDGE\]|\[REMEMBER\b|\[RECALL\]|$)/gi, '')
     .replace(/\([a-z_]+\)/g, '')
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
@@ -236,6 +267,8 @@ function extractFallbackDialogue(text) {
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .replace(/\[AFFECTION\][^\n]*/gi, '')
     .replace(/\[STATE\][^\n]*/gi, '')
+    .replace(/\[REMEMBER:(?:short|long)\][^\n]*/gi, '')
+    .replace(/\[RECALL\][^\n]*/gi, '')
     .trim();
   return cleaned || text.slice(0, 500);
 }
@@ -254,6 +287,8 @@ function stripMemoryTags(text) {
     .replace(/\[FEATURE_REQUEST\][^\n]*/gi, '')
     .replace(/\[AFFECTION\][^\n]*/gi, '')
     .replace(/\[STATE\][^\n]*/gi, '')
+    .replace(/\[REMEMBER:(?:short|long)\][^\n]*/gi, '')
+    .replace(/\[RECALL\][^\n]*/gi, '')
     .trim();
 }
 

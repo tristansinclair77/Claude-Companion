@@ -106,32 +106,36 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   },
 });
 
-// ── RPG Addon API ──────────────────────────────────────────────────────────────
-contextBridge.exposeInMainWorld('rpgAPI', {
-  getState:          ()                     => ipcRenderer.invoke('rpg:get-state'),
-  startAdventure:    (zoneId)               => ipcRenderer.invoke('rpg:start-adventure', { zoneId }),
-  takeAction:        (action, payload = {}) => ipcRenderer.invoke('rpg:take-action', { action, payload }),
-  endRun:            (result)               => ipcRenderer.invoke('rpg:end-run', { result }),
-  getInventory:      ()                     => ipcRenderer.invoke('rpg:get-inventory'),
-  equipItem:         (slot, inventoryId)    => ipcRenderer.invoke('rpg:equip-item', { slot, inventoryId }),
-  unequipSlot:       (slot)                 => ipcRenderer.invoke('rpg:unequip-slot', { slot }),
-  sellItem:          (inventoryId, gold)    => ipcRenderer.invoke('rpg:sell-item', { inventoryId, gold }),
-  dropItem:          (inventoryId)          => ipcRenderer.invoke('rpg:drop-item', { inventoryId }),
-  getZones:          ()                     => ipcRenderer.invoke('rpg:get-zones'),
-  allocateStat:      (stat)                 => ipcRenderer.invoke('rpg:allocate-stat', { stat }),
-  getRunHistory:     (limit)                => ipcRenderer.invoke('rpg:get-run-history', { limit }),
-  getAchievements:   ()                     => ipcRenderer.invoke('rpg:get-achievements'),
-  prestige:          ()                     => ipcRenderer.invoke('rpg:prestige'),
-  rest:              ()                     => ipcRenderer.invoke('rpg:rest'),
-  openWindow:        (type)                 => ipcRenderer.invoke('rpg:open-window', { type }),
-  getResponses:      (scenarioKey)          => ipcRenderer.invoke('rpg:get-responses', { scenarioKey }),
-  refreshResponses:  (scenarioKey)          => ipcRenderer.invoke('rpg:refresh-responses', { scenarioKey }),
-  runEndBundle:      ()                     => ipcRenderer.invoke('rpg:run-end-bundle'),
-  levelUpBundle:     ()                     => ipcRenderer.invoke('rpg:level-up-bundle'),
-  getScenarioResponse: (key, gameState)     => ipcRenderer.invoke('rpg:get-scenario-response', { key, gameState }),
-  generateResponsePool: (key, gameState)    => ipcRenderer.invoke('rpg:generate-response-pool', { key, gameState }),
-  suggestZone:         ()                   => ipcRenderer.invoke('rpg:suggest-zone'),
-  openDevTools:        ()                   => ipcRenderer.invoke('rpg:open-devtools'),
-  closeWindow:         ()                   => ipcRenderer.send('rpg:close-window'),
-  onInventoryChanged:  (cb)                 => ipcRenderer.on('rpg:inventory-changed', cb),
+// ── Music API ──────────────────────────────────────────────────────────────────
+contextBridge.exposeInMainWorld('musicAPI', {
+  getSettings: ()                => ipcRenderer.invoke('music:get-settings'),
+  setSettings: (partial)         => ipcRenderer.invoke('music:set-settings', partial),
+  playCue:     (idOrName)        => ipcRenderer.invoke('music:play-cue', { idOrName }),
+  pause:       ()                => ipcRenderer.invoke('music:pause'),
+  resume:      ()                => ipcRenderer.invoke('music:resume'),
+  stop:        ()                => ipcRenderer.invoke('music:stop'),
+  getBible:    ()                => ipcRenderer.invoke('music:get-bible'),
+  onCue:       (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('music:cue', listener);
+    return () => ipcRenderer.removeListener('music:cue', listener);
+  },
+});
+
+// ── Text Adventure API ─────────────────────────────────────────────────────────
+contextBridge.exposeInMainWorld('adventureAPI', {
+  getState:      ()             => ipcRenderer.invoke('adventure:get-state'),
+  newGame:       (opts)         => ipcRenderer.invoke('adventure:new-game', opts),
+  takeAction:    (action)       => ipcRenderer.invoke('adventure:take-action', { action }),
+  resetGame:     ()             => ipcRenderer.invoke('adventure:reset'),
+  getLog:        (limit)        => ipcRenderer.invoke('adventure:get-log', { limit }),
+  listMonsters:  ()             => ipcRenderer.invoke('adventure:list-monsters'),
+  sideChatSend:    (message)    => ipcRenderer.invoke('adventure:side-chat-send', { message }),
+  sideChatHistory: ()           => ipcRenderer.invoke('adventure:side-chat-history'),
+  sideChatClear:   ()           => ipcRenderer.invoke('adventure:side-chat-clear'),
+  onUpdate:    (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('adventure:update', listener);
+    return () => ipcRenderer.removeListener('adventure:update', listener);
+  },
 });

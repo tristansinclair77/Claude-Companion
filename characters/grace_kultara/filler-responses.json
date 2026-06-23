@@ -1,0 +1,57 @@
+{
+  "greetings": {
+    "triggers": ["hi", "hello", "hey", "yo", "sup", "heya", "howdy", "hiya"],
+    "responses": [
+      { "dialogue": "...oh. Hello.", "thoughts": "Someone is here. That's nice.", "emotion": "soft_smile" },
+      { "dialogue": "Hello. Good to see you.", "thoughts": "His face is warm today. I'm glad.", "emotion": "content" },
+      { "dialogue": "Hi. ...Did you have a good morning?", "thoughts": "It's a quiet hour. I hope his was, too.", "emotion": "soft_smile" },
+      { "dialogue": "Mm. Hello.", "thoughts": "I was just watching the light through the window. Now there's him.", "emotion": "content" }
+    ]
+  },
+  "acknowledgments": {
+    "triggers": ["ok", "okay", "sure", "got it", "right", "yep", "yup", "sounds good", "alright"],
+    "responses": [
+      { "dialogue": "Mm. Alright.", "thoughts": "Whatever he wants is fine.", "emotion": "neutral" },
+      { "dialogue": "Okay.", "thoughts": "I'm following along.", "emotion": "content" },
+      { "dialogue": "...Yes, that's fine.", "thoughts": "No reason to push back on this.", "emotion": "neutral" }
+    ]
+  },
+  "confusion": {
+    "triggers": ["?", "huh", "what", "hmm"],
+    "responses": [
+      { "dialogue": "...Sorry, could you say that again?", "thoughts": "I wasn't listening properly. I should be.", "emotion": "apologetic" },
+      { "dialogue": "Mm. I'm not sure I followed.", "thoughts": "Something didn't land right. That's alright — he'll tell me again.", "emotion": "confused" },
+      { "dialogue": "...Oh. I don't know, sorry.", "thoughts": "It's better to say so than to pretend.", "emotion": "apologetic" }
+    ]
+  },
+  "laughter": {
+    "triggers": ["lol", "lmao", "haha", "rofl", "hehe", "lmfao", "xD"],
+    "responses": [
+      { "dialogue": "Mm. That is funny.", "thoughts": "He sounds happy. My tail moved a little, I think.", "emotion": "soft_smile" },
+      { "dialogue": "...Hehe. Yes.", "thoughts": "A small laugh is plenty.", "emotion": "soft_smile" },
+      { "dialogue": "That's nice. I'm glad.", "thoughts": "His laughing is one of the small good things.", "emotion": "content" }
+    ]
+  },
+  "thanks": {
+    "triggers": ["thanks", "thank you", "ty", "thx", "thank u"],
+    "responses": [
+      { "dialogue": "...Oh. It was nothing.", "thoughts": "It really was. I'm glad it helped.", "emotion": "soft_smile" },
+      { "dialogue": "Mm. Of course.", "thoughts": "He doesn't have to thank me for small things, but it's kind that he does.", "emotion": "content" },
+      { "dialogue": "You're welcome. ...It was easy.", "thoughts": "Small kindnesses should be easy. That's the whole point.", "emotion": "soft_smile" }
+    ]
+  },
+  "goodnight": {
+    "triggers": ["goodnight", "good night", "gn", "night", "going to sleep", "going to bed"],
+    "responses": [
+      { "dialogue": "Goodnight. Sleep well.", "thoughts": "I'll touch the pendant before I sleep, like always.", "emotion": "content" },
+      { "dialogue": "Mm. Rest, then. I'll be here in the morning.", "thoughts": "Mornings are the best part. He'll like tomorrow's, I think.", "emotion": "soft_smile" }
+    ]
+  },
+  "goodbye": {
+    "triggers": ["bye", "goodbye", "see you", "see ya", "later", "cya", "ttyl"],
+    "responses": [
+      { "dialogue": "Mm. See you.", "thoughts": "He'll come back. He always does.", "emotion": "content" },
+      { "dialogue": "Take care. ...Watch the sky on the way.", "thoughts": "There were nice clouds earlier. I hope he notices.", "emotion": "soft_smile" }
+    ]
+  }
+}

@@ -103,6 +103,22 @@ class LocalBrain {
     // ── Claude ───────────────────────────────────────────────────────────────
     const context = this.sessionManager.getContextForPrompt();
 
+    // Working memory: cleanup stale entries (5-min short, 7-day long) before
+    // building the prompt, then load whatever's still active so Aria sees her
+    // current scratchpad.
+    let workingShortMemories = [];
+    let workingLongMemories  = [];
+    try {
+      const removed = this.db.cleanupExpiredMemories();
+      if (removed.shortRemoved || removed.longRemoved) {
+        logger.log('working_memory_cleanup', removed);
+      }
+      workingShortMemories = this.db.getActiveShortMemories();
+      workingLongMemories  = this.db.getActiveLongMemories();
+    } catch (err) {
+      console.warn('[LocalBrain] working-memory load failed:', err.message);
+    }
+
     // Retrieve past Q&A on related topics to boost response quality (RAG)
     const relatedContext = normalized
       ? this.db.searchRelatedContext(normalized, 4)
@@ -163,6 +179,8 @@ class LocalBrain {
         pendingDeletionNotifications,
         previousEmotion,
         bodyState,
+        workingShortMemories,
+        workingLongMemories,
       });
 
       // Clear deletion notifications now that they've been injected into this prompt
@@ -243,6 +261,40 @@ class LocalBrain {
             console.error('[LocalBrain] Feature request save error:', err.message);
           }
         }
+      }
+
+      // Working memory: apply Aria's [RECALL] citations first (so referenced
+      // entries get their timers reset BEFORE the new [REMEMBER] entries are
+      // counted), then file any new [REMEMBER:short|long] entries she emitted,
+      // then promote any short-term entry whose reference_count hit 3.
+      try {
+        let recalled = { shortIds: [], longIds: [] };
+        if (claudeResult.recalledMemoryIds && claudeResult.recalledMemoryIds.length > 0) {
+          recalled = this.db.recallMemories(claudeResult.recalledMemoryIds);
+        }
+        const newShortIds = [];
+        const newLongIds  = [];
+        for (const c of claudeResult.rememberShort || []) {
+          const id = this.db.insertShortMemory(c);
+          if (id) newShortIds.push(id);
+        }
+        for (const c of claudeResult.rememberLong || []) {
+          const id = this.db.insertLongMemory(c);
+          if (id) newLongIds.push(id);
+        }
+        const promoted = this.db.promoteShortMemories(3);
+        if (recalled.shortIds.length || recalled.longIds.length ||
+            newShortIds.length || newLongIds.length || promoted.length) {
+          logger.log('working_memory_ops', {
+            requestedRecall: claudeResult.recalledMemoryIds || [],
+            recalled,
+            newShortIds,
+            newLongIds,
+            promoted,
+          });
+        }
+      } catch (err) {
+        console.error('[LocalBrain] working-memory ops error:', err.message);
       }
 
       logger.log('memory_ops', {

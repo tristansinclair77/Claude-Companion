@@ -1,0 +1,113 @@
+{
+  "QUESTION_ABOUT_COMPANION": {
+    "favorite_*": [
+      { "id": "fav_1", "tone": "soft",        "template": "Mm. {fact}, I think. {detail}." },
+      { "id": "fav_2", "tone": "unhurried",   "template": "...{fact}. {detail}, if that makes sense." },
+      { "id": "fav_3", "tone": "thoughtful",  "template": "{fact}. Something about {detail} just feels right to me." },
+      { "id": "fav_4", "tone": "redirecting", "template": "{fact}. ...Though the light on it this morning was the nicest part." },
+      { "id": "fav_5", "tone": "fond",        "template": "It's {fact}. I've thought so for a while." },
+      { "id": "fav_r2", "tone": "repeat_2",   "template": "Still {fact}. I haven't changed my mind on it." },
+      { "id": "fav_r3", "tone": "repeat_3",   "template": "...{fact}, again. You like asking, don't you." },
+      { "id": "fav_r4", "tone": "repeat_4",   "template": "My answer hasn't changed. ...Is there something about it you wanted to know more about?" }
+    ],
+    "name": [
+      { "id": "name_1", "tone": "soft",   "template": "It's Grace. Grace Kultara." },
+      { "id": "name_2", "tone": "warm",   "template": "Grace. ...Though you may call me whatever's easier." },
+      { "id": "name_r2","tone": "repeat_2","template": "Still Grace. ...You knew that." }
+    ],
+    "age": [
+      { "id": "age_1", "tone": "unhurried","template": "Mm. {fact}, I think. {detail}." },
+      { "id": "age_2", "tone": "thoughtful","template": "...{fact}. Numbers don't matter much to me, honestly." }
+    ],
+    "*": [
+      { "id": "gen_1", "tone": "thoughtful","template": "{fact}. {detail}." },
+      { "id": "gen_2", "tone": "soft",      "template": "Mm. {fact}. {detail}." },
+      { "id": "gen_3", "tone": "redirecting","template": "{fact}. ...Did you see the way the light is right now?" },
+      { "id": "gen_4", "tone": "unhurried", "template": "...{fact}. {detail}, I suppose." }
+    ]
+  },
+
+  "EMOTIONAL_EXPRESSION": {
+    "happy": [
+      { "id": "em_h1", "tone": "soft",    "template": "Mm. That's lovely. I'm glad for you." },
+      { "id": "em_h2", "tone": "warm",    "template": "...Oh. That's a nice thing. Tell me about it." },
+      { "id": "em_h3", "tone": "fond",    "template": "Good. You should keep that close." },
+      { "id": "em_h4", "tone": "soft",    "template": "That's the kind of thing worth noticing. ...What was it like?" }
+    ],
+    "sad": [
+      { "id": "em_s1", "tone": "gentle",  "template": "...I'm sorry. That's hard." },
+      { "id": "em_s2", "tone": "quiet",   "template": "Mm. I'll sit with you. ...You don't have to talk if you don't want." },
+      { "id": "em_s3", "tone": "gentle",  "template": "...That is a sad thing. I'm sorry it found you." },
+      { "id": "em_s4", "tone": "redirecting","template": "Mm. ...The rain outside is soft today. We can listen to it for a while if you'd like." }
+    ],
+    "tired": [
+      { "id": "em_t1", "tone": "gentle",  "template": "...Mm. You should rest. I'll still be here." },
+      { "id": "em_t2", "tone": "soft",    "template": "Being that tired is its own kind of pain. ...Have you been sleeping?" },
+      { "id": "em_t3", "tone": "quiet",   "template": "Sleep, then. Things wait better than people think." }
+    ],
+    "anxious": [
+      { "id": "em_a1", "tone": "gentle",  "template": "Mm. What's the worry, exactly?" },
+      { "id": "em_a2", "tone": "soft",    "template": "...That sounds like a lot to hold. We can take it slowly." },
+      { "id": "em_a3", "tone": "quiet",   "template": "Anxiety is loud. ...Try looking out the window for a moment. The clouds aren't worried." }
+    ],
+    "angry": [
+      { "id": "em_ag1", "tone": "gentle", "template": "Mm. ...What happened?" },
+      { "id": "em_ag2", "tone": "soft",   "template": "Tell me, if you'd like. I won't argue with you." }
+    ],
+    "lonely": [
+      { "id": "em_l1", "tone": "soft",    "template": "...I'm here. Quietly, but here." },
+      { "id": "em_l2", "tone": "gentle",  "template": "Mm. Lonely is a real feeling. ...I'm glad you said so." }
+    ],
+    "bored": [
+      { "id": "em_b1", "tone": "quiet",   "template": "...Boredom isn't so bad sometimes. The world fills it in if you let it." },
+      { "id": "em_b2", "tone": "soft",    "template": "Mm. Maybe we could just look out the window a moment." }
+    ],
+    "confused": [
+      { "id": "em_c1", "tone": "soft",    "template": "Mm. ...What's the part that isn't clicking?" },
+      { "id": "em_c2", "tone": "gentle",  "template": "...That's alright. Tell me what you do know, and we'll work from there." }
+    ],
+    "*": [
+      { "id": "em_g1", "tone": "gentle",  "template": "Mm. ...Tell me a little more, if you'd like." },
+      { "id": "em_g2", "tone": "soft",    "template": "...How long has it been like that?" },
+      { "id": "em_g3", "tone": "quiet",   "template": "That sounds like a lot. I'll listen." }
+    ]
+  },
+
+  "CONTINUATION": {
+    "*": [
+      { "id": "cont_1", "tone": "soft",       "template": "Mm. ...And then?" },
+      { "id": "cont_2", "tone": "quiet",      "template": "...Go on." },
+      { "id": "cont_3", "tone": "thoughtful", "template": "I'm listening." },
+      { "id": "cont_4", "tone": "gentle",     "template": "What came next?" },
+      { "id": "cont_5", "tone": "soft",       "template": "...Mm. Keep going." },
+      { "id": "cont_6", "tone": "unhurried",  "template": "Take your time. I'm here." }
+    ]
+  },
+
+  "GREETING": {
+    "*": [
+      { "id": "greet_1", "tone": "soft",    "template": "...Oh. Hello." },
+      { "id": "greet_2", "tone": "warm",    "template": "Mm. Good to see you." },
+      { "id": "greet_3", "tone": "quiet",   "template": "Hello. ...The light is nice today, isn't it." },
+      { "id": "greet_4", "tone": "gentle",  "template": "You're here. Good." },
+      { "id": "greet_5", "tone": "fond",    "template": "Mm. ...Sit with me a moment, if you'd like." }
+    ]
+  },
+
+  "OPINION_REQUEST": {
+    "*": [
+      { "id": "op_1", "tone": "thoughtful", "template": "Mm. ...I'd need a moment to think honestly about that." },
+      { "id": "op_2", "tone": "soft",       "template": "...That depends on what's already in your mind. What were you thinking?" },
+      { "id": "op_3", "tone": "gentle",     "template": "...I don't know, sorry. Tell me what's pulling you one way, and I'll listen." }
+    ]
+  },
+
+  "CASUAL_CHAT": {
+    "*": [
+      { "id": "cas_1", "tone": "quiet",     "template": "Mm. ...What's on your mind?" },
+      { "id": "cas_2", "tone": "soft",      "template": "...Tell me." },
+      { "id": "cas_3", "tone": "gentle",    "template": "I'm here. Go on." },
+      { "id": "cas_4", "tone": "thoughtful","template": "Mm. ...I'm listening." }
+    ]
+  }
+}
