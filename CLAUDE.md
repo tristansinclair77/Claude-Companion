@@ -191,6 +191,29 @@ Rules:
   abbreviation, and related concept a user might search for.
 - If a new category of features is added, add a new entry to `CATEGORIES` as well.
 
+### Keep the Adventure Monster Roster Current
+The text-adventure storywriter (Claude) can only spawn monsters whose slugs
+appear in `MONSTER_LIST` in [src/main/text-adventure-store.js](src/main/text-adventure-store.js).
+Sprite files in [assets/monsters/](assets/monsters/) that aren't in that list
+are invisible to Claude — he literally cannot reference them.
+
+**Rule:** Whenever new monster sprites are added (e.g. by running
+`scripts/slice-monster-grid.js` after dropping new `ref/monster grid*.png`
+sources), `MONSTER_LIST` MUST be updated in the same batch so every PNG in
+`assets/monsters/` has a corresponding entry. The reverse also holds: if a
+sprite is removed, its `MONSTER_LIST` entry must be removed.
+
+Each entry needs:
+- `slug` — must exactly match the PNG filename without extension
+- `name` — pretty display label shown to the user / used by Claude in prose
+- `difficulty` — integer used by the encounter system; pick a sensible tier
+  (roughly: 1=trash, 2=low, 3=mid, 4=high, 5=elite, 6+=boss)
+
+Before committing a monster-related change, sanity-check that every file in
+`assets/monsters/*.png` has a `MONSTER_LIST` entry and vice versa — a simple
+diff between `fs.readdirSync('assets/monsters')` and `MONSTER_LIST.map(m =>
+m.slug + '.png')` should be empty in both directions.
+
 ## Project: Claude Companion
 
 ### What it is
