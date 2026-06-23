@@ -376,7 +376,8 @@ function applyStateDiff(state, diff) {
   // Enemy
   if (Object.prototype.hasOwnProperty.call(diff, 'enemy')) {
     const wasEnemy = !!state.enemy;
-    state.enemy = diff.enemy || null;
+    // Merge so slug/name/maxHp/desc survive HP-only update diffs
+    state.enemy = diff.enemy ? { ...(state.enemy || {}), ...diff.enemy } : null;
     if (state.enemy && !wasEnemy) state.encounterIdx += 1;
   }
 

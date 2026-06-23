@@ -771,11 +771,16 @@ const TextAdventure = (function () {
     }
     enemyPanel.classList.remove('hidden');
     const slug = (enemy.slug || enemy.id || '').toLowerCase().replace(/\s+/g, '_');
-    enemySpriteEl.src = `../../assets/monsters/${slug}.png`;
-    enemySpriteEl.onerror = () => { enemySpriteEl.src = ''; };
-    enemyNameEl.textContent = enemy.name || slug;
-    _setBar(enemyHpBar, enemy.maxHp > 0 ? enemy.hp / enemy.maxHp : 1);
-    enemyHpText.textContent = `${enemy.hp}/${enemy.maxHp} HP`;
+    if (slug) {
+      enemySpriteEl.src = `../../assets/monsters/${slug}.png`;
+      enemySpriteEl.onerror = () => { enemySpriteEl.src = ''; };
+    } else {
+      enemySpriteEl.src = '';
+    }
+    enemyNameEl.textContent = enemy.name || slug || '???';
+    const maxHp = enemy.maxHp ?? enemy.hp ?? 1;
+    _setBar(enemyHpBar, maxHp > 0 ? (enemy.hp ?? 0) / maxHp : 1);
+    enemyHpText.textContent = `${enemy.hp ?? 0}/${maxHp} HP`;
     enemyDescEl.textContent = enemy.desc || '';
   }
 
