@@ -1,4 +1,6 @@
 'use strict';
+// ARCHIVED — voice feature disabled. This file is preserved for future re-enable.
+// To restore: un-comment ttsEngine require in main.js and restore TTS IPC handlers.
 // TTS engine — three backends:
 //   kokoro  : kokoro-js (English, local ONNX, no internet after first download)
 //   vits    : local Python Flask server on localhost:5002 (anime JP voices)

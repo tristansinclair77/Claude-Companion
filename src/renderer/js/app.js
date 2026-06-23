@@ -42,7 +42,7 @@
 
   ChatController.init();
   BackgroundSettings.init();
-  RvcSettings.init();
+  // ARCHIVED: RvcSettings.init(); — voice feature disabled
   HelpPanel.init();
 
   // Chat-storage size warning — fires once on startup if knowledge.db > 1 GB.

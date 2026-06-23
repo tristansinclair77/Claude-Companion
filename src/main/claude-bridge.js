@@ -6,7 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const { buildSystemPrompt, formatConversationWindow } = require('../shared/system-prompt');
 const { parseResponse } = require('../shared/response-parser');
-const { loadVoiceRules, processDialogue } = require('./voice-translator');
+// ARCHIVED: Voice translator — voice feature disabled
+// const { loadVoiceRules, processDialogue } = require('./voice-translator');
 const logger = require('./debug-logger');
 
 const DEFAULT_TIMEOUT_MS = 120000; // 120 seconds
@@ -323,14 +324,7 @@ async function sendToClaude({
         const raw = extractRawText(stdout);
         const parsed = parseResponse(raw, { fallbackEmotion: previousEmotion });
 
-        // Voice translation: post-process dialogue through character voice rules
-        if (characterDir && parsed.dialogue) {
-          const voiceRules = loadVoiceRules(characterDir);
-          if (voiceRules) {
-            const effectiveState = { ...(emotionalState || {}), currentEmotion: parsed.emotion };
-            parsed.dialogue = processDialogue(parsed.dialogue, voiceRules, effectiveState);
-          }
-        }
+        // ARCHIVED: Voice translation — voice feature disabled
 
         logger.log('claude_response', {
           raw,
@@ -346,14 +340,7 @@ async function sendToClaude({
         // If JSON parse fails, try treating stdout as plain text
         const parsed = parseResponse(stdout.trim(), { fallbackEmotion: previousEmotion });
 
-        // Voice translation: post-process dialogue through character voice rules
-        if (characterDir && parsed.dialogue) {
-          const voiceRules = loadVoiceRules(characterDir);
-          if (voiceRules) {
-            const effectiveState = { ...(emotionalState || {}), currentEmotion: parsed.emotion };
-            parsed.dialogue = processDialogue(parsed.dialogue, voiceRules, effectiveState);
-          }
-        }
+        // ARCHIVED: Voice translation — voice feature disabled
 
         logger.log('claude_response', {
           raw: stdout.trim(),

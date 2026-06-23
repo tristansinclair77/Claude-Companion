@@ -75,26 +75,24 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   getZoom: ()      => ipcRenderer.invoke('settings:get-zoom'),
   setZoom: (pct)   => ipcRenderer.invoke('settings:set-zoom', pct),
 
-  // RVC voice conversion settings
-  getRvcConfig: ()      => ipcRenderer.invoke('rvc:get-config'),
-  setRvcConfig: (cfg)   => ipcRenderer.invoke('rvc:set-config', cfg),
+  // ARCHIVED: RVC voice conversion settings — voice feature disabled
+  // getRvcConfig: ()      => ipcRenderer.invoke('rvc:get-config'),
+  // setRvcConfig: (cfg)   => ipcRenderer.invoke('rvc:set-config', cfg),
 
-  // TTS controls
-  ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
-  ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
-  ttsSetEnabled:  (val)       => ipcRenderer.invoke('tts:set-enabled', val),
-  ttsSetVoice:    (voiceName) => ipcRenderer.invoke('tts:set-voice', voiceName),
-  ttsSetRate:     (rate)      => ipcRenderer.invoke('tts:set-rate', rate),
+  // ARCHIVED: TTS controls — voice feature disabled
+  // ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
+  // ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
+  // ttsSetEnabled:  (val)       => ipcRenderer.invoke('tts:set-enabled', val),
+  // ttsSetVoice:    (voiceName) => ipcRenderer.invoke('tts:set-voice', voiceName),
+  // ttsSetRate:     (rate)      => ipcRenderer.invoke('tts:set-rate', rate),
 
   // Event listeners (renderer ← receives from main)
   on: (channel, callback) => {
     const allowed = [
       'hotkey:mic-toggle',
       'app:init',
-      'tts:audio',
-      'tts:stop',
-      'tts:loading',
-      'tts:loading-done',
+      // ARCHIVED: TTS channels — voice feature disabled
+      // 'tts:audio', 'tts:stop', 'tts:loading', 'tts:loading-done',
       'claude:stream-chunk',
       'companion:sensation',
       'companion:trackers',

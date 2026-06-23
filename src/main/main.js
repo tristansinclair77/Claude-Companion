@@ -16,7 +16,8 @@ const { register: registerTextAdventureIPC } = require('./text-adventure-ipc');
 const musicEngine = require('./music-engine');
 const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
-const ttsEngine = require('./tts-engine');
+// ARCHIVED: TTS engine — voice feature disabled. const ttsEngine = require('./tts-engine');
+const ttsEngine = { startVitsServer: ()=>{}, startRvcServer: ()=>{}, setRvcConfig: ()=>{}, setVoice: ()=>{}, setEnabled: ()=>{}, setRate: ()=>{}, getSettings: ()=>({ enabled: false }), getVoices: ()=>[], synthesize: ()=>Promise.resolve(null) };
 const featureRequestsStore = require('./feature-requests');
 const { spawn } = require('child_process');
 
@@ -235,18 +236,14 @@ app.whenReady().then(() => {
   initBrain();
   loadAddons();
   try { musicEngine.load(); } catch (e) { console.warn('[App] music engine load failed:', e.message); }
-  ttsEngine.startVitsServer();
-
-  // Configure and start RVC voice conversion server
-  const rvcCfg = readConfig().rvc || {};
-  ttsEngine.setRvcConfig(rvcCfg);
-  ttsEngine.startRvcServer();
-
-  // Restore persisted TTS settings
-  const savedTts = readConfig().tts || {};
-  if (savedTts.voice)              ttsEngine.setVoice(savedTts.voice);
-  if (savedTts.enabled !== undefined) ttsEngine.setEnabled(savedTts.enabled);
-  if (savedTts.speed  !== undefined)  ttsEngine.setRate(savedTts.speed);
+  // ARCHIVED: TTS startup — voice feature disabled
+  // ttsEngine.startVitsServer();
+  // ttsEngine.setRvcConfig(readConfig().rvc || {});
+  // ttsEngine.startRvcServer();
+  // const savedTts = readConfig().tts || {};
+  // if (savedTts.voice) ttsEngine.setVoice(savedTts.voice);
+  // if (savedTts.enabled !== undefined) ttsEngine.setEnabled(savedTts.enabled);
+  // if (savedTts.speed !== undefined) ttsEngine.setRate(savedTts.speed);
 
   // Restore fast mode
   _fastMode = readConfig().fastMode || false;
@@ -351,8 +348,8 @@ ipcMain.on('window:close', (e) => {
 
 ipcMain.handle('claude:send-message', async (event, payload) => {
   const { message, userEmotion, attachments } = payload;
-  // Stop any in-progress TTS before processing the new message
-  mainWindow?.webContents.send('tts:stop');
+  // ARCHIVED: TTS stop — voice feature disabled
+  // mainWindow?.webContents.send('tts:stop');
   try {
     // Snapshot Aria's body state BEFORE the response so the user message row
     // carries the state that was true while the user was typing. Then insert
@@ -507,23 +504,7 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       mainWindow?.webContents.send('companion:trackers', { trackers: _trackers });
     }
 
-    // Fire TTS synthesis in parallel — don't await, send audio when ready
-    if (response.dialogue) {
-      const ttsEnabled = ttsEngine.getSettings().enabled;
-      if (ttsEnabled) {
-        mainWindow?.webContents.send('tts:loading');
-      }
-      ttsEngine.synthesize(response.dialogue).then(audioBuf => {
-        if (audioBuf) {
-          mainWindow?.webContents.send('tts:audio', audioBuf.toString('base64'));
-        } else if (ttsEnabled) {
-          mainWindow?.webContents.send('tts:loading-done');
-        }
-      }).catch(err => {
-        console.warn('[TTS] synthesis error:', err.message);
-        if (ttsEnabled) mainWindow?.webContents.send('tts:loading-done');
-      });
-    }
+    // ARCHIVED: TTS synthesis — voice feature disabled
 
     // Notify renderer if Aria added feature requests this turn
     if (response.featureRequests && response.featureRequests.length > 0) {
@@ -772,29 +753,12 @@ ipcMain.handle('emotional-state:reset', () => {
   return { state: defaultState };
 });
 
-// ── TTS IPC ───────────────────────────────────────────────────────────────────
-
-ipcMain.handle('tts:get-settings', () => ttsEngine.getSettings());
-ipcMain.handle('tts:get-voices',   () => ttsEngine.getVoices());
-
-ipcMain.handle('tts:set-enabled', (event, val) => {
-  ttsEngine.setEnabled(val);
-  const s = ttsEngine.getSettings();
-  writeConfig({ tts: { ...((readConfig().tts) || {}), enabled: s.enabled } });
-  return s;
-});
-ipcMain.handle('tts:set-voice', (event, voiceName) => {
-  ttsEngine.setVoice(voiceName);
-  const s = ttsEngine.getSettings();
-  writeConfig({ tts: { ...((readConfig().tts) || {}), voice: s.voice } });
-  return s;
-});
-ipcMain.handle('tts:set-rate', (event, rate) => {
-  ttsEngine.setRate(rate);
-  const s = ttsEngine.getSettings();
-  writeConfig({ tts: { ...((readConfig().tts) || {}), speed: s.speed } });
-  return s;
-});
+// ── ARCHIVED: TTS IPC — voice feature disabled ────────────────────────────────
+// ipcMain.handle('tts:get-settings', ...)
+// ipcMain.handle('tts:get-voices', ...)
+// ipcMain.handle('tts:set-enabled', ...)
+// ipcMain.handle('tts:set-voice', ...)
+// ipcMain.handle('tts:set-rate', ...)
 
 // ── Fast mode IPC ─────────────────────────────────────────────────────────────
 
@@ -885,19 +849,9 @@ ipcMain.handle('settings:set-bg', (_event, bg) => {
   return bg;
 });
 
-// ── RVC voice conversion settings ─────────────────────────────────────────────
-
-ipcMain.handle('rvc:get-config', () => {
-  return readConfig().rvc || {};
-});
-
-ipcMain.handle('rvc:set-config', (_event, cfg) => {
-  const current = readConfig();
-  const merged  = { ...(current.rvc || {}), ...cfg };
-  writeConfig({ rvc: merged });
-  ttsEngine.setRvcConfig(merged);
-  return merged;
-});
+// ── ARCHIVED: RVC voice conversion settings — voice feature disabled ──────────
+// ipcMain.handle('rvc:get-config', ...)
+// ipcMain.handle('rvc:set-config', ...)
 
 // ── Character management ──────────────────────────────────────────────────────
 

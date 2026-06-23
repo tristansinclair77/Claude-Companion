@@ -57,9 +57,12 @@
       <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
     </div>
     <div id="window-controls">
-      <button id="btn-portrait" title="Toggle portrait panel">◨</button>
-      <button id="btn-help" title="Help &amp; feature reference">?</button>
-      <button id="btn-settings" title="Background &amp; display settings">⚙</button>
+      <button id="btn-save-chat" class="title-action-btn" title="Save this conversation to long-term memory">⊙</button>
+      <button id="btn-axis"      class="title-action-btn" title="View Aria's persistent emotional axis state">⊕</button>
+      <button id="btn-fast"      class="title-action-btn" title="Fast mode: brief responses, Haiku model, limited file reading">↯</button>
+      <button id="btn-portrait"  class="title-action-btn" title="Toggle portrait panel">◨</button>
+      <button id="btn-help"      title="Help &amp; feature reference">?</button>
+      <button id="btn-settings"  title="Background &amp; display settings">⚙</button>
       <button class="win-btn" id="btn-minimize" title="Minimize">─</button>
       <button class="win-btn" id="btn-maximize" title="Maximize">□</button>
       <button class="win-btn btn-close" id="btn-close" title="Close">✕</button>
@@ -108,7 +111,7 @@
       <button id="btn-send">SEND</button>
     </div>
 
-    <!-- TTS playbar: replay, scrub, time, volume -->
+    <!-- ARCHIVED: TTS playbar — voice feature disabled, code preserved for future re-enable
     <div id="tts-playbar">
       <span id="tts-loading-badge" class="hidden" aria-live="polite">SYNTH ●</span>
       <button id="btn-replay" title="Replay last audio" disabled>↺ REPLAY</button>
@@ -124,6 +127,7 @@
       <span class="tts-sep">│</span>
       <button id="btn-tts-sync" title="SYNC: wait for audio to begin before text starts typing">SYNC</button>
     </div>
+    END ARCHIVED -->
 
     <!-- 4 action buttons -->
     <div id="action-buttons">
@@ -131,21 +135,21 @@
       <button class="action-btn" id="btn-folder"  title="Attach file or folder">📁 FOLDER</button>
       <button class="action-btn" id="btn-screen"  title="Capture screen">👁 SCREEN</button>
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
-      <button class="action-btn" id="btn-save-chat" title="Save this conversation to long-term memory">💾 SAVE CHAT</button>
       <button class="action-btn" id="btn-msg-editor" title="View and delete messages from session history">📋 MSGS</button>
-      <button class="action-btn" id="btn-axis"         title="View Aria's persistent emotional axis state">💠 AXIS</button>
       <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
+      <!-- ARCHIVED: Voice buttons — TTS feature disabled, code preserved
       <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
       </div>
+      END ARCHIVED -->
       <button class="action-btn" id="btn-persona" title="Force a temporary personality directive">🎭 PERSONA</button>
-      <button class="action-btn" id="btn-fast" title="Fast mode: brief responses, Haiku model, limited file reading">⚡ FAST</button>
       <button class="action-btn" id="btn-adventure" title="Begin a text-adventure RPG with Aria">⚔ ADVENTURE</button>
       <button class="action-btn" id="btn-requests" title="Aria's feature request wishlist">✦ REQUESTS<span id="requests-badge" class="hidden"></span></button>
     </div>
 
-    <!-- Voice picker popup -->
+    <!-- ARCHIVED: Voice picker popup — TTS feature disabled
     <div id="voice-picker" class="hidden"></div>
+    END ARCHIVED -->
 
     <!-- Persona force popup -->
     <div id="persona-popup" class="hidden">
@@ -621,7 +625,7 @@
   <script src="js/file-attach.js"></script>
   <script src="js/screen-capture-ui.js"></script>
   <script src="js/mic-controller.js"></script>
-  <script src="js/tts-controller.js"></script>
+  <!-- ARCHIVED: TTS controller — voice feature disabled: <script src="js/tts-controller.js"></script> -->
   <script src="js/chat-controller.js"></script>
   <!-- Visual Package system (load order: base classes → registry → effects → packages → manager) -->
   <script src="js/vp/VisualPackage.js"></script>

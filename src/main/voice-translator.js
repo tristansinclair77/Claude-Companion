@@ -1,4 +1,6 @@
 'use strict';
+// ARCHIVED — voice feature disabled. This file is preserved for future re-enable.
+// To restore: un-comment voice-translator import in claude-bridge.js.
 
 /**
  * voice-translator.js

@@ -18,7 +18,7 @@
 
   --font-mono: 'Courier New', 'Lucida Console', monospace;
   --title-h: 32px;
-  --input-h: 148px;
+  --input-h: 120px;
 }
 
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
@@ -152,6 +152,34 @@ html { background: var(--bg-dark); }
 .win-btn:hover { background: #00ff8820; color: var(--cyan); }
 .btn-close { border-color: #ff224433; color: #ff224488; }
 .btn-close:hover { background: #ff2244; color: #fff; }
+
+/* Title-bar action buttons (save, axis, fast, portrait) */
+.title-action-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--cyan-dim);
+  font-size: 13px;
+  width: 24px;
+  height: 20px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.title-action-btn:hover { color: var(--cyan); border-color: var(--border-glow); }
+.title-action-btn.active {
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan);
+  border-color: var(--border-glow);
+}
+#btn-fast.active {
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green);
+  border-color: var(--green);
+}
 
 /* ── Main Content ────────────────────────────────────────────────────────────── */
 #main-content {
@@ -624,7 +652,12 @@ body.portrait-hidden #portrait-panel { display: none; }
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan-dim) transparent;
 }
+#action-buttons::-webkit-scrollbar { height: 3px; }
+#action-buttons::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
 
 .action-btn {
   background: none;
@@ -636,6 +669,7 @@ body.portrait-hidden #portrait-panel { display: none; }
   padding: 3px 10px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 .action-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .action-btn.active { border-color: var(--red); color: var(--red); text-shadow: 0 0 6px var(--red); }
@@ -671,6 +705,10 @@ body.portrait-hidden #portrait-panel { display: none; }
   padding: 0 2px;
   line-height: 1;
 }
+
+/* ── ARCHIVED: Voice/TTS styles — feature disabled, code preserved ─────────────
+   These selectors have no matching DOM elements while the feature is archived.
+   ──────────────────────────────────────────────────────────────────────────── */
 
 /* Voice button group (VOICE toggle + ▾ caret joined) */
 .voice-btn-group { display: flex; }
@@ -859,11 +897,7 @@ body.portrait-hidden #portrait-panel { display: none; }
   color: var(--green);
   text-shadow: 0 0 6px var(--green);
 }
-#btn-fast.active {
-  border-color: var(--green);
-  color: var(--green);
-  text-shadow: 0 0 6px var(--green);
-}
+/* END ARCHIVED voice/TTS styles */
 
 /* Emotion picker popup */
 #emotion-picker {

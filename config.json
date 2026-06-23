@@ -28,7 +28,7 @@
     "chromaticAberration": false,
     "scanlinesIntensity": "off",
     "parchmentOpacity": 30,
-    "seasonMode": "sunbeams",
+    "seasonMode": "rain",
     "vuAmp": 5,
     "vuSpeed": 22,
     "arcadeRasterBeam": true,
@@ -92,19 +92,19 @@
           "chromaticAberration": true,
           "scanlinesIntensity": "heavy",
           "parchmentOpacity": 0,
-          "seasonMode": "sunbeams",
           "vuAmp": 1,
           "vuSpeed": 60,
-          "arcadeRasterBeam": true,
-          "arcadePixelDust": true,
-          "arcadeAttract": true,
-          "arcadeGlitches": true,
           "moduleEnabled": {
             "grid": true,
             "filmGrain": false,
             "overlayEffects": true,
             "scanlines": false
-          }
+          },
+          "seasonMode": "sunbeams",
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true
         },
         "background": {
           "type": "none",
@@ -170,7 +170,7 @@
           "chromaticAberration": false,
           "scanlinesIntensity": "off",
           "parchmentOpacity": 30,
-          "seasonMode": "sunbeams",
+          "seasonMode": "rain",
           "vuAmp": 5,
           "vuSpeed": 22,
           "arcadeRasterBeam": true,

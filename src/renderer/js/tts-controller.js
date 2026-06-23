@@ -1,4 +1,6 @@
 'use strict';
+// ARCHIVED — voice feature disabled. This file is preserved for future re-enable.
+// To restore: un-comment script tag in index.html and restore TTS channels in preload.js.
 // TTS Controller — plays Aria's voice in the renderer process.
 // Receives base64 WAV audio from main via IPC and plays it with the HTML5 Audio API.
 // The VOICE button toggles TTS on/off; the ▾ caret opens the voice picker popup.

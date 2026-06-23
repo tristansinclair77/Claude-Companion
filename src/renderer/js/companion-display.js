@@ -578,26 +578,9 @@ var CompanionDisplay = (() => {
     }
     _streamedText = null;
 
-    // Decide whether to wait for audio before typing
-    const syncEnabled = window._ttsState?.waitForAudio && window._ttsState?.voiceEnabled;
-    if (syncEnabled && dialogue) {
-      // Hold typewriter — show waiting cursor, start typing on tts:audio-ready
-      dialogueEl.textContent = '';
-      dialogueEl.classList.add('typewriter-cursor');
-      _pendingDialogue = dialogue;
-      document.addEventListener('tts:audio-ready', _onAudioReady, { once: true });
-      // Safety fallback: if audio never arrives (synthesis error, disabled, etc.)
-      // type the text after 45 seconds so it's never stuck blank
-      _audioWaitTimer = setTimeout(() => {
-        document.removeEventListener('tts:audio-ready', _onAudioReady);
-        if (_pendingDialogue !== null) {
-          typewriterText(dialogueEl, _pendingDialogue, 22);
-          _pendingDialogue = null;
-        }
-      }, 45000);
-    } else {
-      typewriterText(dialogueEl, dialogue || '', 22);
-    }
+    // ARCHIVED: TTS audio-sync — voice feature disabled; always type immediately
+    // const syncEnabled = window._ttsState?.waitForAudio && window._ttsState?.voiceEnabled;
+    typewriterText(dialogueEl, dialogue || '', 22);
   }
 
   let _lastEmotionId = 'neutral';

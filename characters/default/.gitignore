@@ -1,0 +1,4 @@
+# SQLite WAL temp files — not part of the committed database state
+*.db-shm
+*.db-wal
+*.db-journal
