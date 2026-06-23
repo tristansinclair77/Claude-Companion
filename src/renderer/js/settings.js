@@ -1074,6 +1074,8 @@ const BackgroundSettings = (() => {
 
 })();
 
+window.BackgroundSettings = BackgroundSettings;
+
 // ── RVC Settings ─────────────────────────────────────────────────────────────
 
 const RvcSettings = (() => {
