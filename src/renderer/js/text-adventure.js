@@ -162,6 +162,8 @@ const TextAdventure = (function () {
             <button class="ta-hud-btn aria" data-drawer="aria">ARIA</button>
             <button class="ta-hud-btn" data-drawer="story">STORY</button>
             <button class="ta-hud-btn" data-drawer="memory">WORLD</button>
+            <button class="ta-hud-btn" id="ta-btn-export" title="Export story to a portable file">EXPORT</button>
+            <button class="ta-hud-btn" id="ta-btn-import" title="Import a story from file (replaces current run)">IMPORT</button>
             <button class="ta-hud-btn warn" id="ta-btn-reset">RESET</button>
             <button class="ta-hud-btn" id="ta-btn-exit">EXIT</button>
           </div>
@@ -571,6 +573,8 @@ const TextAdventure = (function () {
     root.querySelector('#ta-btn-exit').addEventListener('click', _exit);
     document.getElementById('btn-adventure-exit')?.addEventListener('click', _exit);
     root.querySelector('#ta-btn-reset').addEventListener('click', _confirmReset);
+    root.querySelector('#ta-btn-export').addEventListener('click', _exportGame);
+    root.querySelector('#ta-btn-import').addEventListener('click', _importGame);
     root.querySelector('#ta-btn-sidechat').addEventListener('click', _openSideChat);
 
     // Click in the terminal scroll area while typewriter is animating →
@@ -673,6 +677,34 @@ const TextAdventure = (function () {
     _renderLog([]);
     _hideOverlays();
     _showNewGameOverlay();
+  }
+
+  async function _exportGame() {
+    const result = await window.adventureAPI.exportGame();
+    if (result.ok) {
+      _addEntry('system', `Story exported → ${result.filePath}`);
+    } else if (!result.cancelled) {
+      _addEntry('system', 'ERROR — Export failed: ' + (result.error || 'unknown'));
+    }
+  }
+
+  async function _importGame() {
+    if (!confirm('Import a saved adventure?\nThis will replace your current run. This cannot be undone.')) return;
+    const result = await window.adventureAPI.importGame();
+    if (result.ok) {
+      _activeState = result.state;
+      _renderHud(result.state);
+      _renderEnemy(result.state.enemy);
+      _renderLog(result.log || []);
+      if (!result.state.alive) {
+        _showDeathOverlay(result.state.deathCause || 'Fallen.', result.state.deathOf);
+      } else {
+        _hideOverlays();
+      }
+      _addEntry('system', 'Story imported. Welcome back.');
+    } else if (!result.cancelled) {
+      _addEntry('system', 'ERROR — Import failed: ' + (result.error || 'unknown'));
+    }
   }
 
   // Safety net: if adventure:update never arrives (main process crash, silent

@@ -8,12 +8,17 @@
 //   - feature-request forwarding (adventure-emitted FEATURE_REQUESTs flow
 //     into the shared store and flash the badge)
 
+const { dialog } = require('electron');
+const fs = require('fs');
+
 const store               = require('./text-adventure-store');
 const { TEXT_ADVENTURE_RULES } = require('./text-adventure-rules');
 const featureRequestsStore     = require('./feature-requests');
 const { parseResponse }   = require('../shared/response-parser');
 const { sendToClaude }    = require('./claude-bridge');
 const musicEngine         = require('./music-engine');
+
+const ADVENTURE_EXPORT_VERSION = 1;
 
 // ── Pre-parser: pull adventure-specific tags out of the raw Claude response ──
 
@@ -519,6 +524,74 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
     } catch (err) {
       console.error('[Adventure] side-chat error:', err.message);
       return { success: false, error: err.message };
+    }
+  });
+
+  // ── Export / Import ───────────────────────────────────────────────────────
+
+  ipcMain.handle('adventure:export-game', async () => {
+    const state    = store.loadState(characterDir);
+    const log      = store.loadLog(characterDir);
+    const sideChat = store.loadSideChat(characterDir);
+
+    if (!state) return { ok: false, error: 'No adventure in progress to export.' };
+
+    const bundle = JSON.stringify({
+      version:    ADVENTURE_EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      character:  require('path').basename(characterDir),
+      state,
+      log,
+      sideChat,
+    }, null, 2);
+
+    const sceneName = (state.scene || 'adventure').replace(/[^a-z0-9_\- ]/gi, '').trim() || 'adventure';
+    const defaultName = `${sceneName} - Day ${state.time?.dayCount ?? 1}.adventure`;
+
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title:       'Export Adventure Story',
+      defaultPath: defaultName,
+      filters:     [{ name: 'Adventure Story', extensions: ['adventure'] }, { name: 'All Files', extensions: ['*'] }],
+    });
+
+    if (canceled || !filePath) return { ok: false, cancelled: true };
+
+    try {
+      fs.writeFileSync(filePath, bundle, 'utf8');
+      return { ok: true, filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('adventure:import-game', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title:       'Import Adventure Story',
+      filters:     [{ name: 'Adventure Story', extensions: ['adventure'] }, { name: 'JSON Files', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }],
+      properties:  ['openFile'],
+    });
+
+    if (canceled || !filePaths || !filePaths[0]) return { ok: false, cancelled: true };
+
+    try {
+      const raw    = fs.readFileSync(filePaths[0], 'utf8');
+      const bundle = JSON.parse(raw);
+
+      if (!bundle.state || typeof bundle.state !== 'object') {
+        return { ok: false, error: 'Invalid adventure file: missing state.' };
+      }
+
+      const state    = bundle.state;
+      const log      = Array.isArray(bundle.log)      ? bundle.log      : [];
+      const sideChat = Array.isArray(bundle.sideChat) ? bundle.sideChat : [];
+
+      store.saveState(characterDir, state);
+      store.saveLog(characterDir, log);
+      store.saveSideChat(characterDir, sideChat);
+
+      return { ok: true, state, log };
+    } catch (err) {
+      return { ok: false, error: err.message };
     }
   });
 
