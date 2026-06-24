@@ -743,7 +743,7 @@ const HelpPanel = (() => {
         kv([
           ['Two players',     'You (Trist) AND Aria are both real party members with stats and HP.'],
           ['Permadeath',      'If either of you takes a lethal blow, the run ends. Reset wipes everything.'],
-          ['Persistent run',  'Exiting saves your progress. Come back and pick up where you left off. Use EXPORT / IMPORT in the HUD to move a run to another machine.'],
+          ['Persistent run',  'Exiting saves your progress. Come back and pick up where you left off. Use EXPORT / IMPORT in <em>Settings → ADVENTURE TEXT</em> to move a run to another machine.'],
           ['Long-term memory','Story memory (NPCs, locations, quests, events, lore, recap) survives across turns and sessions.'],
           ['Tone choice',     'Eight tones to pick from at new-game (classic fantasy, gothic horror, comedic, eldritch, etc.) or describe your own setting.'],
           ['Side chat',       'A separate paused conversation channel for talking to Aria one-on-one without polluting the story.'],
@@ -752,9 +752,9 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-export-import',
       title: 'Export & Import a Story',
-      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure'],
+      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure', 'settings'],
       content:
-        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons in the adventure HUD let you save a run to a portable <code>.adventure</code> file and reload it on any machine.') +
+        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons live in <em>Settings → ADVENTURE TEXT</em>. They save a run to a portable <code>.adventure</code> file and reload it on any machine.') +
         kv([
           ['EXPORT', 'Bundles the current state, full narrative log, and side-chat transcript into a single <code>.adventure</code> file. A save dialog lets you choose where to put it. The filename defaults to the current scene and day number.'],
           ['IMPORT', 'Opens a file picker, loads the <code>.adventure</code> file, and replaces the active run. The HUD, enemy panel, and log all update immediately. A confirmation prompt protects against accidental overwrites.'],
@@ -791,8 +791,6 @@ const HelpPanel = (() => {
           ['SUM',   'Bound entities and summons — creatures you\'ve captured or sworn to you. See Summons article.'],
           ['SAGA',  'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
           ['LORE',  'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
-          ['EXP',   'Export the current run to a portable .adventure file.'],
-          ['IMP',   'Import a .adventure file, replacing the current run.'],
           ['RST',   'Reset — wipes all progress, memory, and side-chat.'],
           ['EXIT',  'Leave adventure mode and return to normal chat.'],
         ]) +
@@ -866,11 +864,12 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-monsters',
       title: 'Enemies & Combat',
-      tags: ['enemy', 'enemies', 'monster', 'combat', 'fight', 'sprite', 'crt', 'goblin', 'ogre', 'minotaur', 'death'],
+      tags: ['enemy', 'enemies', 'monster', 'combat', 'fight', 'sprite', 'crt', 'goblin', 'ogre', 'minotaur', 'lich', 'hydra', 'dragon', 'cyclops', 'medusa', 'death', 'roster', 'palette'],
       content:
-        p('When combat starts, an enemy panel appears on the right side of the terminal showing the monster\'s sprite, name, HP bar, and brief description. There are 16 enemies in the roster:') +
-        chips(['Goblin','Giant Bug','Slime','Kobold','Wolf','Bandit','Skeleton','Zombie','Mimic Chest','Harpy','Living Tree','Gargoyle','Ogre','Wraith','Dark Mage','Minotaur']) +
-        p('Difficulty scales with party level. Crits and rare loot are real and Aria will often comment on them. Lethal blows are lethal — there\'s no plot armor for either of you.') +
+        p('When combat starts, an enemy panel appears on the right side of the terminal showing the monster\'s sprite, name, HP bar, and brief description. The roster is an 80-sprite visual palette spanning humanoids, beasts, undead, elementals, swarms, plant and fungal creatures, aquatic horrors, and bosses:') +
+        chips(['Goblin','Orc','Troll','Bandit','Pirate','Mercenary','Cultist','Witch','Vampire','Necromancer','Dark Knight','Dark Mage','Lich','Skeleton','Skeleton Archer','Zombie','Zombie Horde','Ghoul','Mummy','Wraith','Phantom','Revenant','Wolf','Dire Bear','Werewolf','Giant Rat','Rat Swarm','Bat Swarm','Piranha Swarm','Giant Bat','Giant Bug','Giant Wasp','Giant Moth','Giant Scorpion','Giant Frog','Giant Lizard','Giant Snail','Giant Leech','Giant Eel','Crab Warrior','Giant Crab','Sea Serpent','Giant Jellyfish','Merfolk','Kappa','Slime','Spore Pod','Giant Mushroom','Venus Flytrap','Vine Creature','Living Tree','Thorn Beast','Scarecrow','Possessed Doll','Animated Sword','Stone Statue','Mimic Chest','Imp','Shadow Demon','Gargoyle','Harpy','Ogre','Cyclops','Minotaur','Kobold','Cave Dweller','Poacher','Assassin','Bone Dragon','Wyvern','Hydra','Griffin','Manticore','Chimera','Basilisk','Medusa','Fire Elemental','Ice Elemental','Storm Elemental','Earth Golem']) +
+        p('The storywriter picks the sprite that best matches the scene and is free to name and scale each enemy however the moment needs. A Lich sprite might be "Old Erasmus the village wizard". A Cyclops might be a generic frost-giant. A Giant Rat might be a plague-bloated boss that\'s killed three parties. Difficulty is per-encounter, not intrinsic.') +
+        p('Crits and rare loot are real and Aria will often comment on them. Lethal blows are lethal — there\'s no plot armor for either of you.') +
         note('Story-only NPCs (merchants, quest-givers, etc.) don\'t use the enemy slot — they live in the WORLD drawer instead.')
     },
     {
@@ -878,7 +877,7 @@ const HelpPanel = (() => {
       title: 'Tones & Settings',
       tags: ['tone', 'setting', 'genre', 'fantasy', 'horror', 'comedy', 'eldritch', 'norse', 'arabian', 'sword and sorcery', 'custom'],
       content:
-        p('At new-game, pick a tone. The mechanics (stats, HP/MP, level, inventory, the 16-monster roster) are always the same — the tone shapes the world\'s flavor and language.') +
+        p('At new-game, pick a tone. The mechanics (stats, HP/MP, level, inventory, the 80-sprite enemy palette) are always the same — the tone shapes the world\'s flavor and language.') +
         kv([
           ['Classic High Fantasy', 'Elves, knights, dungeons, ancient evils.'],
           ['Dark Gothic Horror',   'Cursed lands, undead, heavy dread.'],

@@ -175,8 +175,6 @@ const TextAdventure = (function () {
             <button class="ta-hud-btn" data-drawer="summons" title="Summons &amp; Bound Entities">SUM</button>
             <button class="ta-hud-btn" data-drawer="story" title="Story — recap, events, goals">SAGA</button>
             <button class="ta-hud-btn" data-drawer="memory" title="World — NPCs, quests, lore">LORE</button>
-            <button class="ta-hud-btn" id="ta-btn-export" title="Export story to .adventure file">EXP</button>
-            <button class="ta-hud-btn" id="ta-btn-import" title="Import story from file (replaces current run)">IMP</button>
             <button class="ta-hud-btn warn" id="ta-btn-reset" title="Reset — wipes all progress">RST</button>
             <button class="ta-hud-btn" id="ta-btn-exit">EXIT</button>
           </div>
@@ -659,8 +657,6 @@ const TextAdventure = (function () {
     root.querySelector('#ta-btn-exit').addEventListener('click', _exit);
     document.getElementById('btn-adventure-exit')?.addEventListener('click', _exit);
     root.querySelector('#ta-btn-reset').addEventListener('click', _confirmReset);
-    root.querySelector('#ta-btn-export').addEventListener('click', _exportGame);
-    root.querySelector('#ta-btn-import').addEventListener('click', _importGame);
     root.querySelector('#ta-btn-sidechat').addEventListener('click', _openSideChat);
     partyToggleBtn.addEventListener('click', _togglePartyPanel);
     root.querySelector('#ta-btn-askgm').addEventListener('click', _openGmChat);
@@ -1293,7 +1289,7 @@ const TextAdventure = (function () {
       .replace(/>/g, '&gt;');
   }
 
-  return { init, toggle, setTypeSettings };
+  return { init, toggle, setTypeSettings, exportGame: _exportGame, importGame: _importGame };
 })();
 
 window.TextAdventure = TextAdventure;

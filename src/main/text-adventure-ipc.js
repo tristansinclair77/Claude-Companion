@@ -12,7 +12,7 @@ const { dialog } = require('electron');
 const fs = require('fs');
 
 const store               = require('./text-adventure-store');
-const { TEXT_ADVENTURE_RULES } = require('./text-adventure-rules');
+const { buildRules } = require('./text-adventure-rules');
 const featureRequestsStore     = require('./feature-requests');
 const { parseResponse }   = require('../shared/response-parser');
 const { sendToClaude }    = require('./claude-bridge');
@@ -162,7 +162,7 @@ async function runAdventureTurn({
   characterContext,
 }) {
   const adventureContext = {
-    rules: TEXT_ADVENTURE_RULES,
+    rules: buildRules(),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
     game_state_now: '=== CURRENT GAME STATE (the truth right now) ===\n' +
       JSON.stringify(state, null, 2) +

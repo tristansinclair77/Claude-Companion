@@ -191,6 +191,38 @@ Rules:
   abbreviation, and related concept a user might search for.
 - If a new category of features is added, add a new entry to `CATEGORIES` as well.
 
+### Keep the Adventure Monster Roster Current
+The text-adventure storywriter (Claude) can only spawn monsters whose slugs
+appear in `MONSTER_LIST` in [src/main/text-adventure-store.js](src/main/text-adventure-store.js).
+Sprite files in [assets/monsters/](assets/monsters/) that aren't in that list
+are invisible to Claude — he literally cannot reference them.
+
+**Rule:** Whenever monster sprites are added or removed (e.g. by running
+`scripts/slice-monster-grid.js` after dropping new `ref/monster grid*.png`
+sources), `MONSTER_LIST` MUST be updated in the same batch so every PNG in
+`assets/monsters/` has a corresponding entry, and vice versa.
+
+Each entry has just two fields:
+- `slug` — must exactly match the PNG filename without extension
+- `name` — DEFAULT display label only. The storywriter is free to call any
+  instance whatever the scene needs (a `lich` sprite can be "Old Erasmus the
+  Wizard", a `cyclops` can be a generic giant, a `giant_rat` can be a
+  boss-level plague-bloat). The slug picks the portrait; everything else is
+  per-encounter.
+
+Do NOT add a `difficulty` field. Difficulty / HP / damage are storywriter
+calls per encounter — a tutorial mini hydra and a campaign-ending boss rat
+are both valid. Hardcoding tiers would just constrain the GM.
+
+The MONSTER ROSTER section in [src/main/text-adventure-rules.js](src/main/text-adventure-rules.js)
+is rendered dynamically from `MONSTER_LIST` by `buildRules()` — don't
+duplicate the roster as static text anywhere; let it pull from the source of
+truth.
+
+A startup sanity check in `text-adventure-store.js` (`_verifyMonsterRoster`)
+warns on drift in both directions. If you see those warnings in the console
+on app boot, fix them before committing.
+
 ## Project: Claude Companion
 
 ### What it is
