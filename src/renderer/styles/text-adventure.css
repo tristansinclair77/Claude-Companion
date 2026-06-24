@@ -683,6 +683,164 @@ body:not(.adventure-mode) #text-adventure {
   animation: ta-blink 1s steps(2) infinite;
 }
 
+/* ── Party panel — collapsible dropdown below HUD ───────────────────── */
+.ta-party-panel {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: rgba(0, 8, 2, 0.96);
+  border-bottom: 1px solid rgba(102, 255, 139, 0.35);
+  border-left: 1px solid rgba(102, 255, 139, 0.2);
+  border-right: 1px solid rgba(102, 255, 139, 0.2);
+  padding: 6px 10px 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+}
+.ta-party-panel.open { display: block; }
+.ta-party-row {
+  padding: 3px 0;
+}
+.ta-party-row + .ta-party-row {
+  border-top: 1px solid rgba(102, 255, 139, 0.1);
+}
+
+/* PTY toggle button — active state glows */
+.ta-hud-btn.pty-active {
+  background: rgba(102, 255, 139, 0.12);
+  box-shadow: 0 0 6px rgba(102, 255, 139, 0.55);
+}
+
+/* ── GM chat overlay ─────────────────────────────────────────────────── */
+.ta-overlay.gm-chat {
+  background: rgba(0, 0, 0, 0.94);
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 0;
+}
+.ta-gm-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(102, 255, 139, 0.35);
+  background: rgba(102, 255, 139, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ta-gm-title {
+  flex: 1 1 auto;
+  font-size: 10px;
+  color: #b3ffce;
+  letter-spacing: 3px;
+}
+.ta-gm-close {
+  background: transparent;
+  color: #b3ffce;
+  border: 1px solid rgba(102, 255, 139, 0.55);
+  font-family: inherit;
+  font-size: 9px;
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.ta-gm-close:hover {
+  background: rgba(102, 255, 139, 0.12);
+  box-shadow: 0 0 6px rgba(102, 255, 139, 0.55);
+}
+.ta-gm-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 255, 139, 0.4) transparent;
+}
+.ta-gm-scroll::-webkit-scrollbar { width: 6px; }
+.ta-gm-scroll::-webkit-scrollbar-thumb { background: rgba(102, 255, 139, 0.35); }
+.ta-gm-msg {
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ta-gm-msg.user {
+  color: #fff7c2;
+}
+.ta-gm-msg.user::before {
+  content: "Trist  ";
+  color: #ffea88;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 4px;
+}
+.ta-gm-msg.gm {
+  color: #d8fce5;
+}
+.ta-gm-msg.gm::before {
+  content: "GM  ";
+  color: #66ff8b;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 4px;
+}
+.ta-gm-msg .thoughts {
+  display: block;
+  margin-top: 4px;
+  color: rgba(102, 255, 139, 0.45);
+  font-style: italic;
+  font-size: 11px;
+}
+.ta-gm-empty {
+  color: rgba(207, 234, 216, 0.35);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+.ta-gm-thinking {
+  color: rgba(102, 255, 139, 0.6);
+  font-style: italic;
+  animation: ta-blink 1s steps(2) infinite;
+}
+.ta-gm-input-row {
+  border-top: 1px solid rgba(102, 255, 139, 0.35);
+  background: rgba(102, 255, 139, 0.04);
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  align-items: center;
+}
+.ta-gm-input {
+  flex: 1 1 auto;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(102, 255, 139, 0.3);
+  color: #fff7c2;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+  resize: vertical;
+  min-height: 38px;
+  max-height: 140px;
+}
+.ta-gm-send {
+  background: transparent;
+  color: #b3ffce;
+  border: 1px solid rgba(102, 255, 139, 0.55);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  padding: 6px 12px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  align-self: stretch;
+}
+.ta-gm-send:hover { background: rgba(102, 255, 139, 0.12); box-shadow: 0 0 6px rgba(102, 255, 139, 0.55); }
+.ta-gm-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── Side drawer (inventory / equipment / spells / stats / aria / story) ── */
 .ta-drawer {
   position: absolute;

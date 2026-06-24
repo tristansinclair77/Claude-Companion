@@ -137,6 +137,7 @@ function _freshState({ tone, setting }) {
     player:   _freshPlayer(),
     aria:     _freshAria(),
     memory:   _freshMemory(),
+    party:        [],   // additional party members (NPCs/companions who join)
     summons:      [],   // bound/summoned entities — NOT full party members
     enemy:        null,
     encounterIdx: 0,
@@ -161,6 +162,7 @@ function loadState(characterDir) {
     if (!state.aria)    state.aria    = _freshAria();
     if (!state.memory)  state.memory  = _freshMemory();
     if (!state.time)    state.time    = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
+    if (!state.party)   state.party   = [];
     if (!state.summons) state.summons = [];
     return state;
   } catch (e) {
@@ -375,6 +377,28 @@ function applyStateDiff(state, diff) {
     }
   }
 
+  // Party members (NPCs/companions who have joined as full party members)
+  if (diff.party) {
+    if (!state.party) state.party = [];
+    if (diff.party.add) {
+      for (const m of diff.party.add) {
+        if (!m || typeof m !== 'object') continue;
+        const norm = _normalizeId(m.id || m.name);
+        if (!norm) continue;
+        const exists = state.party.findIndex((x) => _normalizeId(x.id || x.name) === norm);
+        if (exists === -1) state.party.push({ ..._emptyCharacter(), ...m });
+      }
+    }
+    if (diff.party.remove) _removeCollection(state.party, diff.party.remove);
+    if (diff.party.update) {
+      for (const upd of diff.party.update) {
+        const norm = _normalizeId(upd.id || upd.name);
+        const member = state.party.find((x) => _normalizeId(x.id || x.name) === norm);
+        if (member) _applyCharacterDiff(member, upd);
+      }
+    }
+  }
+
   // Summons
   if (diff.summons) {
     if (!state.summons) state.summons = [];
@@ -464,6 +488,10 @@ function tickStateAfterDiff(state) {
     if (state.enemy.hp === 0) state.enemy = null;
   }
 
+  for (const m of (state.party || [])) {
+    _tickCharacter(m);
+  }
+
   for (const s of (state.summons || [])) {
     if (typeof s.hp === 'number' && typeof s.maxHp === 'number') {
       s.hp = Math.max(0, Math.min(s.maxHp, s.hp));
@@ -506,6 +534,12 @@ function formatStateSummary(state) {
   parts.push(`Trist: lvl ${p.level} • HP ${p.hp}/${p.maxHp} • MP ${p.mp}/${p.maxMp}${p.illness ? ` • ${p.illness}` : ''}`);
   parts.push(`Aria:  lvl ${a.level} • HP ${a.hp}/${a.maxHp} • MP ${a.mp}/${a.maxMp}${a.illness ? ` • ${a.illness}` : ''}`);
   if (state.enemy) parts.push(`Active enemy: ${state.enemy.name} (HP ${state.enemy.hp}/${state.enemy.maxHp})`);
+  const partyMembers = (state.party || []);
+  if (partyMembers.length) {
+    parts.push('Party members: ' + partyMembers.map((m) =>
+      `${m.name} lvl ${m.level} • HP ${m.hp}/${m.maxHp} • MP ${m.mp}/${m.maxMp}${m.illness ? ` • ${m.illness}` : ''}${m.alive === false ? ' [INCAPACITATED]' : ''}`
+    ).join(', '));
+  }
   const activeSummons = (state.summons || []).filter((s) => typeof s.hp !== 'number' || s.hp > 0);
   if (activeSummons.length) {
     parts.push('Bound entities: ' + activeSummons.map((s) => `${s.name}${s.boundTo ? ` (bound to ${s.boundTo})` : ''}`).join(', '));

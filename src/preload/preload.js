@@ -137,6 +137,7 @@ contextBridge.exposeInMainWorld('adventureAPI', {
   sideChatSend:    (message)    => ipcRenderer.invoke('adventure:side-chat-send', { message }),
   sideChatHistory: ()           => ipcRenderer.invoke('adventure:side-chat-history'),
   sideChatClear:   ()           => ipcRenderer.invoke('adventure:side-chat-clear'),
+  askGm:           (message)    => ipcRenderer.invoke('adventure:ask-gm', { message }),
   exportGame:      ()           => ipcRenderer.invoke('adventure:export-game'),
   importGame:      ()           => ipcRenderer.invoke('adventure:import-game'),
   onUpdate:    (cb) => {

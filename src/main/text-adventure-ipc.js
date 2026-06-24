@@ -527,6 +527,91 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
     }
   });
 
+  // ── Ask-GM: meta question to the story author (does not advance the story) ──
+  ipcMain.handle('adventure:ask-gm', async (_event, { message } = {}) => {
+    try {
+      const text = String(message || '').trim();
+      if (!text) return { success: false, error: 'Empty message.' };
+
+      const state = store.loadState(characterDir);
+      if (!state) return { success: false, error: 'No game in progress; start a game first.' };
+      const log = store.loadLog(characterDir);
+
+      const gmContext = {
+        gm_chat_directive:
+          "GM AUTHOR-CHAT MODE.\n\n" +
+          "Trist is stepping outside the story to ask you a meta question as the Game Master " +
+          "and author of this adventure. Answer as yourself — drop the in-story narrator voice " +
+          "and speak directly as the creative author and GM. You know everything about this " +
+          "campaign: the world, planned story threads, NPC motivations, what's possible, what " +
+          "the consequences of past actions are, and where the story might go. Be candid, " +
+          "thoughtful, and helpful. You may discuss:\n" +
+          "  - Story choices and their consequences\n" +
+          "  - World lore, character motivations, hidden details\n" +
+          "  - What might happen if Trist does X\n" +
+          "  - Rules, mechanics, what's possible in this world\n" +
+          "  - Changes the player wants to suggest for the story\n" +
+          "  - Anything else the player wants to know or discuss about the campaign\n\n" +
+          "Use your normal [DIALOGUE] / [THOUGHTS] / (emotion) response format. " +
+          "Do NOT emit [GAME_STATE], [NARRATOR], [SCENE], [ENEMY], or [DEATH] tags — " +
+          "this is a GM conversation, not a story turn. The story does NOT advance.",
+        gm_campaign_state:
+          '=== CURRENT CAMPAIGN STATE ===\n' +
+          JSON.stringify(state, null, 2) +
+          '\n=== END CAMPAIGN STATE ===',
+        gm_recent_log:
+          '=== RECENT STORY LOG ===\n' +
+          formatLogForPrompt(log, 40) +
+          '\n=== END STORY LOG ===',
+      };
+
+      const ctx = (typeof getCharacterContext === 'function') ? getCharacterContext() : {};
+      const mergedAddonContexts = [
+        ...(ctx.addonContexts || []),
+        gmContext,
+      ];
+
+      const response = await sendToClaude({
+        userMessage: text,
+        character:        ctx.character,
+        characterRules:   ctx.characterRules,
+        masterSummary:    ctx.masterSummary,
+        permanentMemories: ctx.permanentMemories,
+        userProfile:      ctx.userProfile,
+        conversationWindow: [],
+        detectedEmotion:  '',
+        attachments:      [],
+        relatedContext:   [],
+        emotionalState:   ctx.emotionalState,
+        fastMode:         false,
+        addonContexts:    mergedAddonContexts,
+        trackers:         ctx.trackers,
+        activeThreads:    ctx.activeThreads,
+        characterDir,
+        conversationDynamic: '',
+        personalityForce:    ctx.personalityForce,
+        featureRequests:     ctx.featureRequests,
+        pendingDeletionNotifications: [],
+        previousEmotion:     'neutral',
+        bodyState:           ctx.bodyState,
+        workingShortMemories: [],
+        workingLongMemories:  [],
+      });
+
+      return {
+        success: true,
+        reply: {
+          dialogue: _scrubRenderedText(response.dialogue || ''),
+          thoughts: response.thoughts || '',
+          emotion:  response.emotion  || 'neutral',
+        },
+      };
+    } catch (err) {
+      console.error('[Adventure] ask-gm error:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ── Export / Import ───────────────────────────────────────────────────────
 
   ipcMain.handle('adventure:export-game', async () => {
@@ -545,7 +630,7 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
       sideChat,
     }, null, 2);
 
-    const sceneName = (state.scene || 'adventure').replace(/[^a-z0-9_\- ]/gi, '').trim() || 'adventure';
+    const sceneName = (state.scene?.name || state.scene || 'adventure').toString().replace(/[^a-z0-9_\- ]/gi, '').trim() || 'adventure';
     const defaultName = `${sceneName} - Day ${state.time?.dayCount ?? 1}.adventure`;
 
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {

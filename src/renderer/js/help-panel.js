@@ -774,12 +774,14 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-hud',
       title: 'HUD & Drawer',
-      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore'],
+      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore', 'party', 'party panel', 'pty', 'ask gm', 'gamemaster', 'ask'],
       content:
-        p('The HUD across the top shows the current scene, plus two rows of vitals: yours and Aria\'s. Each row has HP, MP, and level + XP bar.') +
-        p('The action drawer slides in from the right when you click a HUD button. Hover any button for a tooltip:') +
+        p('The HUD across the top has the current scene, time, and music badge. Click <em>PTY</em> to toggle a collapsible party panel that drops down over the story area showing HP, MP, and level for you, Aria, and any party members who have joined the run. Dismiss it by clicking PTY again.') +
+        p('The action drawer slides in from the right when you click a drawer button. Hover any button for a tooltip:') +
         kv([
+          ['PTY',   'Toggle the party panel — shows HP/MP bars for you, Aria, and any companions who have joined.'],
           ['CHAT',  'Talk to Aria — opens side chat, pauses the story.'],
+          ['ASK',   'Ask the Game Master a meta question — lore, story choices, consequences — without advancing the story. See the Ask GM article.'],
           ['INV',   'Your inventory (items, stack counts, equipped markers).'],
           ['EQP',   'Your equipped weapon, armor, and accessory slots.'],
           ['SPL',   'Your known spells (MP cost shown).'],
@@ -794,7 +796,7 @@ const HelpPanel = (() => {
           ['RST',   'Reset — wipes all progress, memory, and side-chat.'],
           ['EXIT',  'Leave adventure mode and return to normal chat.'],
         ]) +
-        note('Claude updates these continuously via the [GAME_STATE].memory diff each turn. You can browse them any time without pausing the story.')
+        note('Claude updates party HP/MP continuously via the [GAME_STATE] diff each turn. The party panel always shows live values.')
     },
     {
       catId: 'rpg', id: 'ta-summons',
@@ -827,6 +829,39 @@ const HelpPanel = (() => {
           ['Wiped on reset/new game',  'A fresh game wipes the side-chat too.'],
         ]) +
         note('Press RESUME STORY (or close the side chat) to drop back into the terminal exactly where you left off.')
+    },
+    {
+      catId: 'rpg', id: 'ta-ask-gm',
+      title: 'ASK — Ask the Game Master',
+      tags: ['ask gm', 'gamemaster', 'meta question', 'ask', 'gm', 'story', 'consequences', 'lore', 'choices', 'what if', 'behind the scenes', 'author'],
+      content:
+        p('The <em>ASK</em> button opens a direct chat with Claude as the Game Master and author of the adventure. The story does NOT pause and does NOT advance — this is a separate conversation for meta questions.') +
+        p('Use it to ask about:') +
+        kv([
+          ['Story choices',       'What happens if I do X? Is there a way to avoid this conflict?'],
+          ['Consequences',        'What are the likely outcomes of the path I\'m on?'],
+          ['World lore',          'Who is that NPC really? What is the history of this place?'],
+          ['NPC motivations',     'Why did Kael really help us? Does he have an ulterior motive?'],
+          ['Mechanics',           'How does illness work? Can I learn new spells mid-run?'],
+          ['Story requests',      'Can we add a crafting system? I want to be able to fish.'],
+          ['Anything else',       'Chat, discuss, plan — the GM knows the whole picture.'],
+        ]) +
+        note('GM chat history is session-only — it is not persisted between app restarts. The story itself does not advance here; all changes to game state still happen through normal adventure turns.')
+    },
+    {
+      catId: 'rpg', id: 'ta-party-members',
+      title: 'Party Members (PTY panel)',
+      tags: ['party', 'pty', 'party members', 'companions', 'npc', 'join', 'add party', 'party panel', 'hp bars', 'collapsible', 'npc party', 'extra party'],
+      content:
+        p('The <em>PTY</em> button toggles a collapsible panel that drops below the HUD over the story area. It always shows HP, MP, and level for <strong>Trist</strong> and <strong>Aria</strong>. If additional party members have joined, they appear as extra rows.') +
+        p('The gamemaster can add or remove full party members based on story events — a rescued companion who joins, a hired guard, an NPC sworn ally. These are distinct from Summons (bound entities with no HUD row) and from story-only NPCs (who live only in memory/LORE).') +
+        kv([
+          ['Trist & Aria',     'Always present. Their stats update every turn.'],
+          ['Joined companions','Extra rows appear when an NPC joins as a full party member — with their own HP/MP/level.'],
+          ['Incapacitated',    'A party member at 0 HP shows grayed out as INCAP. They can recover between scenes.'],
+          ['Permadeath',       'ONLY Trist or Aria dying ends the run. Companion deaths are sad but survivable.'],
+        ]) +
+        note('To see a party member\'s full stat block (spells, abilities, inventory), the ARIA drawer pattern will be extended in a future update. For now, ask the GM via ASK.')
     },
     {
       catId: 'rpg', id: 'ta-monsters',

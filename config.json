@@ -92,19 +92,19 @@
           "chromaticAberration": true,
           "scanlinesIntensity": "heavy",
           "parchmentOpacity": 0,
-          "seasonMode": "sunbeams",
           "vuAmp": 1,
           "vuSpeed": 60,
-          "arcadeRasterBeam": true,
-          "arcadePixelDust": true,
-          "arcadeAttract": true,
-          "arcadeGlitches": true,
           "moduleEnabled": {
             "grid": true,
             "filmGrain": false,
             "overlayEffects": true,
             "scanlines": false
-          }
+          },
+          "seasonMode": "sunbeams",
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true
         },
         "background": {
           "type": "none",
@@ -284,6 +284,82 @@
         "sounds": {
           "pack": null
         }
+      },
+      {
+        "id": "adventure_terminal",
+        "name": "ADVENTURE",
+        "desc": "green phosphor CRT terminal",
+        "colors": {
+          "--cyan": "#66ff8b",
+          "--cyan-dim": "#1a6b33",
+          "--green": "#00ff66",
+          "--magenta": "#ff4466",
+          "--purple": "#aa44ff",
+          "--orange": "#ffaa00",
+          "--red": "#ff2244",
+          "--yellow": "#ffea88",
+          "--bg-dark": "#000c02",
+          "--bg-panel": "#001204",
+          "--bg-mid": "#001806",
+          "--bg-input": "#000a02",
+          "--border": "#003308",
+          "--border-glow": "rgba(102, 255, 139, 0.15)",
+          "--axis-val-lo": "#1a4422",
+          "--axis-val-hi": "#66ff8b",
+          "--axis-aro-lo": "#0a3311",
+          "--axis-aro-hi": "#00ff66",
+          "--axis-soc-lo": "#003322",
+          "--axis-soc-hi": "#33ffcc",
+          "--axis-phy-lo": "#112211",
+          "--axis-phy-hi": "#88ffbb",
+          "--badge-filler": "#00cc44",
+          "--thoughts-color": "#1a6b33"
+        },
+        "effectModules": [
+          "scanlines",
+          "filmGrain"
+        ],
+        "effects": {
+          "grid": "off",
+          "gridColor": "cyan",
+          "gridAnimate": false,
+          "gridOpacity": 0,
+          "filmGrain": true,
+          "filmGrainOpacity": 4,
+          "filmGrainAnimate": false,
+          "dataRain": false,
+          "circuitPattern": false,
+          "edgeGlow": false,
+          "chromaticAberration": false,
+          "scanlinesIntensity": "heavy",
+          "parchmentOpacity": 0,
+          "seasonMode": "off",
+          "vuAmp": 5,
+          "vuSpeed": 22,
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true,
+          "moduleEnabled": {
+            "scanlines": true,
+            "filmGrain": true
+          }
+        },
+        "background": {
+          "type": "none",
+          "src": null
+        },
+        "fonts": {
+          "ui": null,
+          "header": null
+        },
+        "music": {
+          "track": null,
+          "volume": 0.5
+        },
+        "sounds": {
+          "pack": null
+        }
       }
     ]
   },
@@ -326,10 +402,10 @@
     }
   ],
   "music": {
-    "volume": 0.17
+    "volume": 0.03
   },
   "adventure": {
-    "typeCps": 50
+    "typeCps": 25
   },
-  "portraitVisible": true
+  "portraitVisible": false
 }

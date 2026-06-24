@@ -48,12 +48,17 @@ const TextAdventure = (function () {
   let deathCauseEl, btnNewGameFromDeath, btnExitFromDeath;
   let drawerTabs, drawerSections;
   let scScroll, scInput, scSendBtn, scResumeBtn, scClearBtn;
+  let partyPanelEl, partyExtrasEl, partyToggleBtn;
+  let overlayGmChat, gmScrollEl, gmInputEl, gmSendBtn, gmCloseBtn;
   let unsubscribeUpdate = null;
 
   let _selectedTone = TONES[0].id;
   let _activeState = null;
   let _busy = false;
   let _sideChatBusy = false;
+  let _gmBusy = false;
+  let _gmHistory = [];
+  let _partyPanelOpen = false;
   let _drawerActiveTab = 'inventory';
   let _savedChatEmotion = null;   // Aria's portrait emotion before adventure mode took over
 
@@ -138,6 +143,8 @@ const TextAdventure = (function () {
     }
     if (drawer) drawer.classList.remove('open');
     _hideSideChat();
+    _closeGmChat();
+    if (_partyPanelOpen) _togglePartyPanel();
     // Adventure music belongs to adventure mode — stop on exit so it doesn't
     // bleed into normal chat.
     if (window.MusicPlayer) window.MusicPlayer.stop();
@@ -156,7 +163,9 @@ const TextAdventure = (function () {
           <div class="ta-hud-time" id="ta-time-label" title="In-world time">Day 1 — Morning</div>
           <div class="ta-music-badge" id="ta-music-badge" title="Now playing — click to pause/resume">♫ —</div>
           <div class="ta-hud-actions">
+            <button class="ta-hud-btn" id="ta-party-toggle" title="Show/hide party HP &amp; MP">PTY</button>
             <button class="ta-hud-btn aria" id="ta-btn-sidechat" title="Talk to Aria — pauses the story">CHAT</button>
+            <button class="ta-hud-btn" id="ta-btn-askgm" title="Ask the Game Master a meta question">ASK</button>
             <button class="ta-hud-btn" data-drawer="inventory" title="Inventory">INV</button>
             <button class="ta-hud-btn" data-drawer="equipment" title="Equipment">EQP</button>
             <button class="ta-hud-btn" data-drawer="spells" title="Spells">SPL</button>
@@ -172,17 +181,22 @@ const TextAdventure = (function () {
             <button class="ta-hud-btn" id="ta-btn-exit">EXIT</button>
           </div>
         </div>
-        <div class="ta-hud-row">
-          <span class="ta-hud-name player">TRIST</span>
-          <span class="ta-hud-stat" title="Trist HP">HP <div class="ta-hud-bar"><span id="ta-p-hp" style="transform: scaleX(1)"></span></div><span id="ta-p-hp-t">0/0</span></span>
-          <span class="ta-hud-stat" title="Trist MP">MP <div class="ta-hud-bar mp"><span id="ta-p-mp" style="transform: scaleX(1)"></span></div><span id="ta-p-mp-t">0/0</span></span>
-          <span class="ta-hud-stat" title="Trist XP">LV <span id="ta-p-lvl">1</span><div class="ta-hud-bar xp"><span id="ta-p-xp" style="transform: scaleX(0)"></span></div></span>
-        </div>
-        <div class="ta-hud-row">
-          <span class="ta-hud-name aria">ARIA</span>
-          <span class="ta-hud-stat" title="Aria HP">HP <div class="ta-hud-bar"><span id="ta-a-hp" style="transform: scaleX(1)"></span></div><span id="ta-a-hp-t">0/0</span></span>
-          <span class="ta-hud-stat" title="Aria MP">MP <div class="ta-hud-bar mp"><span id="ta-a-mp" style="transform: scaleX(1)"></span></div><span id="ta-a-mp-t">0/0</span></span>
-          <span class="ta-hud-stat" title="Aria level">LV <span id="ta-a-lvl">1</span></span>
+
+        <!-- Party panel: absolute-positioned dropdown below HUD -->
+        <div class="ta-party-panel" id="ta-party-panel">
+          <div class="ta-hud-row ta-party-row">
+            <span class="ta-hud-name player">TRIST</span>
+            <span class="ta-hud-stat" title="Trist HP">HP <div class="ta-hud-bar"><span id="ta-p-hp" style="transform: scaleX(1)"></span></div><span id="ta-p-hp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Trist MP">MP <div class="ta-hud-bar mp"><span id="ta-p-mp" style="transform: scaleX(1)"></span></div><span id="ta-p-mp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Trist XP">LV <span id="ta-p-lvl">1</span><div class="ta-hud-bar xp"><span id="ta-p-xp" style="transform: scaleX(0)"></span></div></span>
+          </div>
+          <div class="ta-hud-row ta-party-row">
+            <span class="ta-hud-name aria">ARIA</span>
+            <span class="ta-hud-stat" title="Aria HP">HP <div class="ta-hud-bar"><span id="ta-a-hp" style="transform: scaleX(1)"></span></div><span id="ta-a-hp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Aria MP">MP <div class="ta-hud-bar mp"><span id="ta-a-mp" style="transform: scaleX(1)"></span></div><span id="ta-a-mp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Aria level">LV <span id="ta-a-lvl">1</span></span>
+          </div>
+          <div id="ta-party-extras"></div>
         </div>
       </div>
 
@@ -246,6 +260,20 @@ const TextAdventure = (function () {
         </div>
       </div>
 
+      <!-- GM chat overlay -->
+      <div class="ta-overlay gm-chat hidden" id="ta-overlay-gm">
+        <div class="ta-gm-header">
+          <span class="ta-gm-title">// ASK THE GAMEMASTER</span>
+          <button class="ta-gm-close" id="ta-gm-close">CLOSE</button>
+        </div>
+        <div class="ta-gm-scroll" id="ta-gm-scroll"></div>
+        <div class="ta-gm-input-row">
+          <textarea class="ta-gm-input" id="ta-gm-input" rows="2" maxlength="1000"
+                    placeholder="Ask the GM anything — story choices, consequences, lore, what might happen next..."></textarea>
+          <button class="ta-gm-send" id="ta-gm-send">SEND</button>
+        </div>
+      </div>
+
       <!-- Drawer -->
       <div class="ta-drawer" id="ta-drawer">
         <div class="ta-drawer-tabs" id="ta-drawer-tabs"></div>
@@ -278,6 +306,7 @@ const TextAdventure = (function () {
     overlayNewGame  = root.querySelector('#ta-overlay-new');
     overlayDeath    = root.querySelector('#ta-overlay-death');
     overlaySideChat = root.querySelector('#ta-overlay-sidechat');
+    overlayGmChat   = root.querySelector('#ta-overlay-gm');
     drawer       = root.querySelector('#ta-drawer');
     toneGrid     = root.querySelector('#ta-tone-grid');
     settingInput = root.querySelector('#ta-setting-input');
@@ -292,6 +321,13 @@ const TextAdventure = (function () {
     scSendBtn    = root.querySelector('#ta-sc-send');
     scResumeBtn  = root.querySelector('#ta-sc-resume');
     scClearBtn   = root.querySelector('#ta-sc-clear');
+    partyPanelEl   = root.querySelector('#ta-party-panel');
+    partyExtrasEl  = root.querySelector('#ta-party-extras');
+    partyToggleBtn = root.querySelector('#ta-party-toggle');
+    gmScrollEl  = root.querySelector('#ta-gm-scroll');
+    gmInputEl   = root.querySelector('#ta-gm-input');
+    gmSendBtn   = root.querySelector('#ta-gm-send');
+    gmCloseBtn  = root.querySelector('#ta-gm-close');
 
     _renderToneGrid();
     _renderDrawerTabs();
@@ -626,6 +662,8 @@ const TextAdventure = (function () {
     root.querySelector('#ta-btn-export').addEventListener('click', _exportGame);
     root.querySelector('#ta-btn-import').addEventListener('click', _importGame);
     root.querySelector('#ta-btn-sidechat').addEventListener('click', _openSideChat);
+    partyToggleBtn.addEventListener('click', _togglePartyPanel);
+    root.querySelector('#ta-btn-askgm').addEventListener('click', _openGmChat);
 
     // Click in the terminal scroll area while typewriter is animating →
     // finish all in-progress + queued jobs instantly. Ignore clicks on the
@@ -693,6 +731,16 @@ const TextAdventure = (function () {
       await window.adventureAPI.sideChatClear();
       _renderSideChat([]);
     });
+
+    // GM chat events
+    gmSendBtn.addEventListener('click', _gmChatSend);
+    gmInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        _gmChatSend();
+      }
+    });
+    gmCloseBtn.addEventListener('click', _closeGmChat);
   }
 
   async function _startNewGame() {
@@ -730,17 +778,27 @@ const TextAdventure = (function () {
   }
 
   async function _exportGame() {
-    const result = await window.adventureAPI.exportGame();
-    if (result.ok) {
-      _addEntry('system', `Story exported → ${result.filePath}`);
-    } else if (!result.cancelled) {
-      _addEntry('system', 'ERROR — Export failed: ' + (result.error || 'unknown'));
+    try {
+      const result = await window.adventureAPI.exportGame();
+      if (result.ok) {
+        _addEntry('system', `Story exported → ${result.filePath}`);
+      } else if (!result.cancelled) {
+        _addEntry('system', 'ERROR — Export failed: ' + (result.error || 'unknown'));
+      }
+    } catch (e) {
+      _addEntry('system', 'ERROR — Export failed: ' + e.message);
     }
   }
 
   async function _importGame() {
     if (!confirm('Import a saved adventure?\nThis will replace your current run. This cannot be undone.')) return;
-    const result = await window.adventureAPI.importGame();
+    let result;
+    try {
+      result = await window.adventureAPI.importGame();
+    } catch (e) {
+      _addEntry('system', 'ERROR — Import failed: ' + e.message);
+      return;
+    }
     if (result.ok) {
       _activeState = result.state;
       _renderHud(result.state);
@@ -835,6 +893,7 @@ const TextAdventure = (function () {
 
     _renderHud(state);
     _renderEnemy(state.enemy);
+    if (_partyPanelOpen) _renderPartyExtras(state.party || []);
     if (drawer.classList.contains('open')) _renderDrawerContent();
 
     if (!state.alive) {
@@ -1019,6 +1078,7 @@ const TextAdventure = (function () {
     overlayNewGame.classList.add('hidden');
     overlayDeath.classList.add('hidden');
     overlaySideChat.classList.add('hidden');
+    overlayGmChat.classList.add('hidden');
   }
 
   // ── Side chat ────────────────────────────────────────────────────────────
@@ -1043,6 +1103,116 @@ const TextAdventure = (function () {
   function _hideSideChat() {
     overlaySideChat.classList.add('hidden');
     _focusInput();
+  }
+
+  // ── Party panel ──────────────────────────────────────────────────────────
+  function _togglePartyPanel() {
+    _partyPanelOpen = !_partyPanelOpen;
+    partyPanelEl.classList.toggle('open', _partyPanelOpen);
+    partyToggleBtn.classList.toggle('pty-active', _partyPanelOpen);
+    if (_partyPanelOpen && _activeState) {
+      _renderPartyExtras(_activeState.party || []);
+    }
+  }
+
+  function _renderPartyExtras(party) {
+    if (!partyExtrasEl) return;
+    if (!party || !party.length) {
+      partyExtrasEl.innerHTML = '';
+      return;
+    }
+    partyExtrasEl.innerHTML = party.map((m) => {
+      const maxHp = m.maxHp || 1;
+      const maxMp = m.maxMp || 1;
+      const hpFrac = maxHp > 0 ? Math.max(0, Math.min(1, (m.hp || 0) / maxHp)) : 0;
+      const mpFrac = maxMp > 0 ? Math.max(0, Math.min(1, (m.mp || 0) / maxMp)) : 0;
+      const dead  = m.alive === false;
+      const nameTag = String(m.name || m.id || '?').slice(0, 6).toUpperCase();
+      return `<div class="ta-hud-row ta-party-row" style="${dead ? 'opacity:0.45' : ''}">
+        <span class="ta-hud-name" style="color:#cfead8;width:44px" title="${_escape(m.name || '')}">${_escape(nameTag)}</span>
+        <span class="ta-hud-stat" title="HP">HP <div class="ta-hud-bar"><span style="transform:scaleX(${hpFrac.toFixed(3)})"></span></div><span>${m.hp ?? 0}/${m.maxHp ?? 0}</span></span>
+        <span class="ta-hud-stat" title="MP">MP <div class="ta-hud-bar mp"><span style="transform:scaleX(${mpFrac.toFixed(3)})"></span></div><span>${m.mp ?? 0}/${m.maxMp ?? 0}</span></span>
+        <span class="ta-hud-stat" title="Level">LV <span>${m.level ?? 1}</span></span>
+        ${dead ? '<span style="color:#ff5577;font-size:7px">INCAP</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // ── GM chat ──────────────────────────────────────────────────────────────
+  function _openGmChat() {
+    if (!_activeState) {
+      _showNewGameOverlay();
+      return;
+    }
+    overlayGmChat.classList.remove('hidden');
+    if (!_gmHistory.length) {
+      gmScrollEl.innerHTML = '<div class="ta-gm-empty">// Ask the GM anything — story, lore, consequences, what might happen next...<br/>// The story does not advance here.</div>';
+    }
+    setTimeout(() => gmInputEl && gmInputEl.focus(), 60);
+  }
+
+  function _closeGmChat() {
+    if (overlayGmChat) overlayGmChat.classList.add('hidden');
+    _focusInput();
+  }
+
+  function _appendGmMsg(role, content, thoughts) {
+    if (!content) return;
+    const div = document.createElement('div');
+    div.className = 'ta-gm-msg ' + (role === 'gm' ? 'gm' : 'user');
+    const main = document.createElement('div');
+    main.textContent = content;
+    div.appendChild(main);
+    if (role === 'gm' && thoughts) {
+      const th = document.createElement('span');
+      th.className = 'thoughts';
+      th.textContent = '(' + thoughts + ')';
+      div.appendChild(th);
+    }
+    // Remove empty placeholder on first real message
+    const empty = gmScrollEl.querySelector('.ta-gm-empty');
+    if (empty) empty.remove();
+    gmScrollEl.appendChild(div);
+    gmScrollEl.scrollTop = gmScrollEl.scrollHeight;
+  }
+
+  async function _gmChatSend() {
+    if (_gmBusy) return;
+    const text = gmInputEl.value.trim();
+    if (!text) return;
+    gmInputEl.value = '';
+
+    _appendGmMsg('user', text);
+    _gmHistory.push({ role: 'user', content: text });
+
+    const thinking = document.createElement('div');
+    thinking.className = 'ta-gm-msg gm ta-gm-thinking';
+    thinking.textContent = '... consulting the lore ...';
+    gmScrollEl.appendChild(thinking);
+    gmScrollEl.scrollTop = gmScrollEl.scrollHeight;
+
+    _gmBusy = true;
+    gmSendBtn.disabled = true;
+    try {
+      const res = await window.adventureAPI.askGm(text);
+      thinking.remove();
+      if (res && res.success && res.reply) {
+        _appendGmMsg('gm', res.reply.dialogue, res.reply.thoughts);
+        _gmHistory.push({ role: 'gm', content: res.reply.dialogue });
+        if (res.reply.emotion && window.CompanionDisplay && typeof window.CompanionDisplay.setEmotion === 'function') {
+          window.CompanionDisplay.setEmotion(res.reply.emotion);
+        }
+      } else {
+        _appendGmMsg('gm', 'ERROR — ' + ((res && res.error) || 'unknown error'));
+      }
+    } catch (err) {
+      thinking.remove();
+      _appendGmMsg('gm', 'ERROR — ' + (err.message || 'unknown'));
+    } finally {
+      _gmBusy = false;
+      gmSendBtn.disabled = false;
+      gmScrollEl.scrollTop = gmScrollEl.scrollHeight;
+    }
   }
 
   function _renderSideChat(history) {

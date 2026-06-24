@@ -473,6 +473,39 @@ When a bound entity intervenes (intercepts a blow, scouts an area, etc.)
 narrate it. Update HP via summons.update if it took damage. Do NOT put
 it in [ENEMY] — it's not a hostile.
 
+PARTY MEMBERS
+
+state.party[] tracks NPCs who have fully joined the party as companions —
+they travel with Trist and Aria, appear in the party HUD, have their own
+stats, and can act each turn. Use party for:
+  - Rescued villagers who choose to join
+  - Hired mercenaries, sworn allies, quest companions
+  - Anyone traveling with the group who actively participates in combat
+    or exploration (NOT brief NPCs who just walk alongside)
+
+Each party member uses the full character schema (same as player/aria):
+  { "id":"...", "name":"...", "level":N, "xp":N, "xpToNext":N,
+    "hp":N, "maxHp":N, "mp":N, "maxMp":N,
+    "str":N, "dex":N, "int":N, "wis":N, "con":N, "luck":N,
+    "illness":null, "gold":N,
+    "inventory":[], "equipment":{...},
+    "spells":[], "abilities":[], "buffs":[], "debuffs":[],
+    "alive":true }
+
+Diff format for party changes:
+  "party": {
+    "add":    [ { full member object } ],      // when they join
+    "remove": [ "id-or-name" ],                // when they leave or die
+    "update": [ { "id":"...", "delta":{...}, "set":{...}, ... } ]  // same format as player diffs
+  }
+
+Party members hit 0 HP → they are incapacitated (alive=false), NOT a
+game-over. Remove them or let the story continue. Only Trist or Aria
+dying triggers the death screen.
+
+When a party member acts in combat or assists, narrate it in [NARRATOR]
+as you do with Aria. Apply their HP/MP changes via party.update.
+
 DEATH
 
 When either character dies this turn:
