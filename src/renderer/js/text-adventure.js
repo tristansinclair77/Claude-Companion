@@ -111,6 +111,10 @@ const TextAdventure = (function () {
     if (!unsubscribeUpdate) {
       unsubscribeUpdate = window.adventureAPI.onUpdate(_handleUpdate);
     }
+    // Wipe side-chat and GM-chat files — each adventure session starts fresh.
+    try { await window.adventureAPI.clearSessionChats(); } catch {}
+    // Also reset in-memory GM history so the overlay is clean.
+    _gmHistory = [];
     try {
       const { state, log, resumeCue } = await window.adventureAPI.getState();
       if (!state) {
@@ -965,6 +969,8 @@ const TextAdventure = (function () {
     const div = document.createElement('div');
     div.className = 'ta-entry ' + (kind || 'narrator');
     div.textContent = text;
+    const copyBtn = _makeCopyBtn(text);
+    div.appendChild(copyBtn);
     scrollEl.appendChild(div);
   }
 

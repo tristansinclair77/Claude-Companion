@@ -13,9 +13,11 @@ const path = require('path');
 const STATE_FILENAME     = 'text-adventure.json';
 const LOG_FILENAME       = 'text-adventure-log.json';
 const SIDECHAT_FILENAME  = 'text-adventure-side-chat.json';
+const GMCHAT_FILENAME    = 'text-adventure-gm-chat.json';
 
 const LOG_MAX_ENTRIES       = 200;
 const SIDECHAT_MAX_ENTRIES  = 80;
+const GMCHAT_MAX_ENTRIES    = 200;
 
 // Hard caps so long campaigns can't bloat the prompt unbounded. Claude is
 // expected to prune via [GAME_STATE].memory.*.remove when things go stale,
@@ -152,6 +154,7 @@ _verifyMonsterRoster();
 function _statePath   (characterDir) { return path.join(characterDir, STATE_FILENAME);     }
 function _logPath     (characterDir) { return path.join(characterDir, LOG_FILENAME);       }
 function _sideChatPath(characterDir) { return path.join(characterDir, SIDECHAT_FILENAME);  }
+function _gmChatPath  (characterDir) { return path.join(characterDir, GMCHAT_FILENAME);    }
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
@@ -319,6 +322,32 @@ function appendSideChat(characterDir, entry) {
 
 function clearSideChat(characterDir) {
   try { fs.unlinkSync(_sideChatPath(characterDir)); } catch {}
+}
+
+// ── GM-chat I/O ────────────────────────────────────────────────────────────────
+
+function loadGmChat(characterDir) {
+  try {
+    const p = _gmChatPath(characterDir);
+    if (!fs.existsSync(p)) return [];
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch { return []; }
+}
+
+function saveGmChat(characterDir, chat) {
+  const trimmed = chat.slice(-GMCHAT_MAX_ENTRIES);
+  fs.writeFileSync(_gmChatPath(characterDir), JSON.stringify(trimmed, null, 2), 'utf8');
+}
+
+function appendGmChat(characterDir, entry) {
+  const chat = loadGmChat(characterDir);
+  chat.push({ ...entry, t: new Date().toISOString() });
+  saveGmChat(characterDir, chat);
+  return chat;
+}
+
+function clearGmChat(characterDir) {
+  try { fs.unlinkSync(_gmChatPath(characterDir)); } catch {}
 }
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
@@ -670,6 +699,10 @@ module.exports = {
   saveSideChat,
   appendSideChat,
   clearSideChat,
+  loadGmChat,
+  saveGmChat,
+  appendGmChat,
+  clearGmChat,
   newGame,
   resetGame,
   applyStateDiff,

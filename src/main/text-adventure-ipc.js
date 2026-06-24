@@ -598,18 +598,38 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
         workingLongMemories:  [],
       });
 
+      const dialogue = _scrubRenderedText(response.dialogue || '');
+      const thoughts = response.thoughts || '';
+      const emotion  = response.emotion  || 'neutral';
+
+      store.appendGmChat(characterDir, { role: 'user', content: text });
+      store.appendGmChat(characterDir, { role: 'gm', content: dialogue, thoughts, emotion });
+
       return {
         success: true,
-        reply: {
-          dialogue: _scrubRenderedText(response.dialogue || ''),
-          thoughts: response.thoughts || '',
-          emotion:  response.emotion  || 'neutral',
-        },
+        reply: { dialogue, thoughts, emotion },
       };
     } catch (err) {
       console.error('[Adventure] ask-gm error:', err.message);
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('adventure:gm-chat-history', () => {
+    return { history: store.loadGmChat(characterDir) };
+  });
+
+  ipcMain.handle('adventure:gm-chat-clear', () => {
+    store.clearGmChat(characterDir);
+    return { ok: true };
+  });
+
+  // Clear both session chat files when the user enters adventure mode.
+  // Called from the renderer's _enter() so each session starts fresh.
+  ipcMain.handle('adventure:clear-session-chats', () => {
+    store.clearSideChat(characterDir);
+    store.clearGmChat(characterDir);
+    return { ok: true };
   });
 
   // ── Export / Import ───────────────────────────────────────────────────────
