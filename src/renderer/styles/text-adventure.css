@@ -683,6 +683,26 @@ body:not(.adventure-mode) #text-adventure {
   animation: ta-blink 1s steps(2) infinite;
 }
 
+/* ── Copy button — appears on story entries, side-chat & GM messages ── */
+.ta-copy-btn {
+  display: inline-block;
+  background: transparent;
+  border: none;
+  color: rgba(102, 255, 139, 0.25);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 0 0 6px;
+  vertical-align: middle;
+  line-height: 1;
+  transition: color 0.15s;
+  user-select: none;
+}
+.ta-copy-btn:hover { color: rgba(102, 255, 139, 0.75); }
+.ta-sc-msg .ta-copy-btn { color: rgba(255, 180, 220, 0.25); }
+.ta-sc-msg .ta-copy-btn:hover { color: rgba(255, 180, 220, 0.75); }
+.ta-gm-msg .ta-copy-btn { color: rgba(102, 255, 139, 0.25); }
+.ta-gm-msg .ta-copy-btn:hover { color: rgba(102, 255, 139, 0.75); }
+
 /* ── Party panel — collapsible dropdown below HUD ───────────────────── */
 .ta-party-panel {
   display: none;

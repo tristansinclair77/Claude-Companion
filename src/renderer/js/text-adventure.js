@@ -953,6 +953,22 @@ const TextAdventure = (function () {
     enemyDescEl.textContent = enemy.desc || '';
   }
 
+  // ── Copy helper ───────────────────────────────────────────────────────────
+  function _makeCopyBtn(text) {
+    const btn = document.createElement('button');
+    btn.className = 'ta-copy-btn';
+    btn.title = 'Copy to clipboard';
+    btn.textContent = '⊡';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(text || '').then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '⊡'; }, 1200);
+      }).catch(() => {});
+    });
+    return btn;
+  }
+
   // ── Log / scroll ─────────────────────────────────────────────────────────
   function _renderLog(log) {
     scrollEl.innerHTML = '';
@@ -1012,6 +1028,7 @@ const TextAdventure = (function () {
       _scrollToBottomSoft();
       if (job.idx >= job.text.length) {
         job.el.classList.remove('ta-typing');
+        job.el.appendChild(_makeCopyBtn(job.text));
         _typing = null;
         _typeStartNext();
         return;
@@ -1026,12 +1043,14 @@ const TextAdventure = (function () {
       if (_typing.timer) { clearTimeout(_typing.timer); _typing.timer = null; }
       _typing.el.textContent = _typing.text;
       _typing.el.classList.remove('ta-typing');
+      _typing.el.appendChild(_makeCopyBtn(_typing.text));
       _typing = null;
     }
     for (const job of _typeQueue) {
       if (job.timer) clearTimeout(job.timer);
       job.el.textContent = job.text;
       job.el.classList.remove('ta-typing');
+      job.el.appendChild(_makeCopyBtn(job.text));
     }
     _typeQueue = [];
     _scrollToBottom();
@@ -1171,6 +1190,7 @@ const TextAdventure = (function () {
       th.textContent = '(' + thoughts + ')';
       div.appendChild(th);
     }
+    div.appendChild(_makeCopyBtn(content + (thoughts ? '\n(' + thoughts + ')' : '')));
     // Remove empty placeholder on first real message
     const empty = gmScrollEl.querySelector('.ta-gm-empty');
     if (empty) empty.remove();
@@ -1238,6 +1258,8 @@ const TextAdventure = (function () {
       th.textContent = '(' + m.thoughts + ')';
       div.appendChild(th);
     }
+    const copyText = (m.content || '') + (m.thoughts ? '\n(' + m.thoughts + ')' : '');
+    div.appendChild(_makeCopyBtn(copyText));
     scScroll.appendChild(div);
   }
   function _scScrollToBottom() {
