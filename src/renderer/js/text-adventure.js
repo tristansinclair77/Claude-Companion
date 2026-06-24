@@ -28,7 +28,6 @@ const TextAdventure = (function () {
     { id: 'spells',    label: 'SPL' },
     { id: 'abilities', label: 'ABL' },
     { id: 'stats',     label: 'STA' },
-    { id: 'aria',      label: 'ARIA', cls: 'aria' },
     { id: 'summons',   label: 'SUM' },
     { id: 'story',     label: 'SAGA' },
     { id: 'memory',    label: 'LORE' },
@@ -46,7 +45,7 @@ const TextAdventure = (function () {
   let overlayNewGame, overlayDeath, overlaySideChat, drawer;
   let toneGrid, settingInput, startBtn;
   let deathCauseEl, btnNewGameFromDeath, btnExitFromDeath;
-  let drawerTabs, drawerSections;
+  let drawerTabs, drawerSections, drawerCharSel;
   let scScroll, scInput, scSendBtn, scResumeBtn, scClearBtn;
   let partyPanelEl, partyExtrasEl, partyToggleBtn;
   let overlayGmChat, gmScrollEl, gmInputEl, gmSendBtn, gmCloseBtn;
@@ -60,6 +59,7 @@ const TextAdventure = (function () {
   let _gmHistory = [];
   let _partyPanelOpen = false;
   let _drawerActiveTab = 'inventory';
+  let _drawerCharTarget = 0;  // index into _getCharRoster()
   let _savedChatEmotion = null;   // Aria's portrait emotion before adventure mode took over
 
   // ── Typewriter settings + queue ─────────────────────────────────────────
@@ -175,7 +175,6 @@ const TextAdventure = (function () {
             <button class="ta-hud-btn" data-drawer="spells" title="Spells">SPL</button>
             <button class="ta-hud-btn" data-drawer="abilities" title="Abilities">ABL</button>
             <button class="ta-hud-btn" data-drawer="stats" title="Stats &amp; Buffs">STA</button>
-            <button class="ta-hud-btn aria" data-drawer="aria" title="Aria — stats, gear, spells">ARIA</button>
             <button class="ta-hud-btn" data-drawer="summons" title="Summons &amp; Bound Entities">SUM</button>
             <button class="ta-hud-btn" data-drawer="story" title="Story — recap, events, goals">SAGA</button>
             <button class="ta-hud-btn" data-drawer="memory" title="World — NPCs, quests, lore">LORE</button>
@@ -279,6 +278,11 @@ const TextAdventure = (function () {
       <!-- Drawer -->
       <div class="ta-drawer" id="ta-drawer">
         <div class="ta-drawer-tabs" id="ta-drawer-tabs"></div>
+        <div class="ta-drawer-char-sel" id="ta-drawer-char-sel">
+          <button class="ta-char-arrow" id="ta-char-prev" title="Previous character">&#9664;</button>
+          <span class="ta-char-name" id="ta-char-name">TRIST</span>
+          <button class="ta-char-arrow" id="ta-char-next" title="Next character">&#9654;</button>
+        </div>
         <div class="ta-drawer-section" id="ta-drawer-section"></div>
         <button class="ta-drawer-close" id="ta-drawer-close">CLOSE</button>
       </div>
@@ -318,6 +322,7 @@ const TextAdventure = (function () {
     btnExitFromDeath    = root.querySelector('#ta-exit-from-death');
     drawerTabs   = root.querySelector('#ta-drawer-tabs');
     drawerSections = root.querySelector('#ta-drawer-section');
+    drawerCharSel  = root.querySelector('#ta-drawer-char-sel');
     scScroll     = root.querySelector('#ta-sc-scroll');
     scInput      = root.querySelector('#ta-sc-input');
     scSendBtn    = root.querySelector('#ta-sc-send');
@@ -333,6 +338,7 @@ const TextAdventure = (function () {
 
     _renderToneGrid();
     _renderDrawerTabs();
+    _updateCharSelector();
   }
 
   function _renderToneGrid() {
@@ -353,6 +359,36 @@ const TextAdventure = (function () {
   }
 
   // ── Drawer ────────────────────────────────────────────────────────────────
+  function _getCharRoster() {
+    if (!_activeState) return [{ key: 'player', label: 'TRIST', data: {} }];
+    const roster = [{ key: 'player', label: 'TRIST', data: _activeState.player || {} }];
+    if (_activeState.aria) {
+      roster.push({ key: 'aria', label: 'ARIA', data: _activeState.aria });
+    }
+    for (const m of (_activeState.party || [])) {
+      roster.push({
+        key: m.id || m.name || String(roster.length),
+        label: String(m.name || m.id || '?').slice(0, 10).toUpperCase(),
+        data: m,
+      });
+    }
+    return roster;
+  }
+
+  function _updateCharSelector() {
+    if (!drawerCharSel) return;
+    const roster = _getCharRoster();
+    if (_drawerCharTarget >= roster.length) _drawerCharTarget = 0;
+    const nameEl = drawerCharSel.querySelector('#ta-char-name');
+    if (nameEl) nameEl.textContent = roster[_drawerCharTarget]?.label || 'TRIST';
+    const hasMult = roster.length > 1;
+    drawerCharSel.style.display = _activeState ? 'flex' : 'none';
+    const prevBtn = drawerCharSel.querySelector('#ta-char-prev');
+    const nextBtn = drawerCharSel.querySelector('#ta-char-next');
+    if (prevBtn) prevBtn.style.visibility = hasMult ? 'visible' : 'hidden';
+    if (nextBtn) nextBtn.style.visibility = hasMult ? 'visible' : 'hidden';
+  }
+
   function _renderDrawerTabs() {
     drawerTabs.innerHTML = '';
     for (const t of DRAWER_TABS) {
@@ -374,24 +410,27 @@ const TextAdventure = (function () {
   }
 
   function _renderDrawerContent() {
+    _updateCharSelector();
     if (!_activeState) {
       drawerSections.innerHTML = '<div class="ta-list-empty">// no game in progress</div>';
       return;
     }
     const state = _activeState;
-    const p = state.player;
+    const roster = _getCharRoster();
+    if (_drawerCharTarget >= roster.length) _drawerCharTarget = 0;
+    const char = roster[_drawerCharTarget] || { label: 'TRIST', data: state.player || {} };
+    const cd = char.data;
+
     if (_drawerActiveTab === 'inventory') {
-      _renderInventoryDrawer(p.inventory || [], p.equipment || {});
+      _renderInventoryDrawer(cd.inventory || [], cd.equipment || {});
     } else if (_drawerActiveTab === 'equipment') {
-      _renderEquipmentDrawer(p.equipment || {});
+      _renderEquipmentDrawer(cd.equipment || {});
     } else if (_drawerActiveTab === 'spells') {
-      _renderSpellsDrawer(p.spells || []);
+      _renderSpellsDrawer(cd.spells || []);
     } else if (_drawerActiveTab === 'abilities') {
-      _renderAbilitiesDrawer(p.abilities || []);
+      _renderAbilitiesDrawer(cd.abilities || []);
     } else if (_drawerActiveTab === 'stats') {
-      _renderStatsDrawer(p, 'TRIST');
-    } else if (_drawerActiveTab === 'aria') {
-      _renderAriaDrawer(state.aria || {});
+      _renderStatsDrawer(cd, char.label);
     } else if (_drawerActiveTab === 'summons') {
       _renderSummonsDrawer(state.summons || []);
     } else if (_drawerActiveTab === 'story') {
@@ -705,6 +744,20 @@ const TextAdventure = (function () {
       });
     }
     root.querySelector('#ta-drawer-close').addEventListener('click', () => drawer.classList.remove('open'));
+    root.querySelector('#ta-char-prev').addEventListener('click', () => {
+      const roster = _getCharRoster();
+      if (roster.length <= 1) return;
+      _drawerCharTarget = (_drawerCharTarget - 1 + roster.length) % roster.length;
+      _updateCharSelector();
+      _renderDrawerContent();
+    });
+    root.querySelector('#ta-char-next').addEventListener('click', () => {
+      const roster = _getCharRoster();
+      if (roster.length <= 1) return;
+      _drawerCharTarget = (_drawerCharTarget + 1) % roster.length;
+      _updateCharSelector();
+      _renderDrawerContent();
+    });
 
     startBtn.addEventListener('click', _startNewGame);
     root.querySelector('#ta-cancel-new').addEventListener('click', _exit);

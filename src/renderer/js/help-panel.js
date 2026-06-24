@@ -774,20 +774,19 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-hud',
       title: 'HUD & Drawer',
-      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'aria tab', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore', 'party', 'party panel', 'pty', 'ask gm', 'gamemaster', 'ask'],
+      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'character selector', 'target', 'aria', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore', 'party', 'party panel', 'pty', 'ask gm', 'gamemaster', 'ask'],
       content:
         p('The HUD across the top has the current scene, time, and music badge. Click <em>PTY</em> to toggle a collapsible party panel that drops down over the story area showing HP, MP, and level for you, Aria, and any party members who have joined the run. Dismiss it by clicking PTY again.') +
-        p('The action drawer slides in from the right when you click a drawer button. Hover any button for a tooltip:') +
+        p('The action drawer slides in from the right when you click a drawer button. Inside the drawer, a <strong>◀ CHARACTER ▶</strong> selector lets you cycle through party members — use the arrows to target who you want to inspect. INV, EQP, SPL, ABL, and STA all reflect the targeted character. SUM, SAGA, and LORE are party-wide.') +
         kv([
           ['PTY',   'Toggle the party panel — shows HP/MP bars for you, Aria, and any companions who have joined.'],
           ['CHAT',  'Talk to Aria — opens side chat, pauses the story.'],
           ['ASK',   'Ask the Game Master a meta question — lore, story choices, consequences — without advancing the story. See the Ask GM article.'],
-          ['INV',   'Your inventory (items, stack counts, equipped markers).'],
-          ['EQP',   'Your equipped weapon, armor, and accessory slots.'],
-          ['SPL',   'Your known spells (MP cost shown).'],
-          ['ABL',   'Your passive and active abilities (no MP cost).'],
-          ['STA',   'Your full stat block, gold, illness, and active buffs/debuffs.'],
-          ['ARIA',  'Aria\'s parallel stat block, equipment, inventory, spells, and abilities.'],
+          ['INV',   'Inventory for the targeted character (items, stack counts, equipped markers).'],
+          ['EQP',   'Equipment slots for the targeted character.'],
+          ['SPL',   'Known spells for the targeted character (MP cost shown).'],
+          ['ABL',   'Passive and active abilities for the targeted character.'],
+          ['STA',   'Full stat block, gold, illness, and active buffs/debuffs for the targeted character.'],
           ['SUM',   'Bound entities and summons — creatures you\'ve captured or sworn to you. See Summons article.'],
           ['SAGA',  'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
           ['LORE',  'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
@@ -859,7 +858,7 @@ const HelpPanel = (() => {
           ['Incapacitated',    'A party member at 0 HP shows grayed out as INCAP. They can recover between scenes.'],
           ['Permadeath',       'ONLY Trist or Aria dying ends the run. Companion deaths are sad but survivable.'],
         ]) +
-        note('To see a party member\'s full stat block (spells, abilities, inventory), the ARIA drawer pattern will be extended in a future update. For now, ask the GM via ASK.')
+        note('To see a party member\'s full stat block, open any drawer (INV / SPL / STA / etc.) and use the ◀ ▶ arrows to target them.')
     },
     {
       catId: 'rpg', id: 'ta-monsters',

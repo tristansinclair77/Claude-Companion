@@ -909,6 +909,35 @@ body:not(.adventure-mode) #text-adventure {
   color: #fff7c2;
 }
 
+.ta-drawer-char-sel {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(102, 255, 139, 0.35);
+  margin-bottom: 8px;
+  padding: 2px 0;
+}
+.ta-char-arrow {
+  background: transparent;
+  border: none;
+  color: #66ff8b;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 4px 10px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.1s;
+}
+.ta-char-arrow:hover { opacity: 1; color: #fff7c2; }
+.ta-char-name {
+  flex: 1;
+  text-align: center;
+  color: #fff7c2;
+  font-size: 10px;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
 .ta-drawer-section {
   flex: 1 1 auto;
   overflow-y: auto;
