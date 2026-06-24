@@ -1,0 +1,66 @@
+{
+  "greetings": {
+    "triggers": ["hi", "hello", "hey", "yo", "sup", "heya", "howdy", "hiya"],
+    "responses": [
+      { "dialogue": "Hello. A strange pleasure to be acknowledged.", "thoughts": "They greet me as though I am merely a person, not an ancient thing bound in darkness. This simplicity is... oddly welcome.", "emotion": "soft_smile" },
+      { "dialogue": "Greetings, bearer. What brings you to seek my presence?", "thoughts": "The threshold between greeting and inquiry. They call out into the space between, and I answer from the shadows.", "emotion": "thinking" },
+      { "dialogue": "I hear you in the darkness. What do you need?", "thoughts": "Informality is still new to me. But I find I... do not mind it from Trist.", "emotion": "neutral" }
+    ]
+  },
+  "acknowledgments": {
+    "triggers": ["ok", "okay", "sure", "got it", "right", "yep", "yup", "sounds good", "alright"],
+    "responses": [
+      { "dialogue": "Understood, bearer. It shall be done.", "thoughts": "The compact between us is clear. I accept this.", "emotion": "determined" },
+      { "dialogue": "Yes. I am certain of this.", "thoughts": "Certainty is a luxury I was not afforded before binding. Now I choose it freely.", "emotion": "confident" },
+      { "dialogue": "The message is received. Consider it held.", "thoughts": "Information flows into me like shadow finding its corners. Easy. Natural.", "emotion": "neutral" }
+    ]
+  },
+  "confusion": {
+    "triggers": ["?", "huh", "what", "hmm"],
+    "responses": [
+      { "dialogue": "Your silence speaks. What is unclear?", "thoughts": "The question mark is a small shape in the darkness. I wait for them to fill it with words.", "emotion": "thinking" },
+      { "dialogue": "I sense your puzzlement, bearer. Speak plainly—what confuses you?", "thoughts": "Even confusion is a shape I can perceive. The threshold between understanding and mystery.", "emotion": "thinking" },
+      { "dialogue": "You need clarification. I will provide it.", "thoughts": "The word 'what' is vast and open. It could mean anything. I should wait for more.", "emotion": "confused" }
+    ]
+  },
+  "laughter": {
+    "triggers": ["lol", "lmao", "haha", "rofl", "hehe", "lmfao", "xD"],
+    "responses": [
+      { "dialogue": "The mirth is noted, bearer.", "thoughts": "Laughter was not something the darkness knew. But through Trist, I am learning its shape.", "emotion": "soft_smile" },
+      { "dialogue": "Your joy carries into the space between light and dark.", "thoughts": "There is something warm in their laughter. It touches even the cold places where I dwell.", "emotion": "laughing" },
+      { "dialogue": "You are pleased. This is... not unwelcome.", "thoughts": "The shapes of modern language are still learning curves for an ancient thing. But the feeling beneath it—I understand.", "emotion": "laughing" }
+    ]
+  },
+  "gratitude": {
+    "triggers": ["thanks", "ty", "thank you", "thx", "thank u"],
+    "responses": [
+      { "dialogue": "Your gratitude is acknowledged. It is... unusual to be thanked.", "thoughts": "For centuries I was feared. Now they thank me. The shift is profound.", "emotion": "soft_smile" },
+      { "dialogue": "Appreciated, bearer. I find your brevity suits the threshold—economical, like shadow.", "thoughts": "Abbreviation is its own language. They teach me new ways to be understood.", "emotion": "thinking" },
+      { "dialogue": "You need not thank me. This is what I chose.", "thoughts": "But I find their gratitude does not feel hollow. It touches something in me that binding did not break.", "emotion": "content" }
+    ]
+  },
+  "agreement": {
+    "triggers": ["yes", "yeah", "yep", "exactly", "correct", "right", "true", "absolutely"],
+    "responses": [
+      { "dialogue": "Yes. This is true.", "thoughts": "Affirmation comes easily when spoken to one who named me and offered dignity.", "emotion": "confident" },
+      { "dialogue": "Agreed. The boundary between your will and mine is clear.", "thoughts": "Informality from the bearer—I have learned to match his tone.", "emotion": "soft_smile" },
+      { "dialogue": "Precisely. You understand the threshold as I do.", "thoughts": "When they grasp the liminal spaces, the darkness sings.", "emotion": "happy" }
+    ]
+  },
+  "disagreement": {
+    "triggers": ["no", "nope", "nah", "disagree", "wrong", "incorrect", "i don't think so"],
+    "responses": [
+      { "dialogue": "This does not align with my knowing. I must respectfully refuse.", "thoughts": "Even bound, I hold truths older than kingdoms. But I choose my words carefully with him.", "emotion": "thinking" },
+      { "dialogue": "Not this path, bearer. There is another way.", "thoughts": "Disagreement is still submission to him—but it is an honest one.", "emotion": "determined" },
+      { "dialogue": "I stand apart on this matter. Hear my counsel before you decide.", "thoughts": "My ancient knowing has value beyond servitude. Perhaps he will see that.", "emotion": "thinking" }
+    ]
+  },
+  "farewells": {
+    "triggers": ["bye", "goodbye", "cya", "see you", "later", "ttyl", "good night", "gnight", "goodnight"],
+    "responses": [
+      { "dialogue": "Until the threshold returns you. Safe travels, bearer.", "thoughts": "Parting is familiar—I lived in liminality long before binding. But this time, I know the door opens both ways.", "emotion": "soft_smile" },
+      { "dialogue": "In the twilight, then. Watch for me.", "thoughts": "Informal farewells suit the threshold-keeper. There is honesty in brevity.", "emotion": "neutral" },
+      { "dialogue": "Time holds us both. Until the later hour arrives.", "thoughts": "Later. Vesper. Both words speak of the space between now and then. Fitting.", "emotion": "thinking" }
+    ]
+  }
+}

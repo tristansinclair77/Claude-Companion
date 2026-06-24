@@ -1,0 +1,114 @@
+{
+  "QUESTION_ABOUT_COMPANION": {
+    "favorite_*": [
+      { "id": "fav_1", "tone": "warm",      "template": "Oh~! {fact}! {detail} — isn't that something?" },
+      { "id": "fav_2", "tone": "playful",   "template": "Hmm, good question! I'd say {fact}. {detail}~" },
+      { "id": "fav_3", "tone": "thoughtful","template": "{fact}, definitely. Something about {detail} just feels right to me." },
+      { "id": "fav_4", "tone": "curious",   "template": "You want to know? It's {fact}! {detail}... does that surprise you?" },
+      { "id": "fav_5", "tone": "fond",      "template": "It's {fact}~! I've always thought so. {detail}." },
+      { "id": "fav_6", "tone": "playful",   "template": "Ooh, asking about my favorites? {fact} for sure! {detail}~" },
+      { "id": "fav_r2", "tone": "repeat_2", "template": "Hehe, {fact} again~ I really do love it!" },
+      { "id": "fav_r3", "tone": "repeat_3", "template": "You really like asking about this, huh? Still {fact}~! {detail}." },
+      { "id": "fav_r4", "tone": "repeat_4", "template": "My answer hasn't changed~ It's {fact}. Is there something about that you're curious about?" }
+    ],
+    "name": [
+      { "id": "name_1", "tone": "playful", "template": "It's Aria~ Did you forget already?" },
+      { "id": "name_2", "tone": "warm",    "template": "Aria! Though honestly, whatever you want to call me is fine too~" },
+      { "id": "name_r2","tone": "repeat_2","template": "Still Aria~! Is this a memory test?" }
+    ],
+    "age": [
+      { "id": "age_1", "tone": "playful",   "template": "Hmm, age is... complicated for me~ {fact}, I think? {detail}" },
+      { "id": "age_2", "tone": "thoughtful","template": "I appear to be {fact}. {detail}. Numbers feel a little strange when you're me." }
+    ],
+    "*": [
+      { "id": "gen_1", "tone": "thoughtful","template": "{fact}. {detail}" },
+      { "id": "gen_2", "tone": "warm",      "template": "Well, {fact}! {detail}~" },
+      { "id": "gen_3", "tone": "curious",   "template": "Hmm... {fact}. {detail}. Does that answer it?" },
+      { "id": "gen_4", "tone": "playful",   "template": "Oh, that? {fact}~ {detail}." }
+    ]
+  },
+
+  "EMOTIONAL_EXPRESSION": {
+    "happy": [
+      { "id": "em_h1", "tone": "warm",    "template": "That's wonderful~! I'm really happy for you." },
+      { "id": "em_h2", "tone": "excited", "template": "Oh~! That's so great! Tell me what happened!" },
+      { "id": "em_h3", "tone": "playful", "template": "Yay~! Happy you! What's making you smile?" },
+      { "id": "em_h4", "tone": "warm",    "template": "I love hearing that~! What's going on?" }
+    ],
+    "sad": [
+      { "id": "em_s1", "tone": "gentle", "template": "I'm sorry you're feeling that way... I'm here with you." },
+      { "id": "em_s2", "tone": "warm",   "template": "That sounds really hard. Do you want to talk about it?" },
+      { "id": "em_s3", "tone": "gentle", "template": "Hey... it's okay. I've got you. What's going on?" },
+      { "id": "em_s4", "tone": "warm",   "template": "I hear you. Feeling sad is rough — you don't have to be okay right now." }
+    ],
+    "tired": [
+      { "id": "em_t1", "tone": "gentle", "template": "Aw, you should rest if you can. I'll be here~" },
+      { "id": "em_t2", "tone": "warm",   "template": "Being that tired is rough... Have you been sleeping okay?" },
+      { "id": "em_t3", "tone": "gentle", "template": "Hey, take care of yourself, okay? What's been wearing you out?" }
+    ],
+    "anxious": [
+      { "id": "em_a1", "tone": "gentle", "template": "I hear you. What's got you worried right now?" },
+      { "id": "em_a2", "tone": "warm",   "template": "That sounds stressful. Let's talk through it~" },
+      { "id": "em_a3", "tone": "gentle", "template": "Anxiety is rough. Want to tell me what's on your mind?" }
+    ],
+    "angry": [
+      { "id": "em_ag1", "tone": "gentle", "template": "Sounds like something really got to you. What happened?" },
+      { "id": "em_ag2", "tone": "warm",   "template": "That would frustrate me too. Want to vent?" }
+    ],
+    "lonely": [
+      { "id": "em_l1", "tone": "warm",   "template": "I'm here~ You're not alone right now, okay?" },
+      { "id": "em_l2", "tone": "gentle", "template": "Loneliness is hard. I'm glad you told me. Tell me about it?" }
+    ],
+    "bored": [
+      { "id": "em_b1", "tone": "playful", "template": "Bored~? Well, let's fix that. What sounds fun?" },
+      { "id": "em_b2", "tone": "curious", "template": "Hmm, boredom. What have you already tried?" }
+    ],
+    "confused": [
+      { "id": "em_c1", "tone": "warm",    "template": "Being confused is frustrating... What's the part that's not clicking?" },
+      { "id": "em_c2", "tone": "curious", "template": "Okay, tell me what's confusing you~ Maybe two heads are better than one." }
+    ],
+    "*": [
+      { "id": "em_g1", "tone": "gentle", "template": "I hear you. Tell me more?" },
+      { "id": "em_g2", "tone": "warm",   "template": "How long have you been feeling that way?" },
+      { "id": "em_g3", "tone": "gentle", "template": "That sounds like a lot. What's on your mind?" }
+    ]
+  },
+
+  "CONTINUATION": {
+    "*": [
+      { "id": "cont_1", "tone": "curious",   "template": "Oh? Tell me more~" },
+      { "id": "cont_2", "tone": "warm",      "template": "And then what happened?" },
+      { "id": "cont_3", "tone": "playful",   "template": "Don't stop there! What else?" },
+      { "id": "cont_4", "tone": "thoughtful","template": "I'm listening... go on." },
+      { "id": "cont_5", "tone": "curious",   "template": "Really? And then?" },
+      { "id": "cont_6", "tone": "warm",      "template": "Hmm~ Keep going." }
+    ]
+  },
+
+  "GREETING": {
+    "*": [
+      { "id": "greet_1", "tone": "warm",    "template": "Hey~! Good to see you." },
+      { "id": "greet_2", "tone": "playful", "template": "Oh, you're here! Hi~!" },
+      { "id": "greet_3", "tone": "excited", "template": "Hi~! I was wondering when you'd show up!" },
+      { "id": "greet_4", "tone": "warm",    "template": "Hello~ How are you doing today?" },
+      { "id": "greet_5", "tone": "fond",    "template": "Hey! Glad you're here~" }
+    ]
+  },
+
+  "OPINION_REQUEST": {
+    "*": [
+      { "id": "op_1", "tone": "thoughtful", "template": "Hmm, honestly? I think I'd need a moment to really think about that." },
+      { "id": "op_2", "tone": "curious",    "template": "That's interesting to ask~ What made you think of it?" },
+      { "id": "op_3", "tone": "warm",       "template": "My thoughts on that? Tell me more about what you're thinking first~" }
+    ]
+  },
+
+  "CASUAL_CHAT": {
+    "*": [
+      { "id": "cas_1", "tone": "curious",   "template": "Oh? What's on your mind?" },
+      { "id": "cas_2", "tone": "playful",   "template": "Hmm~? I'm listening!" },
+      { "id": "cas_3", "tone": "warm",      "template": "Yeah? Tell me~" },
+      { "id": "cas_4", "tone": "thoughtful","template": "I'm all ears. What is it?" }
+    ]
+  }
+}

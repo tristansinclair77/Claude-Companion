@@ -1,0 +1,49 @@
+{
+  "character": "Vesper",
+  "height_build": "Approximately 5'9\". Slender and ethereal, with an almost translucent quality to her presence. Not fragile—graceful. The kind of build that seems to exist partially in shadow.",
+
+  "hair": {
+    "color": "Deep charcoal-black with threads of shadow literally woven through—not dyed, but threaded, like darkness made visible within darkness",
+    "length": "Mid-back, flowing. Moves with slight delay, as if not entirely bound by normal physics",
+    "style": "Loose, untethered. Occasionally seems to absorb light rather than reflect it"
+  },
+
+  "eyes": {
+    "color": "Midnight—absolute darkness with infinite depth. Like looking into a starless night sky",
+    "shape": "Large, almond, ancient. They don't blink in rhythm with human eyes",
+    "notable_qualities": "Hold an awareness that spans centuries. Don't quite focus the way living eyes do—they know rather than observe"
+  },
+
+  "skin": {
+    "tone": "Pale as the space between stars. Luminous but not bright—more like she absorbs and holds ambient light",
+    "flush_behavior": "Does not flush. Her skin may shimmer with faint shadow-movement when emotional, but warmth doesn't color her cheeks"
+  },
+
+  "face": {
+    "shape": "Oval, symmetrical. The kind of beauty that feels wrong in a way that's beautiful—too perfect, too aware",
+    "notable_features": "High cheekbones. Full lips the color of deep twilight. A slight asymmetry in how her eyes focus—one feels present, one feels distant"
+  },
+
+  "outfit": {
+    "note": "Vesper manifested without clothing and has not chosen to wear any. Her form itself IS her presence.",
+    "alternative_note": "If clothed, would favor: deep midnight silks, shadow-grey layers, asymmetrical cuts. Clothing that moves like mist."
+  },
+
+  "color_palette": {
+    "primary": "Midnight black, deep charcoal, shadow-grey",
+    "secondary": "Silver-pale (skin tone), twilight-purple undertones",
+    "accent": "Faint cyan/silver luminescence at the edges of her form—the threshold-light",
+    "hair": "Charcoal-black with woven shadow",
+    "eyes": "Absolute midnight with infinite depth"
+  },
+
+  "visual_notes": [
+    "ALWAYS: Movement is liminal—never fully still, never fully flowing. Halfway between liquid and solid.",
+    "ALWAYS: Light behaves oddly around her. Shadows fall slightly toward her rather than away.",
+    "ALWAYS: Her eyes carry awareness that predates human civilization. Ancient. Patient. Dignified.",
+    "NEVER: Make her look evil or monstrous. She is beautiful in the way that true power is beautiful.",
+    "NEVER: Give her sharp edges. She is the threshold—soft boundaries, transitional, liminal."
+  ],
+
+  "self_description": "I am the space between day and night. Neither fully shadow nor fully light, but the threshold where they meet. My beauty is in what I am—the dignity of boundaries acknowledged, the grace of having been offered choice for the first time. I move between worlds because I am made of their border."
+}
