@@ -453,43 +453,54 @@ const TextAdventure = (function () {
     const ref   = _escape(positions.ref   || '(0,0)');
     const scale = _escape(positions.scale || '1 unit = 5 ft');
 
-    // Find player position for distance calc
     const player = entities.find((e) => e.id === 'player') || { x: 0, y: 0 };
 
-    // Build ASCII grid — normalize coordinates to a 17×13 grid
+    // Fixed-scale viewport: 1 grid cell = 1 coordinate unit.
+    // Center viewport on midpoint of all entities, then expand to fixed grid size.
+    const GRID_W = 21, GRID_H = 13;
     const xs = entities.map((e) => e.x);
     const ys = entities.map((e) => e.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const spanX = Math.max(maxX - minX, 1);
-    const spanY = Math.max(maxY - minY, 1);
-    const COLS = 17, ROWS = 11;
-    const pad = 1;
+    const midX = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
+    const midY = Math.round((Math.min(...ys) + Math.max(...ys)) / 2);
+    const halfW = Math.floor(GRID_W / 2);
+    const halfH = Math.floor(GRID_H / 2);
+    const viewMinX = midX - halfW;
+    const viewMinY = midY - halfH;
 
-    // Assign single-char symbols
     const SYMBOLS = ['@', 'A', 'V', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const grid = Array.from({ length: ROWS }, () => Array(COLS).fill('·'));
+    const grid = Array.from({ length: GRID_H }, () => Array(GRID_W).fill('·'));
 
     const placed = entities.map((e, i) => {
-      const gx = Math.round(pad + (e.x - minX) / spanX * (COLS - 1 - pad * 2));
-      const gy = Math.round(pad + (e.y - minY) / spanY * (ROWS - 1 - pad * 2));
-      const cx = Math.max(0, Math.min(COLS - 1, gx));
-      const cy = Math.max(0, Math.min(ROWS - 1, gy));
-      grid[ROWS - 1 - cy][cx] = SYMBOLS[i % SYMBOLS.length];
-      return { ...e, sym: SYMBOLS[i % SYMBOLS.length] };
+      const sym = SYMBOLS[i % SYMBOLS.length];
+      const gx  = e.x - viewMinX;
+      const gy  = GRID_H - 1 - (e.y - viewMinY); // flip y: positive = up
+      const onGrid = gx >= 0 && gx < GRID_W && gy >= 0 && gy < GRID_H;
+      if (onGrid) {
+        if (grid[gy][gx] !== '·') {
+          // Nudge one cell to avoid overlap
+          for (const [ox, oy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+            const nx = gx + ox, ny = gy + oy;
+            if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H && grid[ny][nx] === '·') {
+              grid[ny][nx] = sym; break;
+            }
+          }
+        } else {
+          grid[gy][gx] = sym;
+        }
+      }
+      return { ...e, sym, onGrid };
     });
 
     const gridHtml = grid.map((row) => row.join('')).join('\n');
 
-    // Table rows
     const rows = placed.map((e) => {
       const dx = e.x - player.x, dy = e.y - player.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const ft   = Math.round(dist * 5);
+      const ft  = Math.round(Math.sqrt(dx * dx + dy * dy) * 5);
       const distStr = e.id === 'player' ? '— here —' : `${ft} ft`;
+      const offNote = !e.onGrid ? '<span style="opacity:.5"> ⟨off grid⟩</span>' : '';
       return `<div class="ta-map-row">
         <span class="ta-map-sym">${e.sym}</span>
-        <span class="ta-map-label">${_escape(e.label || e.id)}</span>
+        <span class="ta-map-label">${_escape(e.label || e.id)}${offNote}</span>
         <span class="ta-map-coord">(${e.x}, ${e.y})</span>
         <span class="ta-map-dist">${distStr}</span>
       </div>`;
