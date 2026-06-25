@@ -101,10 +101,8 @@
 }
 
 [data-package="wraith"] .axis-bar-fill {
-  animation:
-    vu-bounce var(--vu-speed, 2.2s) linear infinite,
-    wraith-bar-pulse 2.8s ease-in-out infinite;
-  transition: none;
+  animation: wraith-bar-pulse 2.8s ease-in-out infinite;
+  transition: width 0.6s ease;
 }
 
 /* Divination Tremor — attributed to: Fantasy RPG package */

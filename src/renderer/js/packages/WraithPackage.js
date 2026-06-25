@@ -53,7 +53,7 @@ class WraithPackage extends VisualPackage {
     };
 
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['filmGrain', 'overlayEffects', 'scanlines', 'vuBounce', 'wraithAmbient'];
+    this.effectModules = ['filmGrain', 'overlayEffects', 'scanlines', 'wraithAmbient'];
 
     this.defaultEffects = {
       grid:                'off',
@@ -70,13 +70,12 @@ class WraithPackage extends VisualPackage {
       scanlinesIntensity:  'light',    // subtle texture, not full CRT
       parchmentOpacity:    0,
       seasonMode:          'off',
-      vuAmp:               4,          // quieter bounce — wraiths move slowly
-      vuSpeed:             16,
+      vuAmp:               0,
+      vuSpeed:             22,
       moduleEnabled: {
         filmGrain:      true,
         overlayEffects: true,
         scanlines:      true,
-        vuBounce:       true,
         wraithAmbient:  true,
       },
     };

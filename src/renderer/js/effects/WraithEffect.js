@@ -3,61 +3,73 @@
  * WraithEffect — ambient canvas effects for the WRAITH visual package (Vesper).
  * Registered under id 'wraithAmbient'.
  *
- * Canvas effects (always on, drawn on #bg-wraith):
- *   - Cobwebs      : faint webs in the corners of #output-panel, swaying in a slow breeze
+ * Three independently-toggleable sub-systems, each controlled by a settings module:
+ *   wraithCobwebs   : random asymmetric corner webs swaying in a faint breeze
+ *   wraithSpirits   : occasional ghost float + spider scurry
+ *   wraithLightning : occasional lightning flash with 4-pane window shadow
  *
- * Canvas effects (occasional, auto-triggered):
- *   - Lightning    : full-screen flash + 4-pane window silhouette cast on the screen (every 3–8 min)
- *   - Ghost        : barely visible ghost floats in from off-screen, drifts to a random spot, fades out (every 2–5 min)
- *   - Spider       : small spider crawls out from a corner, wanders, then scurries off-screen (every 3–7 min)
+ * All three share one rAF loop; the effect stops only when all three are disabled.
  */
 class WraithEffect extends VisualEffect {
 
   // ── Tuning ────────────────────────────────────────────────────────────────
-  static LIGHTNING_INTERVAL_MIN = 180;   // seconds — minimum gap between strikes
-  static LIGHTNING_INTERVAL_MAX = 480;   // seconds — maximum gap
-  static LIGHTNING_DURATION     = 0.65;  // seconds — canvas window-shadow lifetime
+  static LIGHTNING_DURATION = 0.65;  // seconds for canvas window-shadow pass
 
-  static GHOST_INTERVAL_MIN  = 120;   // seconds
-  static GHOST_INTERVAL_MAX  = 300;   // seconds
-  static GHOST_FADE_IN       = 1.8;   // seconds — alpha ramp up
-  static GHOST_HOLD          = 4.0;   // seconds — peak visibility
-  static GHOST_FADE_OUT      = 2.5;   // seconds — alpha ramp down
-  static GHOST_MAX_ALPHA     = 0.13;  // barely visible
+  // Interval presets [min, max] in seconds
+  static GHOST_INTERVALS     = { short:[30,60],   normal:[120,300], long:[300,600]  };
+  static SPIDER_INTERVALS    = { short:[60,90],   normal:[180,420], long:[420,720]  };
+  static LIGHTNING_INTERVALS = { short:[60,120],  normal:[180,480], long:[480,900]  };
 
-  static SPIDER_INTERVAL_MIN = 180;   // seconds
-  static SPIDER_INTERVAL_MAX = 420;   // seconds
-  static SPIDER_SPEED        = 65;    // pixels per second
-
-  static COBWEB_SWAY_HZ   = 0.18;   // oscillation frequency
-  static COBWEB_SWAY_AMP  = 3.5;    // pixels — max displacement of central spoke tip
-  static COBWEB_RADII     = [18, 36, 54];  // ring distances from corner (px)
-  static COBWEB_SPOKES    = [0, 22.5, 45, 67.5, 90];  // degrees from edge-axis
+  static COBWEB_SWAY_HZ_DEFAULT  = 0.18;
+  static COBWEB_AMP_DEFAULT      = 3.5;
 
   constructor() {
     super('wraithAmbient');
-    this._canvas      = null;
-    this._ctx         = null;
-    this._rAF         = null;
-    this._lastTs      = 0;
-    this._t           = 0;       // global elapsed seconds (drives cobweb sway)
+    this._canvas  = null;
+    this._ctx     = null;
+    this._rAF     = null;
+    this._lastTs  = 0;
+    this._t       = 0;
 
-    // Lightning
-    this._lightningT     = -1;   // -1 = idle; 0→1 = playing
+    // ── Sub-system enabled flags (set from config) ──────────────────────────
+    this._cobwebsEnabled   = true;
+    this._cobwebSwayHz     = WraithEffect.COBWEB_SWAY_HZ_DEFAULT;
+    this._cobwebAmp        = WraithEffect.COBWEB_AMP_DEFAULT;
+    this._cobwebOpacityMult= 1.0;
+
+    this._ghostEnabled   = true;
+    this._ghostInterval  = 'normal';
+    this._spiderEnabled  = true;
+    this._spiderInterval = 'normal';
+
+    this._lightningEnabled  = true;
+    this._lightningInterval = 'normal';
+
+    // ── Runtime state ────────────────────────────────────────────────────────
+    this._lightningT     = -1;
     this._lightningTimer = null;
-
-    // Ghost
-    this._ghost      = null;
-    this._ghostTimer = null;
-
-    // Spider
-    this._spider      = null;
-    this._spiderTimer = null;
+    this._ghost          = null;
+    this._ghostTimer     = null;
+    this._spider         = null;
+    this._spiderTimer    = null;
+    this._cobwebs        = null;
   }
 
   // ── VisualEffect hooks ────────────────────────────────────────────────────
 
   _onStart(config = {}) {
+    // Read config into instance state
+    this._cobwebsEnabled    = config.cobwebsEnabled   !== false;
+    this._cobwebSwayHz      = config.cobwebSwayHz     ?? WraithEffect.COBWEB_SWAY_HZ_DEFAULT;
+    this._cobwebAmp         = config.cobwebAmp        ?? WraithEffect.COBWEB_AMP_DEFAULT;
+    this._cobwebOpacityMult = config.cobwebOpacity    ?? 1.0;
+    this._ghostEnabled      = config.ghostEnabled     !== false;
+    this._ghostInterval     = config.ghostInterval    || 'normal';
+    this._spiderEnabled     = config.spiderEnabled    !== false;
+    this._spiderInterval    = config.spiderInterval   || 'normal';
+    this._lightningEnabled  = config.lightningEnabled !== false;
+    this._lightningInterval = config.lightningInterval|| 'normal';
+
     this._initCanvas();
     this._t          = 0;
     this._lightningT = -1;
@@ -65,6 +77,7 @@ class WraithEffect extends VisualEffect {
     this._spider     = null;
     this._lastTs     = 0;
 
+    this._generateCobwebs();
     this._scheduleLightning();
     this._scheduleGhost();
     this._scheduleSpider();
@@ -73,18 +86,86 @@ class WraithEffect extends VisualEffect {
   }
 
   _onStop() {
-    if (this._rAF)          { cancelAnimationFrame(this._rAF);    this._rAF = null; }
+    if (this._rAF)           { cancelAnimationFrame(this._rAF);    this._rAF = null; }
     if (this._lightningTimer){ clearTimeout(this._lightningTimer); this._lightningTimer = null; }
-    if (this._ghostTimer)   { clearTimeout(this._ghostTimer);     this._ghostTimer = null; }
-    if (this._spiderTimer)  { clearTimeout(this._spiderTimer);    this._spiderTimer = null; }
-
+    if (this._ghostTimer)    { clearTimeout(this._ghostTimer);     this._ghostTimer = null; }
+    if (this._spiderTimer)   { clearTimeout(this._spiderTimer);    this._spiderTimer = null; }
     document.getElementById('wraith-lightning-overlay')?.remove();
-
     if (this._ctx && this._canvas)
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-
     this._ghost  = null;
     this._spider = null;
+  }
+
+  _onUpdate(key, value) {
+    switch (key) {
+      case 'cobwebsEnabled':
+        this._cobwebsEnabled = value;
+        break;
+      case 'cobwebSwayHz':
+        this._cobwebSwayHz = value;
+        break;
+      case 'cobwebAmp':
+        this._cobwebAmp = value;
+        break;
+      case 'cobwebOpacity':
+        this._cobwebOpacityMult = value;
+        break;
+      case 'cobwebRegen':
+        if (value) this._generateCobwebs();
+        break;
+      case 'ghostEnabled':
+        this._ghostEnabled = value;
+        if (!value) { clearTimeout(this._ghostTimer); this._ghostTimer = null; }
+        else        this._scheduleGhost();
+        break;
+      case 'ghostInterval':
+        this._ghostInterval = value;
+        this._rescheduleGhost();
+        break;
+      case 'spiderEnabled':
+        this._spiderEnabled = value;
+        if (!value) { clearTimeout(this._spiderTimer); this._spiderTimer = null; this._spider = null; }
+        else        this._scheduleSpider();
+        break;
+      case 'spiderInterval':
+        this._spiderInterval = value;
+        this._rescheduleSpider();
+        break;
+      case 'lightningEnabled':
+        this._lightningEnabled = value;
+        if (!value) { clearTimeout(this._lightningTimer); this._lightningTimer = null; }
+        else        this._scheduleLightning();
+        break;
+      case 'lightningInterval':
+        this._lightningInterval = value;
+        this._rescheduleLightning();
+        break;
+    }
+  }
+
+  // ── Public spawn methods (called from settings spawn buttons) ─────────────
+
+  spawnGhost() {
+    if (!this._running) return;
+    clearTimeout(this._ghostTimer);
+    this._ghostTimer = null;
+    this._spawnGhost();
+    this._scheduleGhost();
+  }
+
+  spawnSpider() {
+    if (!this._running) return;
+    clearTimeout(this._spiderTimer);
+    this._spiderTimer = null;
+    this._spider = null;
+    this._spawnSpider();
+    this._scheduleSpider();
+  }
+
+  triggerLightning() {
+    if (!this._running) return;
+    this._triggerLightning();
   }
 
   // ── Canvas init ───────────────────────────────────────────────────────────
@@ -104,6 +185,31 @@ class WraithEffect extends VisualEffect {
     this._canvas.height = window.innerHeight;
   }
 
+  // ── Interval helpers ──────────────────────────────────────────────────────
+
+  _intervalMs(mode, table) {
+    const [mn, mx] = table[mode] || table.normal;
+    return (mn + Math.random() * (mx - mn)) * 1000;
+  }
+
+  _rescheduleGhost() {
+    clearTimeout(this._ghostTimer);
+    this._ghostTimer = null;
+    this._scheduleGhost();
+  }
+
+  _rescheduleSpider() {
+    clearTimeout(this._spiderTimer);
+    this._spiderTimer = null;
+    this._scheduleSpider();
+  }
+
+  _rescheduleLightning() {
+    clearTimeout(this._lightningTimer);
+    this._lightningTimer = null;
+    this._scheduleLightning();
+  }
+
   // ── Main tick ─────────────────────────────────────────────────────────────
 
   _tick(ts) {
@@ -113,7 +219,6 @@ class WraithEffect extends VisualEffect {
     this._lastTs = ts;
     this._t += dt;
 
-    // Advance ghost
     if (this._ghost) {
       this._ghost.elapsed += dt;
       this._ghost.x += this._ghost.vx * dt;
@@ -121,10 +226,8 @@ class WraithEffect extends VisualEffect {
       if (this._ghost.elapsed >= this._ghost.totalDuration) this._ghost = null;
     }
 
-    // Advance spider
     if (this._spider) this._updateSpider(dt);
 
-    // Advance lightning canvas phase
     if (this._lightningT >= 0) {
       this._lightningT += dt / WraithEffect.LIGHTNING_DURATION;
       if (this._lightningT >= 1) this._lightningT = -1;
@@ -141,101 +244,138 @@ class WraithEffect extends VisualEffect {
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
 
-    this._drawCobwebs(ctx, W, H);
-    if (this._ghost)       this._drawGhost(ctx);
-    if (this._spider)      this._drawSpider(ctx);
+    if (this._cobwebsEnabled) this._drawCobwebs(ctx, W, H);
+    if (this._ghost)          this._drawGhost(ctx);
+    if (this._spider)         this._drawSpider(ctx);
     if (this._lightningT >= 0) this._drawLightningWindow(ctx, W, H);
   }
 
   // ── Cobwebs ───────────────────────────────────────────────────────────────
 
+  /**
+   * Generate one unique random web config per corner. Each call fully randomises
+   * all four webs independently — called once at start and on REGEN.
+   */
+  _generateCobwebs() {
+    const corners = [
+      { xSign: +1, ySign: +1 },   // top-left
+      { xSign: -1, ySign: +1 },   // top-right
+      { xSign: +1, ySign: -1 },   // bottom-left
+      { xSign: -1, ySign: -1 },   // bottom-right
+    ];
+
+    this._cobwebs = corners.map(({ xSign, ySign }) => {
+      const spread       = 45 + Math.random() * 45;           // 45–90° arc span
+      const numInterior  = Math.floor(Math.random() * 4);     // 0–3 extra spokes
+      const numRings     = 1 + Math.floor(Math.random() * 4); // 1–4 ring tiers
+      const maxRadius    = 24 + Math.random() * 44;           // 24–68px reach
+      const alpha        = 0.16 + Math.random() * 0.24;       // per-web opacity
+      const lineWidth    = 0.35 + Math.random() * 0.55;       // per-web weight
+
+      // Spoke angles: always 0° and spread° as wall anchors, random interior
+      const angles = [0];
+      for (let i = 0; i < numInterior; i++)
+        angles.push(spread * (0.1 + Math.random() * 0.8));
+      angles.push(spread);
+      angles.sort((a, b) => a - b);
+
+      // De-duplicate spokes closer than 6°
+      const deduped = [angles[0]];
+      for (let i = 1; i < angles.length; i++)
+        if (angles[i] - deduped[deduped.length - 1] >= 6) deduped.push(angles[i]);
+      const finalAngles = deduped;
+
+      // Sway: 0 at wall-edge anchors, sine-peaks at middle
+      const swayFactors = finalAngles.map(a => Math.sin((a / spread) * Math.PI));
+
+      // Ring tiers at irregular radii; each gap independently present/absent
+      const minRadius  = maxRadius * 0.18;
+      const missingRate= 0.15 + Math.random() * 0.35;
+      const rings = [];
+      for (let i = 0; i < numRings; i++) {
+        const frac   = (i + 0.5 + (Math.random() - 0.5) * 0.55) / numRings;
+        const radius = minRadius + (maxRadius - minRadius) * frac;
+        const segments = finalAngles.slice(0, -1).map(() => Math.random() > missingRate);
+        rings.push({ radius, segments });
+      }
+      rings.sort((a, b) => a.radius - b.radius);
+
+      return { xSign, ySign, angles: finalAngles, rings, swayFactors, alpha, lineWidth };
+    });
+  }
+
   _drawCobwebs(ctx, W, H) {
+    if (!this._cobwebs) return;
     const panel = document.getElementById('output-panel');
     if (!panel) return;
     const r    = panel.getBoundingClientRect();
-    const sway = Math.sin(this._t * WraithEffect.COBWEB_SWAY_HZ * Math.PI * 2)
-               * WraithEffect.COBWEB_SWAY_AMP;
+    const sway = Math.sin(this._t * this._cobwebSwayHz * Math.PI * 2) * this._cobwebAmp;
+
+    const corners = [
+      { cx: r.left,  cy: r.top    },
+      { cx: r.right, cy: r.top    },
+      { cx: r.left,  cy: r.bottom },
+      { cx: r.right, cy: r.bottom },
+    ];
+    corners.forEach(({ cx, cy }, i) => this._drawCornerWeb(ctx, cx, cy, this._cobwebs[i], sway));
+  }
+
+  _drawCornerWeb(ctx, cx, cy, web, sway) {
+    const { xSign, ySign, angles, rings, swayFactors, alpha, lineWidth } = web;
+    if (!rings.length) return;
 
     ctx.save();
     ctx.strokeStyle = '#c8b4ee';
-    ctx.lineWidth   = 0.6;
-    ctx.globalAlpha = 0.30;
+    ctx.lineWidth   = lineWidth;
+    ctx.globalAlpha = alpha * this._cobwebOpacityMult;
 
-    // top-left corner: opens right (+x) and down (+y)
-    this._drawCornerWeb(ctx, r.left, r.top,   +1, +1, sway);
-    // top-right corner: opens left (−x) and down (+y)
-    this._drawCornerWeb(ctx, r.right, r.top,  -1, +1, sway);
-    // bottom-left corner: opens right (+x) and up (−y)
-    this._drawCornerWeb(ctx, r.left, r.bottom, +1, -1, sway);
-    // bottom-right corner: opens left (−x) and up (−y)
-    this._drawCornerWeb(ctx, r.right, r.bottom,-1, -1, sway);
+    const pt = (a, i, radius) => {
+      const rad = a * Math.PI / 180;
+      const sf  = swayFactors[i];
+      return {
+        x: cx + xSign * (Math.cos(rad) * radius + sway * sf * 0.60),
+        y: cy + ySign * (Math.sin(rad) * radius - sway * sf * 0.35),
+      };
+    };
 
-    ctx.restore();
-  }
+    const outerRadius = rings[rings.length - 1].radius;
 
-  /**
-   * Draw a single corner cobweb.
-   * @param {number} cx, cy   — corner anchor point
-   * @param {number} xSign    — +1 (open right) or -1 (open left)
-   * @param {number} ySign    — +1 (open down) or -1 (open up)
-   * @param {number} sway     — current sway displacement in pixels
-   */
-  _drawCornerWeb(ctx, cx, cy, xSign, ySign, sway) {
-    const ANGLES = WraithEffect.COBWEB_SPOKES;  // 0..90 degrees
-    const RADII  = WraithEffect.COBWEB_RADII;
-
-    // Compute spoke tip positions with sway applied to middle spokes.
-    // Sway direction: perpendicular to the 45° bisector of the corner,
-    // implemented as +sway on x and -sway on y (or vice versa).
-    // Edge anchors (0° and 90°) get no sway.
-    const swayFactors = [0, 0.5, 1.0, 0.5, 0];  // matches ANGLES array
-
-    // For each radius, pre-compute the ring points once
-    const rings = RADII.map(r =>
-      ANGLES.map((a, i) => {
-        const rad = a * Math.PI / 180;
-        const sf  = swayFactors[i];
-        return {
-          x: cx + xSign * (Math.cos(rad) * r + sway * sf * 0.60),
-          y: cy + ySign * (Math.sin(rad) * r - sway * sf * 0.35),
-        };
-      })
-    );
-
-    // Draw radial spokes from corner to outermost ring
-    for (let i = 0; i < ANGLES.length; i++) {
-      const tip = rings[rings.length - 1][i];
+    // Radial spokes
+    for (let i = 0; i < angles.length; i++) {
+      const tip = pt(angles[i], i, outerRadius);
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(tip.x, tip.y);
       ctx.stroke();
     }
 
-    // Draw ring segments between adjacent spokes using quadratic bezier.
-    // Control point is at the mid-angle, at 88% of the ring radius (slightly inward).
-    for (const pts of rings) {
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a0 = ANGLES[i], a1 = ANGLES[i + 1];
-        const rIdx = RADII.indexOf(RADII[rings.indexOf(pts)]);
-        const r = RADII[rIdx] * 0.88;
-        const midRad = ((a0 + a1) / 2) * Math.PI / 180;
-        const sf = (swayFactors[i] + swayFactors[i + 1]) / 2;
-        const cpx = cx + xSign * (Math.cos(midRad) * r + sway * sf * 0.6);
-        const cpy = cy + ySign * (Math.sin(midRad) * r - sway * sf * 0.35);
-        ctx.quadraticCurveTo(cpx, cpy, pts[i + 1].x, pts[i + 1].y);
+    // Ring segments (each drawn separately so missing gaps leave clean breaks)
+    for (const ring of rings) {
+      for (let i = 0; i < angles.length - 1; i++) {
+        if (!ring.segments[i]) continue;
+        const p0 = pt(angles[i],     i,     ring.radius);
+        const p1 = pt(angles[i + 1], i + 1, ring.radius);
+        const midAngle = (angles[i] + angles[i + 1]) / 2;
+        const midRad   = midAngle * Math.PI / 180;
+        const cpRadius = ring.radius * 0.87;
+        const sf       = (swayFactors[i] + swayFactors[i + 1]) / 2;
+        const cpx = cx + xSign * (Math.cos(midRad) * cpRadius + sway * sf * 0.6);
+        const cpy = cy + ySign * (Math.sin(midRad) * cpRadius - sway * sf * 0.35);
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.quadraticCurveTo(cpx, cpy, p1.x, p1.y);
+        ctx.stroke();
       }
-      ctx.stroke();
     }
+
+    ctx.restore();
   }
 
   // ── Ghost ─────────────────────────────────────────────────────────────────
 
   _scheduleGhost() {
-    const MIN   = WraithEffect.GHOST_INTERVAL_MIN * 1000;
-    const MAX   = WraithEffect.GHOST_INTERVAL_MAX * 1000;
-    const delay = MIN + Math.random() * (MAX - MIN);
+    if (!this._ghostEnabled) return;
+    const delay = this._intervalMs(this._ghostInterval, WraithEffect.GHOST_INTERVALS);
     this._ghostTimer = setTimeout(() => {
       if (!this._running) return;
       this._spawnGhost();
@@ -249,7 +389,6 @@ class WraithEffect extends VisualEffect {
     if (!panel) return;
     const r = panel.getBoundingClientRect();
 
-    // Pick a random entry edge
     const edge = Math.floor(Math.random() * 4);
     let sx, sy;
     switch (edge) {
@@ -262,66 +401,55 @@ class WraithEffect extends VisualEffect {
     const tx = r.left + 30 + Math.random() * (r.width  - 60);
     const ty = r.top  + 30 + Math.random() * (r.height - 60);
     const dx = tx - sx, dy = ty - sy;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-    const totalDuration = WraithEffect.GHOST_FADE_IN + WraithEffect.GHOST_HOLD + WraithEffect.GHOST_FADE_OUT;
-    const speed = dist / (WraithEffect.GHOST_FADE_IN + WraithEffect.GHOST_HOLD * 0.4);
+    const dist  = Math.sqrt(dx * dx + dy * dy) || 1;
+    const fi    = 1.8, hold = 4.0, fo = 2.5;
+    const speed = dist / (fi + hold * 0.4);
 
     this._ghost = {
       x: sx, y: sy,
       vx: (dx / dist) * speed * 0.45,
       vy: (dy / dist) * speed * 0.45,
-      elapsed:       0,
-      totalDuration,
-      wobblePhase:   Math.random() * Math.PI * 2,
+      elapsed: 0,
+      totalDuration: fi + hold + fo,
+      wobblePhase: Math.random() * Math.PI * 2,
     };
   }
 
   _ghostAlpha() {
     if (!this._ghost) return 0;
     const { elapsed, totalDuration } = this._ghost;
-    const fi = WraithEffect.GHOST_FADE_IN;
-    const fo = WraithEffect.GHOST_FADE_OUT;
-    const max = WraithEffect.GHOST_MAX_ALPHA;
-    if (elapsed < fi)                         return (elapsed / fi) * max;
-    if (elapsed < totalDuration - fo)         return max;
+    const fi = 1.8, fo = 2.5, max = 0.13;
+    if (elapsed < fi)                    return (elapsed / fi) * max;
+    if (elapsed < totalDuration - fo)    return max;
     return Math.max(0, ((totalDuration - elapsed) / fo) * max);
   }
 
   _drawGhost(ctx) {
     const alpha = this._ghostAlpha();
     if (alpha <= 0) return;
-
     const g      = this._ghost;
     const wobble = Math.sin(this._t * 1.3 + g.wobblePhase) * 5;
     const x      = g.x;
     const y      = g.y + wobble;
-    const W2     = 28;   // half-width
-    const H2     = 40;   // total height
+    const W2     = 28, H2 = 40;
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Outer glow halo
     const halo = ctx.createRadialGradient(x, y - 4, 4, x, y - 4, W2 * 2.0);
-    halo.addColorStop(0,   'rgba(210, 180, 255, 0.70)');
-    halo.addColorStop(0.45,'rgba(160, 110, 230, 0.30)');
-    halo.addColorStop(1,   'rgba(80,  40, 160, 0.00)');
+    halo.addColorStop(0,    'rgba(210, 180, 255, 0.70)');
+    halo.addColorStop(0.45, 'rgba(160, 110, 230, 0.30)');
+    halo.addColorStop(1,    'rgba(80,  40,  160, 0.00)');
     ctx.fillStyle = halo;
     ctx.beginPath();
     ctx.ellipse(x, y - 4, W2 * 2.0, H2 * 1.2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ghost body
     ctx.fillStyle = 'rgba(240, 228, 255, 0.88)';
     ctx.beginPath();
-    // Dome (top half circle)
     ctx.arc(x, y - H2 * 0.22, W2, Math.PI, 0, false);
-    // Right side down
     ctx.lineTo(x + W2, y + H2 * 0.55);
-    // Wavy bottom — 4 bumps
-    const bumps = 4;
-    const bumpH = 7;
+    const bumps = 4, bumpH = 7;
     for (let i = bumps; i >= 0; i--) {
       const bx = x - W2 + (i / bumps) * W2 * 2;
       const by = y + H2 * 0.55 + (i % 2 === 0 ? -bumpH : bumpH);
@@ -330,24 +458,18 @@ class WraithEffect extends VisualEffect {
     ctx.closePath();
     ctx.fill();
 
-    // Inner highlight (slightly transparent overlay for volume feel)
     const shine = ctx.createRadialGradient(x - 8, y - H2 * 0.15, 2, x - 4, y - H2 * 0.1, W2 * 0.9);
-    shine.addColorStop(0,   'rgba(255, 252, 255, 0.45)');
-    shine.addColorStop(0.5, 'rgba(220, 200, 255, 0.10)');
-    shine.addColorStop(1,   'rgba(180, 150, 255, 0.00)');
+    shine.addColorStop(0,   'rgba(255,252,255,0.45)');
+    shine.addColorStop(0.5, 'rgba(220,200,255,0.10)');
+    shine.addColorStop(1,   'rgba(180,150,255,0.00)');
     ctx.fillStyle = shine;
     ctx.beginPath();
     ctx.ellipse(x - 4, y - H2 * 0.10, W2 * 0.75, H2 * 0.45, -0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes — hollow dark ovals
     ctx.fillStyle = 'rgba(35, 8, 75, 0.75)';
-    ctx.beginPath();
-    ctx.ellipse(x - 9, y - H2 * 0.08, 5.5, 8, -0.18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(x + 9, y - H2 * 0.08, 5.5, 8,  0.18, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x - 9, y - H2 * 0.08, 5.5, 8, -0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 9, y - H2 * 0.08, 5.5, 8,  0.18, 0, Math.PI * 2); ctx.fill();
 
     ctx.restore();
   }
@@ -355,9 +477,8 @@ class WraithEffect extends VisualEffect {
   // ── Spider ────────────────────────────────────────────────────────────────
 
   _scheduleSpider() {
-    const MIN   = WraithEffect.SPIDER_INTERVAL_MIN * 1000;
-    const MAX   = WraithEffect.SPIDER_INTERVAL_MAX * 1000;
-    const delay = MIN + Math.random() * (MAX - MIN);
+    if (!this._spiderEnabled) return;
+    const delay = this._intervalMs(this._spiderInterval, WraithEffect.SPIDER_INTERVALS);
     this._spiderTimer = setTimeout(() => {
       if (!this._running) return;
       this._spawnSpider();
@@ -371,7 +492,6 @@ class WraithEffect extends VisualEffect {
     if (!panel) return;
     const r = panel.getBoundingClientRect();
 
-    // Start from a random panel corner
     const corner = Math.floor(Math.random() * 4);
     let sx, sy;
     switch (corner) {
@@ -381,7 +501,6 @@ class WraithEffect extends VisualEffect {
       default:sx = r.right - 4; sy = r.bottom - 4; break;
     }
 
-    // A few interior waypoints, then an exit off-screen
     const wps = [];
     for (let i = 0; i < 4; i++) {
       wps.push({
@@ -389,16 +508,19 @@ class WraithEffect extends VisualEffect {
         y: r.top  + 10 + Math.random() * (r.height - 20),
       });
     }
-    // Exit
     const exitEdge = Math.floor(Math.random() * 4);
     switch (exitEdge) {
-      case 0: wps.push({ x: r.left  - 35, y: r.top + Math.random() * r.height }); break;
-      case 1: wps.push({ x: r.right + 35, y: r.top + Math.random() * r.height }); break;
-      case 2: wps.push({ x: r.left + Math.random() * r.width, y: r.top    - 35 }); break;
-      default:wps.push({ x: r.left + Math.random() * r.width, y: r.bottom + 35 }); break;
+      case 0: wps.push({ x: r.left  - 40, y: r.top  + Math.random() * r.height }); break;
+      case 1: wps.push({ x: r.right + 40, y: r.top  + Math.random() * r.height }); break;
+      case 2: wps.push({ x: r.left  + Math.random() * r.width, y: r.top    - 40 }); break;
+      default:wps.push({ x: r.left  + Math.random() * r.width, y: r.bottom + 40 }); break;
     }
 
-    this._spider = { x: sx, y: sy, waypoints: wps, wpIdx: 0, legT: 0 };
+    // Initial heading toward first waypoint
+    const dx0 = wps[0].x - sx, dy0 = wps[0].y - sy;
+    const initialAngle = Math.atan2(dy0, dx0);
+
+    this._spider = { x: sx, y: sy, angle: initialAngle, waypoints: wps, wpIdx: 0, legT: 0 };
   }
 
   _updateSpider(dt) {
@@ -407,15 +529,25 @@ class WraithEffect extends VisualEffect {
 
     s.legT += dt;
 
-    if (s.wpIdx >= s.waypoints.length) {
-      this._spider = null;
-      return;
-    }
+    if (s.wpIdx >= s.waypoints.length) { this._spider = null; return; }
+
     const tgt  = s.waypoints[s.wpIdx];
     const dx   = tgt.x - s.x;
     const dy   = tgt.y - s.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const step = WraithEffect.SPIDER_SPEED * dt;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+
+    // Smooth rotation toward heading (8 rad/s max turn rate)
+    const targetAngle = Math.atan2(dy, dx);
+    const angleDiff   = ((targetAngle - s.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    s.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 8 * dt);
+
+    // Eased speed: ease-out — fast approach, decelerate near waypoint
+    const DECEL_DIST = 40;
+    const MAX_SPEED  = 230;
+    const MIN_SPEED  = 20;
+    const proximity  = dist < DECEL_DIST ? dist / DECEL_DIST : 1.0;
+    const speed      = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.sqrt(proximity);
+    const step       = speed * dt;
 
     if (dist <= step) {
       s.x = tgt.x; s.y = tgt.y;
@@ -430,84 +562,66 @@ class WraithEffect extends VisualEffect {
     const s = this._spider;
     if (!s) return;
 
-    const x = s.x, y = s.y;
+    // Symmetrical 8-legged spider drawn in local space (faces +x = direction of travel)
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.angle);
+    ctx.globalAlpha = 0.88;
 
-    // Determine heading angle (toward current waypoint)
-    let headAngle = 0;
-    if (s.wpIdx < s.waypoints.length) {
-      const t = s.waypoints[s.wpIdx];
-      headAngle = Math.atan2(t.y - y, t.x - x);
+    const LEG_COLOR  = '#9966cc';   // mid-purple — visible on dark backgrounds
+    const BODY_COLOR = '#8855bb';
+
+    // 4 legs per side — perfectly mirrored about the x-axis
+    // Angles (in local degrees from +x): front→back spread across the body
+    const BASE_ANGLES = [32, 56, 80, 104];  // degrees from forward for each leg
+    const THIGH_LEN   = 10;
+    const SHIN_LEN    = 10;
+
+    ctx.strokeStyle = LEG_COLOR;
+    ctx.lineWidth   = 1.1;
+
+    for (let side = 0; side < 2; side++) {
+      const ym = side === 0 ? -1 : 1;   // -1 = top, +1 = bottom
+      for (let i = 0; i < 4; i++) {
+        const rad  = BASE_ANGLES[i] * Math.PI / 180;
+        // Alternate legs rise/fall on opposite wave phases (walking gait)
+        const wave = Math.sin(s.legT * 10 + i * Math.PI * 0.75) * 2.5 * ym;
+
+        // Thigh: from body to joint
+        const jx = Math.cos(rad) * THIGH_LEN;
+        const jy = ym * Math.sin(rad) * THIGH_LEN + wave;
+
+        // Shin: continues from joint, angled further outward
+        const shinRad = rad + 0.38;
+        const tx = jx + Math.cos(shinRad) * SHIN_LEN;
+        const ty = jy + ym * Math.sin(shinRad) * SHIN_LEN;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(jx, jy, tx, ty);
+        ctx.stroke();
+      }
     }
 
-    const wave = Math.sin(s.legT * 9) * 3;
+    // Body: abdomen (rear oval) + cephalothorax (front oval)
+    ctx.fillStyle = BODY_COLOR;
 
-    ctx.save();
-    ctx.globalAlpha   = 0.72;
-    ctx.strokeStyle   = '#0e0520';
-    ctx.fillStyle     = '#0e0520';
-    ctx.lineWidth     = 1.0;
-
-    // 8 legs — 4 per side, alternating bent-up / bent-down for walking illusion
-    // Angles are in local (un-rotated) space; we rotate the whole ctx
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(headAngle);
-
-    const legPairs = [
-      // [near-angle, far-angle, side]  — local space, side: +1 top, -1 bottom
-      [-0.35, -0.70],   // front-top
-      [ 0.35,  0.70],   // front-bottom
-      [-0.65, -1.10],
-      [ 0.65,  1.10],
-      [-1.00, -1.45],
-      [ 1.00,  1.45],
-      [-1.40, -1.80],
-      [ 1.40,  1.80],
-    ];
-
-    for (let i = 0; i < legPairs.length; i++) {
-      const [a1, a2] = legPairs[i];
-      const legWave  = (i % 2 === 0 ? 1 : -1) * wave;
-      // Joint (mid-leg bend)
-      const mx = Math.cos(a1) * 10 + legWave * 0.3;
-      const my = Math.sin(a1) * 10 + legWave;
-      // Tip
-      const tx = mx + Math.cos(a2) * 10;
-      const ty = my + Math.sin(a2) * 10 + legWave * 0.4;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(mx, my, tx, ty);
-      ctx.stroke();
-    }
-
-    // Abdomen — large oval behind
     ctx.beginPath();
-    ctx.ellipse(-7, 0, 7.5, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Cephalothorax — smaller oval in front
-    ctx.beginPath();
-    ctx.ellipse(2, 0, 4.5, 3.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(-7, 0, 8, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Purple eyes
-    ctx.fillStyle = '#9922ee';
     ctx.beginPath();
-    ctx.arc(5.5, -1.5, 1.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(5.5,  1.5, 1.4, 0, Math.PI * 2);
+    ctx.ellipse(2, 0, 5, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.restore(); // un-rotate
-    ctx.restore(); // un-alpha
+    ctx.restore();
   }
 
   // ── Lightning ─────────────────────────────────────────────────────────────
 
   _scheduleLightning() {
-    const MIN   = WraithEffect.LIGHTNING_INTERVAL_MIN * 1000;
-    const MAX   = WraithEffect.LIGHTNING_INTERVAL_MAX * 1000;
-    const delay = MIN + Math.random() * (MAX - MIN);
+    if (!this._lightningEnabled) return;
+    const delay = this._intervalMs(this._lightningInterval, WraithEffect.LIGHTNING_INTERVALS);
     this._lightningTimer = setTimeout(() => {
       if (!this._running) return;
       this._triggerLightning();
@@ -520,18 +634,12 @@ class WraithEffect extends VisualEffect {
     this._doLightningFlash();
   }
 
-  /**
-   * DOM-based flash: 3-flicker sequence that simulates a lightning strike.
-   * The bright white/lavender overlay pulses rapidly then fades to a brief
-   * afterglow while the canvas draws the window-shadow pattern.
-   */
   _doLightningFlash() {
     const ov = document.createElement('div');
     ov.id = 'wraith-lightning-overlay';
     ov.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:9998', 'pointer-events:none',
-      'background:rgba(220,200,255,0)',
-      'transition:background 0.03s linear',
+      'background:rgba(220,200,255,0)', 'transition:background 0.03s linear',
     ].join(';');
     document.body.appendChild(ov);
 
@@ -541,69 +649,48 @@ class WraithEffect extends VisualEffect {
       ov.style.background = bg;
     }, delay);
 
-    // Initial snap to very bright
     requestAnimationFrame(() => requestAnimationFrame(() => {
       ov.style.background = 'rgba(225,210,255,0.88)';
     }));
-    // First flicker
     set('rgba(190,160,255,0.22)', 55,  'background 0.08s ease-out');
     set('rgba(225,210,255,0.70)', 120, 'background 0.03s linear');
-    // Second flicker (shorter)
     set('rgba(190,160,255,0.08)', 165, 'background 0.10s ease-out');
     set('rgba(210,190,255,0.45)', 220, 'background 0.02s linear');
-    // Settle into faint afterglow while window-shadow is drawn on canvas
     set('rgba(160,120,220,0.04)', 275, 'background 0.36s ease-out');
-    // Remove
     setTimeout(() => document.getElementById('wraith-lightning-overlay')?.remove(), 660);
   }
 
-  /**
-   * Draw the window-shadow silhouette that appears on the "wall" during the flash.
-   * Resembles a 4-pane window frame (two horizontal × two vertical divisions)
-   * cast from behind (bright zones between bars, dark frame bars).
-   * Phase t=0→1 over LIGHTNING_DURATION seconds.
-   */
   _drawLightningWindow(ctx, W, H) {
     const t = this._lightningT;
-    // Visible from t=0.08 to t=0.70; fades at both ends
     if (t < 0.08 || t > 0.72) return;
     const fadeIn  = Math.min(1, (t - 0.08) / 0.12);
     const fadeOut = t > 0.58 ? Math.max(0, 1 - (t - 0.58) / 0.14) : 1;
     const alpha   = fadeIn * fadeOut;
     if (alpha <= 0) return;
 
-    // Window parameters — slightly off-center, as if from upper-right
-    const cx  = W * 0.38;
-    const cy  = H * 0.24;
-    const ww  = W * 0.30;
-    const wh  = H * 0.38;
-    const fw  = 11;          // frame / divider bar thickness
+    const cx  = W * 0.38, cy = H * 0.24;
+    const ww  = W * 0.30, wh = H * 0.38;
+    const fw  = 11;
 
     ctx.save();
     ctx.globalAlpha = alpha * 0.22;
     ctx.fillStyle   = 'rgba(200, 170, 255, 1)';
 
-    // Outer frame bars
-    ctx.fillRect(cx - ww / 2,       cy - wh / 2,       ww,  fw);   // top rail
-    ctx.fillRect(cx - ww / 2,       cy + wh / 2 - fw,  ww,  fw);   // bottom rail
-    ctx.fillRect(cx - ww / 2,       cy - wh / 2,       fw,  wh);   // left stile
-    ctx.fillRect(cx + ww / 2 - fw,  cy - wh / 2,       fw,  wh);   // right stile
+    ctx.fillRect(cx - ww / 2,      cy - wh / 2,       ww,  fw);
+    ctx.fillRect(cx - ww / 2,      cy + wh / 2 - fw,  ww,  fw);
+    ctx.fillRect(cx - ww / 2,      cy - wh / 2,       fw,  wh);
+    ctx.fillRect(cx + ww / 2 - fw, cy - wh / 2,       fw,  wh);
+    ctx.fillRect(cx - ww / 2,      cy - fw / 2,        ww,  fw);
+    ctx.fillRect(cx - fw / 2,      cy - wh / 2,        fw,  wh);
 
-    // Centre dividers (4-pane window cross)
-    ctx.fillRect(cx - ww / 2,       cy - fw / 2,        ww,  fw);   // horizontal bar
-    ctx.fillRect(cx - fw / 2,       cy - wh / 2,        fw,  wh);   // vertical bar
-
-    // Light "cast" rectangles between the bars (bright patches on the wall)
     ctx.globalAlpha = alpha * 0.06;
     ctx.fillStyle   = 'rgba(230, 210, 255, 1)';
-    const innerX = cx - ww / 2 + fw;
-    const innerY = cy - wh / 2 + fw;
-    const paneW  = ww / 2 - fw * 1.5;
-    const paneH  = wh / 2 - fw * 1.5;
-    ctx.fillRect(innerX,             innerY,             paneW, paneH);  // TL pane
-    ctx.fillRect(cx + fw / 2,        innerY,             paneW, paneH);  // TR pane
-    ctx.fillRect(innerX,             cy + fw / 2,        paneW, paneH);  // BL pane
-    ctx.fillRect(cx + fw / 2,        cy + fw / 2,        paneW, paneH);  // BR pane
+    const ix = cx - ww / 2 + fw, iy = cy - wh / 2 + fw;
+    const pw = ww / 2 - fw * 1.5, ph = wh / 2 - fw * 1.5;
+    ctx.fillRect(ix,        iy,        pw, ph);
+    ctx.fillRect(cx + fw/2, iy,        pw, ph);
+    ctx.fillRect(ix,        cy + fw/2, pw, ph);
+    ctx.fillRect(cx + fw/2, cy + fw/2, pw, ph);
 
     ctx.restore();
   }
