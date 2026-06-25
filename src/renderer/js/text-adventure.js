@@ -1277,6 +1277,12 @@ const TextAdventure = (function () {
         if (res.reply.emotion && window.CompanionDisplay && typeof window.CompanionDisplay.setEmotion === 'function') {
           window.CompanionDisplay.setEmotion(res.reply.emotion);
         }
+        if (res.stateChanged) {
+          const notice = document.createElement('div');
+          notice.className = 'ta-gm-notice';
+          notice.textContent = '// game state updated';
+          gmScrollEl.appendChild(notice);
+        }
       } else {
         _appendGmMsg('gm', 'ERROR — ' + ((res && res.error) || 'unknown error'));
       }

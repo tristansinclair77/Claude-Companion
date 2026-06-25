@@ -826,6 +826,14 @@ body:not(.adventure-mode) #text-adventure {
   font-style: italic;
   animation: ta-blink 1s steps(2) infinite;
 }
+.ta-gm-notice {
+  text-align: center;
+  color: #fff7c2;
+  font-size: 8px;
+  letter-spacing: 1px;
+  opacity: 0.65;
+  padding: 4px 0 8px;
+}
 .ta-gm-input-row {
   border-top: 1px solid rgba(102, 255, 139, 0.35);
   background: rgba(102, 255, 139, 0.04);

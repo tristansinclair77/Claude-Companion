@@ -553,8 +553,13 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
           "  - Changes the player wants to suggest for the story\n" +
           "  - Anything else the player wants to know or discuss about the campaign\n\n" +
           "Use your normal [DIALOGUE] / [THOUGHTS] / (emotion) response format. " +
-          "Do NOT emit [GAME_STATE], [NARRATOR], [SCENE], [ENEMY], or [DEATH] tags — " +
-          "this is a GM conversation, not a story turn. The story does NOT advance.",
+          "The story does NOT advance here. Do NOT emit [NARRATOR], [SCENE], [ENEMY], or [DEATH] tags.\n\n" +
+          "MECHANICAL CHANGES: If Trist asks you to make a mechanical change to the game state " +
+          "(add/remove an item, equip gear, adjust a stat, update memory, fix a data error, etc.), " +
+          "apply it immediately using the same [GAME_STATE]...[/GAME_STATE] diff format used in " +
+          "normal story turns. Place the diff AFTER your dialogue. The system will apply it " +
+          "automatically and update the live game — you do not need to tell Trist to do it manually. " +
+          "If no mechanical change is needed, omit the [GAME_STATE] block entirely.",
         gm_campaign_state:
           '=== CURRENT CAMPAIGN STATE ===\n' +
           JSON.stringify(state, null, 2) +
@@ -602,12 +607,31 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
       const thoughts = response.thoughts || '';
       const emotion  = response.emotion  || 'neutral';
 
+      // Apply any mechanical diff the GM included (item equip, stat fix, etc.)
+      let stateChanged = false;
+      const raw = response.raw || '';
+      if (raw) {
+        const gsDiff = _extractBlock(raw, 'GAME_STATE', 'GAME_STATE');
+        if (gsDiff.value) {
+          const diff = _safeJsonParse(gsDiff.value);
+          if (diff) {
+            store.applyStateDiff(state, diff);
+            store.saveState(characterDir, state);
+            stateChanged = true;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('adventure:update', { state, turnResponse: null });
+            }
+          }
+        }
+      }
+
       store.appendGmChat(characterDir, { role: 'user', content: text });
       store.appendGmChat(characterDir, { role: 'gm', content: dialogue, thoughts, emotion });
 
       return {
         success: true,
         reply: { dialogue, thoughts, emotion },
+        stateChanged,
       };
     } catch (err) {
       console.error('[Adventure] ask-gm error:', err.message);
