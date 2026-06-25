@@ -31,6 +31,7 @@ const TextAdventure = (function () {
     { id: 'summons',   label: 'SUM' },
     { id: 'story',     label: 'SAGA' },
     { id: 'memory',    label: 'LORE' },
+    { id: 'map',       label: 'MAP'  },
   ];
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ const TextAdventure = (function () {
             <button class="ta-hud-btn" data-drawer="summons" title="Summons &amp; Bound Entities">SUM</button>
             <button class="ta-hud-btn" data-drawer="story" title="Story — recap, events, goals">SAGA</button>
             <button class="ta-hud-btn" data-drawer="memory" title="World — NPCs, quests, lore">LORE</button>
+            <button class="ta-hud-btn" data-drawer="map" title="Spatial positions — who is where">MAP</button>
             <button class="ta-hud-btn warn" id="ta-btn-reset" title="Reset — wipes all progress">RST</button>
             <button class="ta-hud-btn" id="ta-btn-exit">EXIT</button>
           </div>
@@ -437,7 +439,69 @@ const TextAdventure = (function () {
       _renderStoryDrawer(state.memory || {});
     } else if (_drawerActiveTab === 'memory') {
       _renderWorldDrawer(state.memory || {});
+    } else if (_drawerActiveTab === 'map') {
+      _renderMapDrawer(state.positions, state);
     }
+  }
+
+  function _renderMapDrawer(positions, state) {
+    if (!positions || !Array.isArray(positions.entities) || !positions.entities.length) {
+      drawerSections.innerHTML = '<div class="ta-list-empty">// no position data yet<br>// updates each story turn</div>';
+      return;
+    }
+    const entities = positions.entities;
+    const ref   = _escape(positions.ref   || '(0,0)');
+    const scale = _escape(positions.scale || '1 unit = 5 ft');
+
+    // Find player position for distance calc
+    const player = entities.find((e) => e.id === 'player') || { x: 0, y: 0 };
+
+    // Build ASCII grid — normalize coordinates to a 17×13 grid
+    const xs = entities.map((e) => e.x);
+    const ys = entities.map((e) => e.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const spanX = Math.max(maxX - minX, 1);
+    const spanY = Math.max(maxY - minY, 1);
+    const COLS = 17, ROWS = 11;
+    const pad = 1;
+
+    // Assign single-char symbols
+    const SYMBOLS = ['@', 'A', 'V', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const grid = Array.from({ length: ROWS }, () => Array(COLS).fill('·'));
+
+    const placed = entities.map((e, i) => {
+      const gx = Math.round(pad + (e.x - minX) / spanX * (COLS - 1 - pad * 2));
+      const gy = Math.round(pad + (e.y - minY) / spanY * (ROWS - 1 - pad * 2));
+      const cx = Math.max(0, Math.min(COLS - 1, gx));
+      const cy = Math.max(0, Math.min(ROWS - 1, gy));
+      grid[ROWS - 1 - cy][cx] = SYMBOLS[i % SYMBOLS.length];
+      return { ...e, sym: SYMBOLS[i % SYMBOLS.length] };
+    });
+
+    const gridHtml = grid.map((row) => row.join('')).join('\n');
+
+    // Table rows
+    const rows = placed.map((e) => {
+      const dx = e.x - player.x, dy = e.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ft   = Math.round(dist * 5);
+      const distStr = e.id === 'player' ? '— here —' : `${ft} ft`;
+      return `<div class="ta-map-row">
+        <span class="ta-map-sym">${e.sym}</span>
+        <span class="ta-map-label">${_escape(e.label || e.id)}</span>
+        <span class="ta-map-coord">(${e.x}, ${e.y})</span>
+        <span class="ta-map-dist">${distStr}</span>
+      </div>`;
+    }).join('');
+
+    drawerSections.innerHTML = `
+      <div class="ta-section-title">// POSITIONS</div>
+      <div class="ta-map-meta">ref: ${ref}</div>
+      <div class="ta-map-meta">scale: ${scale}</div>
+      <pre class="ta-map-grid">${gridHtml}</pre>
+      <div class="ta-map-legend">${rows}</div>
+    `;
   }
 
   function _renderInventoryDrawer(inv, equipment) {

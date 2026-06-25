@@ -932,6 +932,14 @@ GAME_STATE DIFF FORMAT — include only changed fields:
     "update": [ {id,hp,...} ]
   },
   "scene":  { "name":"...", "area":"..." },
+  "positions": {
+    "scale": "1 unit = 5 ft",
+    "ref": "brief label for what (0,0) is in the current scene",
+    "entities": [
+      { "id": "player", "label": "Trist",  "x": 0, "y": 0 },
+      { "id": "aria",   "label": "Aria",   "x": 1, "y": 0 }
+    ]
+  },
   "memory": { "npcs":[...], "locations":[...], "quests":[...], "events":[...], "lore":[...],
                "currentSituation":"...", "immediateGoal":"...", "storySummary":"..." }
 }

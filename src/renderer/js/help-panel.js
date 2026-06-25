@@ -781,10 +781,10 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-hud',
       title: 'HUD & Drawer',
-      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'character selector', 'target', 'aria', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore', 'party', 'party panel', 'pty', 'ask gm', 'gamemaster', 'ask'],
+      tags: ['hud', 'drawer', 'inventory', 'equipment', 'spells', 'abilities', 'stats', 'character selector', 'target', 'aria', 'story', 'world', 'npcs', 'quests', 'lore', 'summons', 'bound entities', 'chat', 'saga', 'lore', 'party', 'party panel', 'pty', 'ask gm', 'gamemaster', 'ask', 'map', 'positions', 'spatial', 'grid', 'coordinates', 'distance', 'where'],
       content:
         p('The HUD across the top has the current scene, time, and music badge. Click <em>PTY</em> to toggle a collapsible party panel that drops down over the story area showing HP, MP, and level for you, Aria, and any party members who have joined the run. Dismiss it by clicking PTY again.') +
-        p('The action drawer slides in from the right when you click a drawer button. Inside the drawer, a <strong>◀ CHARACTER ▶</strong> selector lets you cycle through party members — use the arrows to target who you want to inspect. INV, EQP, SPL, ABL, and STA all reflect the targeted character. SUM, SAGA, and LORE are party-wide.') +
+        p('The action drawer slides in from the right when you click a drawer button. Inside the drawer, a <strong>◀ CHARACTER ▶</strong> selector lets you cycle through party members — use the arrows to target who you want to inspect. INV, EQP, SPL, ABL, and STA all reflect the targeted character. SUM, SAGA, LORE, and MAP are party-wide.') +
         kv([
           ['PTY',   'Toggle the party panel — shows HP/MP bars for you, Aria, and any companions who have joined.'],
           ['CHAT',  'Talk to Aria — opens side chat, pauses the story.'],
@@ -797,10 +797,11 @@ const HelpPanel = (() => {
           ['SUM',   'Bound entities and summons — creatures you\'ve captured or sworn to you. See Summons article.'],
           ['SAGA',  'The rolling story-so-far recap + current situation + immediate goal + chronological event log.'],
           ['LORE',  'Everything Claude has remembered — NPCs, locations, quests (active/done/failed), and standalone lore facts.'],
+          ['MAP',   'Spatial grid — shows every entity\'s x/y position, an ASCII layout, and distance from you. Updated every turn.'],
           ['RST',   'Reset — wipes all progress, memory, and side-chat.'],
           ['EXIT',  'Leave adventure mode and return to normal chat.'],
         ]) +
-        note('Claude updates party HP/MP continuously via the [GAME_STATE] diff each turn. The party panel always shows live values.')
+        note('Claude updates party HP/MP and positions every turn via the [GAME_STATE] diff. The MAP tab always shows the current snapshot.')
     },
     {
       catId: 'rpg', id: 'ta-summons',

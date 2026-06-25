@@ -242,6 +242,7 @@ function _freshState({ tone, setting }) {
     memory:   _freshMemory(),
     party:        [],   // additional party members (NPCs/companions who join)
     summons:      [],   // bound/summoned entities — NOT full party members
+    positions:    null, // spatial grid — updated every turn by the GM
     enemy:        null,
     encounterIdx: 0,
     turnCount:    0,
@@ -265,8 +266,9 @@ function loadState(characterDir) {
     if (!state.aria)    state.aria    = _freshAria();
     if (!state.memory)  state.memory  = _freshMemory();
     if (!state.time)    state.time    = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
-    if (!state.party)   state.party   = [];
-    if (!state.summons) state.summons = [];
+    if (!state.party)                      state.party     = [];
+    if (!state.summons)                    state.summons   = [];
+    if (state.positions === undefined)     state.positions = null;
     return state;
   } catch (e) {
     console.warn('[TextAdventure] loadState failed:', e.message);
@@ -570,6 +572,11 @@ function applyStateDiff(state, diff) {
       _addStrings   (mem.lore, diff.memory.lore.add    || [], 'lore');
       _removeStrings(mem.lore, diff.memory.lore.remove || []);
     }
+  }
+
+  // Spatial positions — full block replacement each turn
+  if (diff.positions && typeof diff.positions === 'object') {
+    state.positions = diff.positions;
   }
 
   // Direct top-level pass-throughs

@@ -556,6 +556,40 @@ When either character dies this turn:
 
 Do NOT emit [DEATH] for near-death scares — only on actual fatal blows.
 
+SPATIAL TRACKING
+
+state.positions places every active entity on a relative grid so the
+story stays spatially coherent. You MUST update this block EVERY turn,
+even if nobody moved — the engine needs a fresh snapshot each time.
+
+Grid rules:
+  • x = east/right (+) or west/left (−). y = north/forward (+) or south/back (−).
+  • 1 unit ≈ 5 feet (one combat square / one short stride).
+  • "ref" = a short plain-English label for what (0,0) represents in the
+    current scene. Re-anchor whenever the scene changes locations.
+  • Normal walking pace ≈ 6 units/turn. Combat move ≈ 1-3 units.
+  • Melee range: adjacent (≤ 1.5 units). Spell/ranged: 4-12 units.
+
+Include ALL entities currently present in the scene:
+  - id "player"                → Trist
+  - id "aria"                  → Aria
+  - each party member          → use their id from state.party (e.g. "vesper-party")
+  - id "enemy"                 → current enemy if combat is active
+  - any NPCs actively in scene → use their memory id (e.g. "kael", "marta-herbalist-freed")
+  - Remove entities the moment they leave the scene or are no longer present.
+
+Replace the ENTIRE positions block every turn — never partial update:
+  "positions": {
+    "scale": "1 unit = 5 ft",
+    "ref": "campfire at the cliff-top scrubland",
+    "entities": [
+      { "id": "player",       "label": "Trist",  "x":  0, "y": 0 },
+      { "id": "aria",         "label": "Aria",   "x":  1, "y": 0 },
+      { "id": "vesper-party", "label": "Vesper", "x": -1, "y": 3 },
+      { "id": "enemy",        "label": "Corrupted Stag", "x": 8, "y": 5 }
+    ]
+  }
+
 TONE & SETTING
 
 Honor the tone chosen at game start and any free-text setting Trist

@@ -1078,3 +1078,37 @@ body:not(.adventure-mode) #text-adventure {
   0%, 100% { background: #ff5577; }
   50%      { background: #ffea88; }
 }
+
+/* ── MAP drawer ─────────────────────────────────────────────────────────── */
+.ta-map-meta {
+  color: rgba(102, 255, 139, 0.5);
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 1px 0;
+}
+.ta-map-grid {
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  color: rgba(207, 234, 216, 0.55);
+  letter-spacing: 2px;
+  line-height: 1.5;
+  margin: 8px 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(102, 255, 139, 0.12);
+  padding: 6px;
+  overflow: hidden;
+}
+.ta-map-legend { margin-top: 6px; }
+.ta-map-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 4px;
+  font-size: 9px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(102, 255, 139, 0.08);
+  align-items: center;
+}
+.ta-map-sym   { color: #66ff8b; font-weight: bold; }
+.ta-map-label { color: #e8f5ec; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ta-map-coord { color: rgba(207, 234, 216, 0.45); font-size: 8px; white-space: nowrap; }
+.ta-map-dist  { color: #fff7c2; font-size: 8px; white-space: nowrap; text-align: right; }
