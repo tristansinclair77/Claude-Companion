@@ -160,7 +160,9 @@ async function runAdventureTurn({
   state,
   log,
   characterContext,
+  combatFrequency = 2,
 }) {
+  const freqDirective = COMBAT_FREQ_DIRECTIVES[Math.max(0, Math.min(4, combatFrequency))];
   const adventureContext = {
     rules: buildRules(),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
@@ -178,7 +180,8 @@ async function runAdventureTurn({
       "exist in a separate channel you cannot see. Do NOT use [STATE], [SENSATION], [TRACK], " +
       "[REMEMBER], [KNOWLEDGE], [THREAD], [SELF], [MEMORY], [AFFECTION], or [RECALL] in this " +
       "mode — they don't apply. Use [GAME_STATE] for adventure state, including the memory " +
-      "block. Use [MUSIC] to drive the soundtrack (see MUSIC section + catalog).",
+      "block. Use [MUSIC] to drive the soundtrack (see MUSIC section + catalog).\n\n" +
+      freqDirective,
   };
 
   const mergedAddonContexts = [
@@ -306,7 +309,15 @@ async function runSideChatTurn({
 
 // ── IPC registration ─────────────────────────────────────────────────────────
 
-function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
+const COMBAT_FREQ_DIRECTIVES = [
+  'COMBAT FREQUENCY: OFF. Never initiate combat under any circumstances. The story is purely narrative — fights only happen if the player explicitly forces one themselves.',
+  'COMBAT FREQUENCY: RARE. Combat should be uncommon — only when it feels truly essential. Prefer non-combat solutions and let long stretches of story pass without fighting.',
+  'COMBAT FREQUENCY: BALANCED. Mix combat and narrative naturally. Include encounters when the story calls for it — roughly once every 8-12 turns in genuinely dangerous areas.',
+  'COMBAT FREQUENCY: FREQUENT. Include combat regularly. In dangerous areas expect a fight every 4-6 turns. Ambushes, hostile creatures, and aggressive NPCs should appear often.',
+  'COMBAT FREQUENCY: RELENTLESS. Combat is a constant presence — every 2-4 turns in hazardous zones. The world should feel dangerous at every step and enemies should be proactive.',
+];
+
+function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettings, characterDir }) {
   if (!ipcMain || !characterDir) {
     console.warn('[TextAdventure] register called without ipcMain or characterDir — skipping.');
     return;
@@ -364,12 +375,14 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
       let log = store.appendLog(characterDir, { kind: 'action', text: cleanAction });
       const ctx = (typeof getCharacterContext === 'function') ? getCharacterContext() : {};
 
+      const advSettings = typeof getAdventureSettings === 'function' ? getAdventureSettings() : {};
       const result = await runAdventureTurn({
         characterDir,
         action: cleanAction,
         state,
         log,
         characterContext: ctx,
+        combatFrequency: typeof advSettings.combatFrequency === 'number' ? advSettings.combatFrequency : 2,
       });
       const parsed = result.parsed;
       raw = result.raw;

@@ -266,6 +266,10 @@ app.whenReady().then(() => {
     ipcMain,
     mainWindow: win,
     characterDir: CHARACTER_DIR,
+    getAdventureSettings: () => {
+      const c = readConfig().adventure || {};
+      return { combatFrequency: typeof c.combatFrequency === 'number' ? c.combatFrequency : 2 };
+    },
     getCharacterContext: () => ({
       character,
       characterRules,
@@ -938,17 +942,19 @@ ipcMain.handle('music:get-bible', () => {
 ipcMain.handle('adventure-display:get-settings', () => {
   const c = (readConfig().adventure) || {};
   return {
-    typewriter:  c.typewriter !== false,
-    typeCps:     typeof c.typeCps     === 'number' ? c.typeCps     : 80,
-    skipOnClick: c.skipOnClick !== false,
+    typewriter:      c.typewriter !== false,
+    typeCps:         typeof c.typeCps         === 'number' ? c.typeCps         : 80,
+    skipOnClick:     c.skipOnClick !== false,
+    combatFrequency: typeof c.combatFrequency  === 'number' ? c.combatFrequency : 2,
   };
 });
 ipcMain.handle('adventure-display:set-settings', (_event, partial = {}) => {
   const cur = (readConfig().adventure) || {};
   const next = { ...cur };
-  if (typeof partial.typewriter  === 'boolean') next.typewriter  = partial.typewriter;
-  if (typeof partial.typeCps     === 'number')  next.typeCps     = Math.max(10, Math.min(800, partial.typeCps));
-  if (typeof partial.skipOnClick === 'boolean') next.skipOnClick = partial.skipOnClick;
+  if (typeof partial.typewriter      === 'boolean') next.typewriter      = partial.typewriter;
+  if (typeof partial.typeCps         === 'number')  next.typeCps         = Math.max(10, Math.min(800, partial.typeCps));
+  if (typeof partial.skipOnClick     === 'boolean') next.skipOnClick     = partial.skipOnClick;
+  if (typeof partial.combatFrequency === 'number')  next.combatFrequency = Math.max(0, Math.min(4, Math.round(partial.combatFrequency)));
   writeConfig({ adventure: next });
   return next;
 });

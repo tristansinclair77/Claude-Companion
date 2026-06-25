@@ -752,9 +752,16 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-export-import',
       title: 'Export & Import a Story',
-      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure', 'settings'],
+      tags: ['export', 'import', 'save', 'load', 'transfer', 'portable', 'backup', 'move', 'another machine', 'adventure file', '.adventure', 'settings', 'combat frequency', 'combat slider', 'typewriter', 'speed'],
       content:
-        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons live in <em>Settings → ADVENTURE TEXT</em>. They save a run to a portable <code>.adventure</code> file and reload it on any machine.') +
+        p('Adventure-specific settings live in <em>Settings → ADVENTURE TEXT</em>:') +
+        kv([
+          ['TYPEWRITER',  'Toggle the typewriter animation on narrator and Aria text.'],
+          ['SPEED',       'Characters-per-second rate for the typewriter (20–400 cps).'],
+          ['SKIP CLICK',  'Click anywhere in the terminal to finish the current typewriter animation instantly.'],
+          ['COMBAT',      'How often the GM initiates combat encounters. OFF through RELENTLESS — defaults to BALANCED. Takes effect on the next adventure turn.'],
+        ]) +
+        p('The <em>EXPORT</em> and <em>IMPORT</em> buttons save/restore a full run to a portable <code>.adventure</code> file.') +
         kv([
           ['EXPORT', 'Bundles the current state, full narrative log, and side-chat transcript into a single <code>.adventure</code> file. A save dialog lets you choose where to put it. The filename defaults to the current scene and day number.'],
           ['IMPORT', 'Opens a file picker, loads the <code>.adventure</code> file, and replaces the active run. The HUD, enemy panel, and log all update immediately. A confirmation prompt protects against accidental overwrites.'],
