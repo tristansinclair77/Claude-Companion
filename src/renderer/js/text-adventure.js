@@ -445,7 +445,6 @@ const TextAdventure = (function () {
   }
 
   function _compassDesc(dx, dy, ft) {
-    if (ft === 0) return 'same position as you';
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
     const dirs  = ['east','northeast','north','northwest','west','southwest','south','southeast'];
     const idx   = Math.round(((angle % 360) + 360) % 360 / 45) % 8;
@@ -470,7 +469,9 @@ const TextAdventure = (function () {
       } else {
         const dx = charEnt.x - player.x, dy = charEnt.y - player.y;
         const ft = Math.round(Math.sqrt(dx * dx + dy * dy) * 5);
-        charBlurb = `at (${charEnt.x}, ${charEnt.y}) — ${_compassDesc(dx, dy, ft)} from you`;
+        charBlurb = ft === 0
+          ? `at (${charEnt.x}, ${charEnt.y}) — beside you`
+          : `at (${charEnt.x}, ${charEnt.y}) — ${_compassDesc(dx, dy, ft)} from you`;
       }
     }
 
