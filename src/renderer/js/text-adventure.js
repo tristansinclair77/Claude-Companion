@@ -445,7 +445,7 @@ const TextAdventure = (function () {
   }
 
   function _compassDesc(dx, dy, ft) {
-    if (ft === 0) return 'right here';
+    if (ft === 0) return 'same position as you';
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
     const dirs  = ['east','northeast','north','northwest','west','southwest','south','southeast'];
     const idx   = Math.round(((angle % 360) + 360) % 360 / 45) % 8;
