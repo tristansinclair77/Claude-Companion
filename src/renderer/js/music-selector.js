@@ -86,8 +86,9 @@ const MusicSelector = (() => {
     _dropdown.style.top = rect.bottom + 'px';
   }
 
-  function _openDropdown() {
-    if (!_bible) return;
+  async function _openDropdown() {
+    await _loadBible();
+    if (!_bible || !_bible.length) return;
     _renderTracks();
     _positionDropdown();
     _dropdown.classList.remove('hidden');

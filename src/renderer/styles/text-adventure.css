@@ -7,7 +7,9 @@
 
 body.adventure-mode #output-panel,
 body.adventure-mode #input-area,
-body.adventure-mode #tts-playbar {
+body.adventure-mode #tts-playbar,
+body.adventure-mode #chat-music-bar,
+body.adventure-mode #music-dropdown {
   display: none !important;
 }
 

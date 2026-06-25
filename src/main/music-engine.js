@@ -91,6 +91,7 @@ function load() {
 
 function isLoaded() { return _loaded; }
 function hasLibrary() { return _tracks.length > 0; }
+function getAllTracks() { load(); return _tracks; }
 
 function getTrackById(id) {
   load();
@@ -269,6 +270,7 @@ module.exports = {
   load,
   isLoaded,
   hasLibrary,
+  getAllTracks,
   getTrackById,
   getTrackByName,
   getVariantPathsForId,

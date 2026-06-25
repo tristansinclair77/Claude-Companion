@@ -934,7 +934,8 @@ ipcMain.handle('music:resume', () => { mainWindow?.webContents.send('music:cue',
 ipcMain.handle('music:stop',   () => { mainWindow?.webContents.send('music:cue', { kind: 'stop'   }); return { ok: true }; });
 
 ipcMain.handle('music:get-bible', () => {
-  return { tracks: musicEngine.hasLibrary() ? require('../../ref/_bible.json').tracks : [] };
+  musicEngine.load();
+  return { tracks: musicEngine.hasLibrary() ? musicEngine.getAllTracks() : [] };
 });
 
 // ── Adventure display settings ────────────────────────────────────────────────

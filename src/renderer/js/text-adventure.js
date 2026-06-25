@@ -188,7 +188,7 @@ const TextAdventure = (function () {
         <!-- Party panel: absolute-positioned dropdown below HUD -->
         <div class="ta-party-panel" id="ta-party-panel">
           <div class="ta-hud-row ta-party-row">
-            <span class="ta-hud-name player">TRIST</span>
+            <span class="ta-hud-name player" id="ta-p-name">TRIS</span>
             <span class="ta-hud-stat" title="Trist HP">HP <div class="ta-hud-bar"><span id="ta-p-hp" style="transform: scaleX(1)"></span></div><span id="ta-p-hp-t">0/0</span></span>
             <span class="ta-hud-stat" title="Trist MP">MP <div class="ta-hud-bar mp"><span id="ta-p-mp" style="transform: scaleX(1)"></span></div><span id="ta-p-mp-t">0/0</span></span>
             <span class="ta-hud-stat" title="Trist XP">LV <span id="ta-p-lvl">1</span><div class="ta-hud-bar xp"><span id="ta-p-xp" style="transform: scaleX(0)"></span></div></span>
@@ -1066,9 +1066,11 @@ const TextAdventure = (function () {
     const companionName = a.name || 'Aria';
     hudSceneEl.textContent = state.scene && state.scene.name ? state.scene.name : '— SCENE —';
 
-    // Update all companion name labels
+    // Update all companion/player name labels — 4-char max for HUD row
+    const pNameEl = root.querySelector('#ta-p-name');
+    if (pNameEl) pNameEl.textContent = (p.name || 'Trist').slice(0, 4).toUpperCase();
     const aNameEl = root.querySelector('#ta-a-name');
-    if (aNameEl) aNameEl.textContent = companionName.toUpperCase();
+    if (aNameEl) aNameEl.textContent = companionName.slice(0, 4).toUpperCase();
     const scTitleEl = root.querySelector('#ta-sc-title');
     if (scTitleEl) scTitleEl.textContent = `// SIDE-CHAT WITH ${companionName.toUpperCase()}`;
     if (hudTimeEl) {
@@ -1307,7 +1309,7 @@ const TextAdventure = (function () {
       const hpFrac = maxHp > 0 ? Math.max(0, Math.min(1, (m.hp || 0) / maxHp)) : 0;
       const mpFrac = maxMp > 0 ? Math.max(0, Math.min(1, (m.mp || 0) / maxMp)) : 0;
       const dead  = m.alive === false;
-      const nameTag = String(m.name || m.id || '?').slice(0, 6).toUpperCase();
+      const nameTag = String(m.name || m.id || '?').slice(0, 4).toUpperCase();
       return `<div class="ta-hud-row ta-party-row" style="${dead ? 'opacity:0.45' : ''}">
         <span class="ta-hud-name" style="color:#cfead8;width:44px" title="${_escape(m.name || '')}">${_escape(nameTag)}</span>
         <span class="ta-hud-stat" title="HP">HP <div class="ta-hud-bar"><span style="transform:scaleX(${hpFrac.toFixed(3)})"></span></div><span>${m.hp ?? 0}/${m.maxHp ?? 0}</span></span>
