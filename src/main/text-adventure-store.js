@@ -190,15 +190,15 @@ function _emptyCharacter(overrides = {}) {
 function _freshPlayer() {
   return _emptyCharacter({
     name:    'Trist',
-    str:     9,  // slight warrior lean — Aria covers magic
+    str:     9,
     con:     9,
     gold:    10,
   });
 }
 
-function _freshAria() {
+function _freshAria(name = 'Aria') {
   return _emptyCharacter({
-    name:    'Aria',
+    name,
     hp:      18, maxHp: 18,
     mp:      14, maxMp: 14,
     str:      7,
@@ -229,7 +229,7 @@ function _freshMemory() {
   };
 }
 
-function _freshState({ tone, setting }) {
+function _freshState({ tone, setting, companionName = 'Aria' }) {
   return {
     version:  3,
     started:  new Date().toISOString(),
@@ -238,7 +238,7 @@ function _freshState({ tone, setting }) {
     scene:    { name: 'The Beginning', area: 'Unknown' },
     time:     { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' },
     player:   _freshPlayer(),
-    aria:     _freshAria(),
+    aria:     _freshAria(companionName),
     memory:   _freshMemory(),
     party:        [],   // additional party members (NPCs/companions who join)
     summons:      [],   // bound/summoned entities — NOT full party members
@@ -354,8 +354,8 @@ function clearGmChat(characterDir) {
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
 
-function newGame(characterDir, { tone, setting } = {}) {
-  const state = _freshState({ tone, setting });
+function newGame(characterDir, { tone, setting, companionName = 'Aria' } = {}) {
+  const state = _freshState({ tone, setting, companionName });
   saveState(characterDir, state);
   saveLog(characterDir, _emptyLog());
   saveSideChat(characterDir, _emptySideChat());

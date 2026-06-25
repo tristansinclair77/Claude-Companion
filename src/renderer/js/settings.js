@@ -508,6 +508,18 @@ const BackgroundSettings = (() => {
     }
   }
 
+  function _applyWraithAmbient() {
+    const effect = PackageRegistry.getEffect('wraithAmbient');
+    if (!effect) return;
+    const active = (_getActivePackage()?.effectModules || []).includes('wraithAmbient')
+                   && _isModuleEnabled('wraithAmbient');
+    if (active) {
+      if (!effect.running) effect.start({});
+    } else {
+      effect.stop();
+    }
+  }
+
   function _applySeasons() {
     const effect = PackageRegistry.getEffect('seasons');
     if (!effect) return;
@@ -566,6 +578,9 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('arcadeAmbient')) {
       PackageRegistry.getEffect('arcadeAmbient')?.stop();
     }
+    if (!_isModuleEnabled('wraithAmbient')) {
+      PackageRegistry.getEffect('wraithAmbient')?.stop();
+    }
   }
 
   // Sync module toggle button visuals and section disabled state
@@ -599,6 +614,7 @@ const BackgroundSettings = (() => {
     _applyPong();
     _applySideScroller();
     _applyArcadeAmbient();
+    _applyWraithAmbient();
     _applyTvGlass();
     _applyArcadeBorder();
     _applyModuleEnabled(); // must run last — overrides state from disabled modules

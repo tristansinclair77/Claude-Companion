@@ -281,7 +281,7 @@ body:not(.adventure-mode) #text-adventure {
   margin-left: 6px;
 }
 .ta-entry.aria::before {
-  content: "Aria — ";
+  content: attr(data-label) " — ";
   color: #ff8fc0;
   letter-spacing: 1px;
 }
@@ -622,7 +622,7 @@ body:not(.adventure-mode) #text-adventure {
   color: #ffd6e8;
 }
 .ta-sc-msg.aria::before {
-  content: "Aria  ";
+  content: attr(data-label) "  ";
   color: #ff8fc0;
   font-family: 'Press Start 2P', monospace;
   font-size: 9px;

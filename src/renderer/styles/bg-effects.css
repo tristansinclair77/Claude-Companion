@@ -235,6 +235,15 @@
   z-index: 0;
 }
 
+/* ── Wraith Ambient canvas (cobwebs, ghost, spider, lightning window) ─────── */
+/* z-index: 3 — same layer as arcade-ambient; only one is ever active at once. */
+#bg-wraith {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
 /* ── Arcade Ambient canvas (raster beam, pixel dust, attract mode, degauss) ── */
 /* z-index: 3 — above space-invaders (z:2), below tv glass (z:15)              */
 #bg-arcade-ambient {

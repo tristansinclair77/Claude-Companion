@@ -44,6 +44,7 @@
   BackgroundSettings.init();
   // ARCHIVED: RvcSettings.init(); — voice feature disabled
   HelpPanel.init();
+  MusicSelector.init();
 
   // Chat-storage size warning — fires once on startup if knowledge.db > 1 GB.
   // The DB never auto-prunes, so this is the user's nudge to clean things up.

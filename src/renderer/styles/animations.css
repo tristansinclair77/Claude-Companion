@@ -91,6 +91,22 @@
   transition: none;
 }
 
+/* Spectral Pulse — attributed to: Wraith package */
+/* Bars oscillate brightness: dim → bright → dim, giving a ghostly glow effect.  */
+/* Layered on top of vu-bounce (if enabled) — each animates a different property. */
+@keyframes wraith-bar-pulse {
+  0%   { filter: brightness(0.70); }
+  50%  { filter: brightness(1.55); }
+  100% { filter: brightness(0.70); }
+}
+
+[data-package="wraith"] .axis-bar-fill {
+  animation:
+    vu-bounce var(--vu-speed, 2.2s) linear infinite,
+    wraith-bar-pulse 2.8s ease-in-out infinite;
+  transition: none;
+}
+
 /* Divination Tremor — attributed to: Fantasy RPG package */
 /* JS-driven (companion-display.js _startDivinationTremor).                  */
 /* Random tremor every 8–20s per bar: dim → width drift → soft-blink → restore. */

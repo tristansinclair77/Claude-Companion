@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Cinzel:wght@400;600&display=swap" />
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/crt-effects.css" />
   <link rel="stylesheet" href="styles/animations.css" />
@@ -34,6 +34,7 @@
   <canvas id="bg-pacman"          aria-hidden="true"></canvas>
   <canvas id="bg-dating-vn"       aria-hidden="true"></canvas>
   <canvas id="bg-arcade-ambient"  aria-hidden="true"></canvas>
+  <canvas id="bg-wraith"          aria-hidden="true"></canvas>
 
   <!-- CRT scanline overlay -->
   <div class="crt-overlay" aria-hidden="true"></div>
@@ -110,7 +111,7 @@
   <!-- Bottom: input area -->
   <div id="input-area">
     <div id="input-row">
-      <img id="avatar-img" src="" alt="" />
+      <img id="avatar-img" src="" alt="" onerror="this.src='../../characters/default/avatar-small.png'" />
       <textarea id="user-input" placeholder="Type a message..." rows="2" maxlength="2000" spellcheck="false"></textarea>
       <button id="btn-send">SEND</button>
     </div>
@@ -141,6 +142,7 @@
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-msg-editor" title="View and delete messages from session history">📋 MSGS</button>
       <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
+      <button class="action-btn" id="btn-music"       title="Browse and play the adventure soundtrack">♫ MUSIC</button>
       <!-- ARCHIVED: Voice buttons — TTS feature disabled, code preserved
       <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
@@ -154,6 +156,27 @@
     <!-- ARCHIVED: Voice picker popup — TTS feature disabled
     <div id="voice-picker" class="hidden"></div>
     END ARCHIVED -->
+
+    <!-- Music selector panel -->
+    <div id="music-selector-panel" class="hidden">
+      <div class="ms-header">
+        <span class="ms-title">// MUSIC_SELECTOR</span>
+        <div class="ms-header-actions">
+          <button id="ms-stop-btn" class="ms-stop" title="Stop music" disabled>■ STOP</button>
+          <button id="ms-close-btn" class="ms-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div id="ms-now-playing" class="ms-nowplaying ms-nowplaying-idle">— nothing playing —</div>
+      <div class="ms-search-row">
+        <input id="ms-search" class="ms-search-input" type="text" placeholder="search tracks..." spellcheck="false" />
+      </div>
+      <div id="ms-cat-tabs" class="ms-cat-tabs"></div>
+      <div id="ms-track-list" class="ms-track-list"></div>
+      <div class="ms-vol-row">
+        <span class="ms-vol-label">VOL</span>
+        <input id="ms-volume" class="ms-vol-slider" type="range" min="0" max="1" step="0.02" value="0.55" />
+      </div>
+    </div>
 
     <!-- Persona force popup -->
     <div id="persona-popup" class="hidden">
@@ -663,12 +686,15 @@
   <script src="js/packages/FantasyRpgPackage.js"></script>
   <script src="js/packages/ArcadePackage.js"></script>
   <script src="js/packages/AdventurePackage.js"></script>
+  <script src="js/effects/WraithEffect.js"></script>
+  <script src="js/packages/WraithPackage.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/requests-panel.js"></script>
   <script src="js/persona-popup.js"></script>
   <script src="js/help-panel.js"></script>
   <script src="js/music-player.js"></script>
   <script src="js/music-settings.js"></script>
+  <script src="js/music-selector.js"></script>
   <script src="js/text-adventure.js"></script>
   <script src="js/adventure-settings.js"></script>
   <script src="js/app.js"></script>

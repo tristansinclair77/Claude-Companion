@@ -1,5 +1,5 @@
 {
-  "activeCharacter": "default",
+  "activeCharacter": "vesper",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
     "pitchShift": 6,
@@ -19,27 +19,29 @@
     "gridAnimate": false,
     "gridOpacity": 0,
     "barWidth": 80,
-    "filmGrain": false,
-    "filmGrainOpacity": 5,
-    "filmGrainAnimate": false,
+    "filmGrain": true,
+    "filmGrainOpacity": 8,
+    "filmGrainAnimate": true,
     "dataRain": false,
     "circuitPattern": false,
-    "edgeGlow": false,
-    "chromaticAberration": false,
-    "scanlinesIntensity": "off",
-    "parchmentOpacity": 30,
-    "seasonMode": "rain",
-    "vuAmp": 5,
-    "vuSpeed": 22,
+    "edgeGlow": true,
+    "chromaticAberration": true,
+    "scanlinesIntensity": "light",
+    "parchmentOpacity": 0,
+    "seasonMode": "off",
+    "vuAmp": 4,
+    "vuSpeed": 16,
     "arcadeRasterBeam": true,
     "arcadePixelDust": true,
     "arcadeAttract": true,
     "arcadeGlitches": true,
     "moduleEnabled": {
-      "parchment": true,
-      "seasons": true
+      "filmGrain": true,
+      "overlayEffects": true,
+      "scanlines": true,
+      "vuBounce": true
     },
-    "activePackage": "fantasy_rpg",
+    "activePackage": "wraith",
     "packages": [
       {
         "id": "cybernetic",
@@ -336,13 +338,93 @@
           "seasonMode": "off",
           "vuAmp": 5,
           "vuSpeed": 22,
+          "moduleEnabled": {
+            "scanlines": true,
+            "filmGrain": true
+          },
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true
+        },
+        "background": {
+          "type": "none",
+          "src": null
+        },
+        "fonts": {
+          "ui": null,
+          "header": null
+        },
+        "music": {
+          "track": null,
+          "volume": 0.5
+        },
+        "sounds": {
+          "pack": null
+        }
+      },
+      {
+        "id": "wraith",
+        "name": "WRAITH",
+        "desc": "spectral violet / deep twilight",
+        "colors": {
+          "--cyan": "#b388ff",
+          "--cyan-dim": "#4a2080",
+          "--green": "#9c6fff",
+          "--magenta": "#e040d0",
+          "--purple": "#7b2fff",
+          "--orange": "#6688cc",
+          "--red": "#cc2266",
+          "--yellow": "#ddc8ff",
+          "--bg-dark": "#06040d",
+          "--bg-panel": "#0c0815",
+          "--bg-mid": "#10091e",
+          "--bg-input": "#080610",
+          "--border": "#1c0f33",
+          "--border-glow": "rgba(160, 100, 255, 0.15)",
+          "--axis-val-lo": "#110022",
+          "--axis-val-hi": "#bb66ff",
+          "--axis-aro-lo": "#0a0022",
+          "--axis-aro-hi": "#c0aaff",
+          "--axis-soc-lo": "#0d0015",
+          "--axis-soc-hi": "#8877bb",
+          "--axis-phy-lo": "#22203a",
+          "--axis-phy-hi": "#aab0cc",
+          "--badge-filler": "#9933cc",
+          "--thoughts-color": "#6644aa"
+        },
+        "effectModules": [
+          "filmGrain",
+          "overlayEffects",
+          "scanlines",
+          "vuBounce"
+        ],
+        "effects": {
+          "grid": "off",
+          "gridColor": "cyan",
+          "gridAnimate": false,
+          "gridOpacity": 0,
+          "filmGrain": true,
+          "filmGrainOpacity": 8,
+          "filmGrainAnimate": true,
+          "dataRain": false,
+          "circuitPattern": false,
+          "edgeGlow": true,
+          "chromaticAberration": true,
+          "scanlinesIntensity": "light",
+          "parchmentOpacity": 0,
+          "seasonMode": "off",
+          "vuAmp": 4,
+          "vuSpeed": 16,
           "arcadeRasterBeam": true,
           "arcadePixelDust": true,
           "arcadeAttract": true,
           "arcadeGlitches": true,
           "moduleEnabled": {
+            "filmGrain": true,
+            "overlayEffects": true,
             "scanlines": true,
-            "filmGrain": true
+            "vuBounce": true
           }
         },
         "background": {
@@ -405,7 +487,8 @@
     "volume": 0.03
   },
   "adventure": {
-    "typeCps": 25
+    "typeCps": 25,
+    "combatFrequency": 3
   },
-  "portraitVisible": false
+  "portraitVisible": true
 }

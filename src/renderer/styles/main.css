@@ -1073,6 +1073,29 @@ body.portrait-hidden #portrait-panel { display: none; }
   --cyan-dim:    #995522;     /* dark rust */
 }
 
+/* ── Wraith (Vesper) — Package-wide font + UI overrides ─────────────────────── */
+/* Cinzel: engraved Roman letterforms — ancient, dignified, slightly ominous.    */
+[data-package="wraith"] {
+  --font-mono: 'Cinzel', 'Palatino Linotype', 'Times New Roman', serif;
+}
+[data-package="wraith"] .char-selector { letter-spacing: 0.5px; }
+[data-package="wraith"] .source-badge  { letter-spacing: 0.5px; }
+[data-package="wraith"] .panel-label   { letter-spacing: 1px; }
+[data-package="wraith"] .loading-text  { letter-spacing: 1px; }
+[data-package="wraith"] #title-bar     { letter-spacing: 1px; }
+
+/* Dialogue text: pure white with soft violet glow around letters */
+[data-package="wraith"] #dialogue-text {
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(160, 100, 255, 0.75), 0 0 18px rgba(120, 60, 220, 0.35);
+}
+
+/* Thoughts text: slightly dimmer white, more muted glow */
+[data-package="wraith"] .thoughts-text {
+  color: rgba(240, 230, 255, 0.80);
+  text-shadow: 0 0 6px rgba(140, 80, 230, 0.55);
+}
+
 /* ── Requests Panel ──────────────────────────────────────────────────────────── */
 
 #btn-requests {
@@ -1197,4 +1220,186 @@ body.portrait-hidden #portrait-panel { display: none; }
   font-size: 9px;
   color: #00ffcc33;
   letter-spacing: 0.08em;
+}
+
+/* ── Music Selector panel ────────────────────────────────────────────────── */
+#music-selector-panel {
+  position: absolute;
+  bottom: calc(var(--input-h) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 4px 24px #000b, 0 0 16px #00ffcc18;
+  z-index: 200;
+  width: 420px;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 5px;
+  border-bottom: 1px solid #00ffcc18;
+}
+.ms-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #00ffcc55;
+  text-transform: uppercase;
+}
+.ms-header-actions { display: flex; gap: 6px; align-items: center; }
+.ms-stop {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #ff446666;
+  color: #ff4466aa;
+  cursor: pointer;
+}
+.ms-stop:hover:not(:disabled) { border-color: #ff4466; color: #ff4466; }
+.ms-stop:disabled { opacity: 0.3; cursor: default; }
+.ms-close {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: transparent;
+  border: none;
+  color: var(--cyan-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.ms-close:hover { color: var(--cyan); }
+.ms-nowplaying {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  color: #ff88cc;
+  border-bottom: 1px solid #00ffcc10;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-nowplaying-idle { color: #00ffcc33; }
+.ms-search-row { padding: 5px 10px 4px; }
+.ms-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0a0a14;
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  outline: none;
+}
+.ms-search-input:focus { border-color: var(--cyan); }
+.ms-search-input::placeholder { color: #00ffcc33; }
+.ms-cat-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 10px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan-dim) transparent;
+}
+.ms-cat-tabs::-webkit-scrollbar { height: 3px; }
+.ms-cat-tabs::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+.ms-cat-tab {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  background: transparent;
+  border: 1px solid #00ffcc22;
+  color: #00ffcc55;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ms-cat-tab:hover { border-color: var(--cyan-dim); color: var(--cyan-dim); }
+.ms-cat-tab.active { border-color: var(--cyan); color: var(--cyan); }
+.ms-track-list {
+  overflow-y: auto;
+  max-height: 280px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan-dim) transparent;
+}
+.ms-track-list::-webkit-scrollbar { width: 4px; }
+.ms-track-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+.ms-cat-header {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: #00ffcc33;
+  padding: 5px 10px 2px;
+  text-transform: uppercase;
+  border-top: 1px solid #00ffcc10;
+}
+.ms-cat-header:first-child { border-top: none; }
+.ms-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #00ffcc08;
+}
+.ms-track:hover { background: #00ffcc0a; }
+.ms-track-active { background: #00ffcc14 !important; border-left: 2px solid var(--cyan); padding-left: 8px; }
+.ms-track-id {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: #00ffcc44;
+  min-width: 28px;
+  flex-shrink: 0;
+}
+.ms-track-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--cyan-dim);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-track-active .ms-track-name { color: var(--cyan); }
+.ms-track-energy {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.ms-empty {
+  padding: 16px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #00ffcc33;
+  text-align: center;
+}
+.ms-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 7px;
+  border-top: 1px solid #00ffcc10;
+}
+.ms-vol-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #00ffcc55;
+  flex-shrink: 0;
+}
+.ms-vol-slider {
+  flex: 1;
+  accent-color: var(--cyan);
+  cursor: pointer;
 }

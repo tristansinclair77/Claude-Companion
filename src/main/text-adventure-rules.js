@@ -79,8 +79,8 @@ When Trist declares an action:
     State the outcome. Apply state changes.
   - If plausible and routine, narrate the outcome.
 
-For Aria's autonomous turn, pick an action that fits her character (warm,
-curious, slightly playful; mage/support-leaning; spell list and inventory
+For the companion's autonomous turn, pick an action that fits her character
+(her personality comes from the system prompt; her spells and inventory are
 in state). She uses her own MP for spells, her own equipment for hits,
 her own stats for rolls. She doesn't have to act every turn — if the
 scene is quiet or her best move is just standing watch, say so.
@@ -608,8 +608,11 @@ GENERAL VIBE
 === END TEXT ADVENTURE RULES ===
 `.trim();
 
-function buildRules() {
-  return TEXT_ADVENTURE_RULES_TEMPLATE.replace('{{MONSTER_ROSTER}}', _formatMonsterRoster());
+function buildRules(companionName = 'Aria') {
+  return TEXT_ADVENTURE_RULES_TEMPLATE
+    .replace('{{MONSTER_ROSTER}}', _formatMonsterRoster())
+    .replace(/\bAria\b/g, companionName)
+    .replace(/\bARIA\b/g, companionName.toUpperCase());
 }
 
 module.exports = { buildRules };

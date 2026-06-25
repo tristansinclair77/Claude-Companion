@@ -164,7 +164,7 @@ async function runAdventureTurn({
 }) {
   const freqDirective = COMBAT_FREQ_DIRECTIVES[Math.max(0, Math.min(4, combatFrequency))];
   const adventureContext = {
-    rules: buildRules(),
+    rules: buildRules(state.aria?.name || 'Aria'),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
     game_state_now: '=== CURRENT GAME STATE (the truth right now) ===\n' +
       JSON.stringify(state, null, 2) +
@@ -348,7 +348,12 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
   ipcMain.handle('adventure:new-game', (_event, opts = {}) => {
     const tone    = String(opts.tone    || 'classic_high_fantasy').slice(0, 60);
     const setting = String(opts.setting || '').slice(0, 400);
-    const state = store.newGame(characterDir, { tone, setting });
+    let companionName = 'Aria';
+    try {
+      const charJson = JSON.parse(fs.readFileSync(require('path').join(characterDir, 'character.json'), 'utf8'));
+      if (charJson.name) companionName = charJson.name;
+    } catch {}
+    const state = store.newGame(characterDir, { tone, setting, companionName });
     return { state, log: [] };
   });
 

@@ -169,7 +169,7 @@ const TextAdventure = (function () {
           <div class="ta-music-badge" id="ta-music-badge" title="Now playing — click to pause/resume">♫ —</div>
           <div class="ta-hud-actions">
             <button class="ta-hud-btn" id="ta-party-toggle" title="Show/hide party HP &amp; MP">PTY</button>
-            <button class="ta-hud-btn aria" id="ta-btn-sidechat" title="Talk to Aria — pauses the story">CHAT</button>
+            <button class="ta-hud-btn aria" id="ta-btn-sidechat" title="Talk to companion — pauses the story">CHAT</button>
             <button class="ta-hud-btn" id="ta-btn-askgm" title="Ask the Game Master a meta question">ASK</button>
             <button class="ta-hud-btn" data-drawer="inventory" title="Inventory">INV</button>
             <button class="ta-hud-btn" data-drawer="equipment" title="Equipment">EQP</button>
@@ -194,10 +194,10 @@ const TextAdventure = (function () {
             <span class="ta-hud-stat" title="Trist XP">LV <span id="ta-p-lvl">1</span><div class="ta-hud-bar xp"><span id="ta-p-xp" style="transform: scaleX(0)"></span></div></span>
           </div>
           <div class="ta-hud-row ta-party-row">
-            <span class="ta-hud-name aria">ARIA</span>
-            <span class="ta-hud-stat" title="Aria HP">HP <div class="ta-hud-bar"><span id="ta-a-hp" style="transform: scaleX(1)"></span></div><span id="ta-a-hp-t">0/0</span></span>
-            <span class="ta-hud-stat" title="Aria MP">MP <div class="ta-hud-bar mp"><span id="ta-a-mp" style="transform: scaleX(1)"></span></div><span id="ta-a-mp-t">0/0</span></span>
-            <span class="ta-hud-stat" title="Aria level">LV <span id="ta-a-lvl">1</span></span>
+            <span class="ta-hud-name aria" id="ta-a-name">ARIA</span>
+            <span class="ta-hud-stat" title="Companion HP">HP <div class="ta-hud-bar"><span id="ta-a-hp" style="transform: scaleX(1)"></span></div><span id="ta-a-hp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Companion MP">MP <div class="ta-hud-bar mp"><span id="ta-a-mp" style="transform: scaleX(1)"></span></div><span id="ta-a-mp-t">0/0</span></span>
+            <span class="ta-hud-stat" title="Companion level">LV <span id="ta-a-lvl">1</span></span>
           </div>
           <div id="ta-party-extras"></div>
         </div>
@@ -250,7 +250,7 @@ const TextAdventure = (function () {
       <!-- Side-chat overlay -->
       <div class="ta-overlay side-chat hidden" id="ta-overlay-sidechat">
         <div class="ta-sc-header">
-          <span class="ta-sc-title">// SIDE-CHAT WITH ARIA</span>
+          <span class="ta-sc-title" id="ta-sc-title">// SIDE-CHAT WITH ARIA</span>
           <span class="ta-sc-paused">STORY PAUSED</span>
           <button class="ta-sc-clear"  id="ta-sc-clear" title="Wipe side-chat history">CLEAR</button>
           <button class="ta-sc-resume" id="ta-sc-resume">RESUME STORY</button>
@@ -258,7 +258,7 @@ const TextAdventure = (function () {
         <div class="ta-sc-scroll" id="ta-sc-scroll"></div>
         <div class="ta-sc-input-row">
           <textarea class="ta-sc-input" id="ta-sc-input" rows="2" maxlength="1000"
-                    placeholder="Talk to Aria — the story holds where it is..."></textarea>
+                    placeholder="Talk to your companion — the story holds where it is..."></textarea>
           <button class="ta-sc-send" id="ta-sc-send">SEND</button>
         </div>
       </div>
@@ -365,7 +365,7 @@ const TextAdventure = (function () {
     if (!_activeState) return [{ key: 'player', label: 'TRIST', data: {} }];
     const roster = [{ key: 'player', label: 'TRIST', data: _activeState.player || {} }];
     if (_activeState.aria) {
-      roster.push({ key: 'aria', label: 'ARIA', data: _activeState.aria });
+      roster.push({ key: 'aria', label: (_activeState.aria.name || 'Aria').toUpperCase(), data: _activeState.aria });
     }
     for (const m of (_activeState.party || [])) {
       roster.push({
@@ -691,7 +691,7 @@ const TextAdventure = (function () {
       : '';
 
     drawerSections.innerHTML = `
-      <div class="ta-section-title pink">// ARIA — STATS</div>
+      <div class="ta-section-title pink">// ${_escape((aria.name || 'ARIA').toUpperCase())} — STATS</div>
       <div class="ta-stat-row"><span class="label">LEVEL</span><span class="val">${aria.level || 1}</span></div>
       <div class="ta-stat-row"><span class="label">XP</span><span class="val">${aria.xp ?? 0} / ${aria.xpToNext ?? 0}</span></div>
       <div class="ta-stat-row"><span class="label">HP</span><span class="val">${aria.hp ?? 0} / ${aria.maxHp ?? 0}</span></div>
@@ -1063,7 +1063,14 @@ const TextAdventure = (function () {
     if (!state) return;
     const p = state.player;
     const a = state.aria || {};
+    const companionName = a.name || 'Aria';
     hudSceneEl.textContent = state.scene && state.scene.name ? state.scene.name : '— SCENE —';
+
+    // Update all companion name labels
+    const aNameEl = root.querySelector('#ta-a-name');
+    if (aNameEl) aNameEl.textContent = companionName.toUpperCase();
+    const scTitleEl = root.querySelector('#ta-sc-title');
+    if (scTitleEl) scTitleEl.textContent = `// SIDE-CHAT WITH ${companionName.toUpperCase()}`;
     if (hudTimeEl) {
       const t = state.time || {};
       hudTimeEl.textContent = t.label || (t.dayCount && t.phase ? `Day ${t.dayCount} — ${t.phase}` : '');
@@ -1135,6 +1142,7 @@ const TextAdventure = (function () {
   function _appendEntryDom(kind, text) {
     const div = document.createElement('div');
     div.className = 'ta-entry ' + (kind || 'narrator');
+    if (kind === 'aria') div.dataset.label = _activeState?.aria?.name || 'Aria';
     div.textContent = text;
     const copyBtn = _makeCopyBtn(text);
     div.appendChild(copyBtn);
@@ -1406,6 +1414,7 @@ const TextAdventure = (function () {
   function _appendSideChatMsg(m) {
     const div = document.createElement('div');
     div.className = 'ta-sc-msg ' + (m.role === 'companion' ? 'aria' : 'user');
+    if (m.role === 'companion') div.dataset.label = _activeState?.aria?.name || 'Aria';
     const main = document.createElement('div');
     main.textContent = m.content || '';
     div.appendChild(main);
@@ -1433,6 +1442,7 @@ const TextAdventure = (function () {
 
     const thinking = document.createElement('div');
     thinking.className = 'ta-sc-msg aria ta-sc-thinking';
+    thinking.dataset.label = _activeState?.aria?.name || 'Aria';
     thinking.textContent = '... thinking ...';
     scScroll.appendChild(thinking);
     _scScrollToBottom();
