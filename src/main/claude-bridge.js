@@ -898,4 +898,141 @@ async function generateResponsePool({ topic, factKey, factDetail, character, cou
   });
 }
 
-module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories, generateCuriosityInterject, generateResponsePool };
+// ── GM State Agent ────────────────────────────────────────────────────────────
+//
+// A lean, dedicated Claude call that acts as the mechanical layer of GM chat.
+// Aria handles the roleplay; this agent handles the JSON. It receives the
+// player's request, Aria's agreed response, and the current game state, then
+// outputs ONLY a [GAME_STATE]...[/GAME_STATE] diff block — or nothing at all
+// if no mechanical change is needed.
+
+const GM_STATE_AGENT_DIFF_SCHEMA = `
+GAME_STATE DIFF FORMAT — include only changed fields:
+
+{
+  "player": {
+    "delta": { "hp": N, "mp": N, "xp": N, "gold": N },
+    "set":   { "illness": "..." },
+    "inventory": { "add": [ {id,name,qty,type,desc,value} ], "remove": ["id"] },
+    "equipment": [ { "slot": "weapon|offhand|head|body|feet|accessory", "item": {id,name} } ],
+    "spells":    { "add": [ {id,name,cost,desc} ],  "remove": ["id"] },
+    "abilities": { "add": [ {id,name,cost,desc} ],  "remove": ["id"] },
+    "buffs":     { "add": [ {id,name,turnsRemaining,effect} ], "remove": ["id"] },
+    "debuffs":   { "add": [ {id,name,turnsRemaining,effect} ], "remove": ["id"] }
+  },
+  "aria": { ...same structure as player... },
+  "party": {
+    "add":    [ { full member object with all fields } ],
+    "remove": [ "id-or-name" ],
+    "update": [ { "id":"...", "delta":{...}, "set":{...}, "inventory":{...}, "equipment":[...], "spells":{...}, "abilities":{...} } ]
+  },
+  "summons": {
+    "add":    [ {id,name,boundTo,hp,maxHp,desc,abilities,notes} ],
+    "remove": [ "id" ],
+    "update": [ {id,hp,...} ]
+  },
+  "scene":  { "name":"...", "area":"..." },
+  "memory": { "npcs":[...], "locations":[...], "quests":[...], "events":[...], "lore":[...],
+               "currentSituation":"...", "immediateGoal":"...", "storySummary":"..." }
+}
+
+Rules:
+- "delta" applies additive changes (hp: -3 means subtract 3). "set" assigns directly.
+- HP/MP are clamped to their maximums by the engine.
+- Omit any key that has no change — partial diffs only.
+- Item schema:    { "id":"...", "name":"...", "qty":1, "type":"weapon|armor|consumable|utility|key_item", "desc":"...", "value":N }
+- Ability schema: { "id":"...", "name":"...", "cost":"N MP or passive", "desc":"..." }
+- Spell schema:   { "id":"...", "name":"...", "cost":N, "desc":"..." }
+`;
+
+async function runGmStateAgent({ playerMessage, gmDialogue, state }) {
+  const systemPrompt =
+    'You are the mechanical game state manager for a text-RPG adventure engine. ' +
+    'A player has spoken to the Game Master and the GM has responded. ' +
+    'Your job: decide if a mechanical change to the game state is needed, and if so, ' +
+    'output the correct diff.\n\n' +
+    'OUTPUT RULES — CRITICAL:\n' +
+    '  • If a change IS needed: output ONLY a [GAME_STATE]...[/GAME_STATE] block. No other text whatsoever.\n' +
+    '  • If NO change is needed: output nothing — completely empty response.\n' +
+    '  • Never add explanation, dialogue, or any text outside the [GAME_STATE] block.\n\n' +
+    GM_STATE_AGENT_DIFF_SCHEMA + '\n\n' +
+    'CURRENT GAME STATE:\n' + JSON.stringify(state, null, 2);
+
+  const userPrompt =
+    `Player's request to the GM: "${playerMessage}"\n\n` +
+    `GM's response: "${gmDialogue}"\n\n` +
+    `Based on the above, is a mechanical game state change needed? ` +
+    `If yes: output the [GAME_STATE] diff. If no: output nothing.`;
+
+  const { cmd, prefix, shell } = resolveClaudeSpawn();
+  const os = require('os');
+  const sysTmpPath = path.join(os.tmpdir(), `cc_gm_agent_${Date.now()}.txt`);
+  fs.writeFileSync(sysTmpPath, systemPrompt, 'utf8');
+
+  return new Promise((resolve) => {
+    const _cleanup = () => { try { fs.unlinkSync(sysTmpPath); } catch {} };
+
+    const args = [
+      ...prefix,
+      '--input-format',  'stream-json',
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--model', 'claude-haiku-4-5-20251001',
+      '--system-prompt-file', sysTmpPath,
+      '--dangerously-skip-permissions',
+    ];
+
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.ELECTRON_RUN_AS_NODE;
+    delete cleanEnv.ELECTRON_NO_ASAR;
+    delete cleanEnv.ELECTRON_RESOURCES_PATH;
+    delete cleanEnv.VSCODE_PID;
+    delete cleanEnv.VSCODE_IPC_HOOK;
+    delete cleanEnv.VSCODE_HANDLES_UNCAUGHT_ERRORS;
+    delete cleanEnv.VSCODE_NLS_CONFIG;
+
+    const proc = spawn(cmd, args, {
+      env: cleanEnv,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...(shell ? { shell: true } : {}),
+    });
+
+    proc.stdin.on('error', () => {});
+    const msg = JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: [{ type: 'text', text: userPrompt }] },
+    }) + '\n';
+    proc.stdin.write(msg, () => proc.stdin.end());
+
+    let stdout = '';
+    proc.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    proc.stderr.on('data', () => {});
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      _cleanup();
+      console.warn('[GmStateAgent] timed out');
+      resolve(null);
+    }, 60000);
+
+    proc.on('close', () => {
+      clearTimeout(timer);
+      _cleanup();
+      try {
+        const raw = extractRawText(stdout) || stdout.trim();
+        resolve(raw || null);
+      } catch {
+        resolve(null);
+      }
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      _cleanup();
+      console.warn('[GmStateAgent] spawn error:', err.message);
+      resolve(null);
+    });
+  });
+}
+
+module.exports = { sendToClaude, generateGreeting, summarizeConversation, extractMemories, generateCuriosityInterject, generateResponsePool, runGmStateAgent };

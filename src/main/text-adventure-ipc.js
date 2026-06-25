@@ -15,7 +15,7 @@ const store               = require('./text-adventure-store');
 const { buildRules } = require('./text-adventure-rules');
 const featureRequestsStore     = require('./feature-requests');
 const { parseResponse }   = require('../shared/response-parser');
-const { sendToClaude }    = require('./claude-bridge');
+const { sendToClaude, runGmStateAgent } = require('./claude-bridge');
 const musicEngine         = require('./music-engine');
 
 const ADVENTURE_EXPORT_VERSION = 1;
@@ -553,13 +553,11 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
           "  - Changes the player wants to suggest for the story\n" +
           "  - Anything else the player wants to know or discuss about the campaign\n\n" +
           "Use your normal [DIALOGUE] / [THOUGHTS] / (emotion) response format. " +
-          "The story does NOT advance here. Do NOT emit [NARRATOR], [SCENE], [ENEMY], or [DEATH] tags.\n\n" +
-          "MECHANICAL CHANGES: If Trist asks you to make a mechanical change to the game state " +
-          "(add/remove an item, equip gear, adjust a stat, update memory, fix a data error, etc.), " +
-          "apply it immediately using the same [GAME_STATE]...[/GAME_STATE] diff format used in " +
-          "normal story turns. Place the diff AFTER your dialogue. The system will apply it " +
-          "automatically and update the live game — you do not need to tell Trist to do it manually. " +
-          "If no mechanical change is needed, omit the [GAME_STATE] block entirely.",
+          "The story does NOT advance here. Do NOT emit [GAME_STATE], [NARRATOR], [SCENE], " +
+          "[ENEMY], or [DEATH] tags — a dedicated mechanical agent reads your response and " +
+          "applies any needed state changes automatically. Just speak naturally; if Trist asks " +
+          "for a mechanical change, agree to it (or push back) in plain language and the engine " +
+          "will handle the rest.",
         gm_campaign_state:
           '=== CURRENT CAMPAIGN STATE ===\n' +
           JSON.stringify(state, null, 2) +
@@ -607,22 +605,27 @@ function register({ ipcMain, mainWindow, getCharacterContext, characterDir }) {
       const thoughts = response.thoughts || '';
       const emotion  = response.emotion  || 'neutral';
 
-      // Apply any mechanical diff the GM included (item equip, stat fix, etc.)
+      // State agent: dedicated mechanical pass — reads player request + Aria's response,
+      // decides if a game state diff is needed, and applies it if so.
       let stateChanged = false;
-      const raw = response.raw || '';
-      if (raw) {
-        const gsDiff = _extractBlock(raw, 'GAME_STATE', 'GAME_STATE');
-        if (gsDiff.value) {
-          const diff = _safeJsonParse(gsDiff.value);
-          if (diff) {
-            store.applyStateDiff(state, diff);
-            store.saveState(characterDir, state);
-            stateChanged = true;
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('adventure:update', { state, turnResponse: null });
+      try {
+        const agentRaw = await runGmStateAgent({ playerMessage: text, gmDialogue: dialogue, state });
+        if (agentRaw) {
+          const gsDiff = _extractBlock(agentRaw, 'GAME_STATE', 'GAME_STATE');
+          if (gsDiff.value) {
+            const diff = _safeJsonParse(gsDiff.value);
+            if (diff) {
+              store.applyStateDiff(state, diff);
+              store.saveState(characterDir, state);
+              stateChanged = true;
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('adventure:update', { state, turnResponse: null });
+              }
             }
           }
         }
+      } catch (agentErr) {
+        console.warn('[Adventure] GM state agent error:', agentErr.message);
       }
 
       store.appendGmChat(characterDir, { role: 'user', content: text });
