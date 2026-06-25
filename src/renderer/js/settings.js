@@ -28,6 +28,16 @@ const BackgroundSettings = (() => {
     arcadePixelDust:     true,
     arcadeAttract:       true,
     arcadeGlitches:      true,
+    // Wraith sub-system settings
+    wraithCobwebSwayHz:   2,        // 1–6; effect uses /10
+    wraithCobwebAmp:      4,        // 0–12 px
+    wraithCobwebOpacity:  5,        // 1–10; effect uses /10
+    wraithGhostEnabled:   true,
+    wraithGhostInterval:  'normal',
+    wraithSpiderEnabled:  true,
+    wraithSpiderInterval: 'normal',
+    wraithLightningEnabled:  true,
+    wraithLightningInterval: 'normal',
     moduleEnabled:       {},        // per-module on/off; missing key = enabled by default
   };
 
@@ -511,10 +521,30 @@ const BackgroundSettings = (() => {
   function _applyWraithAmbient() {
     const effect = PackageRegistry.getEffect('wraithAmbient');
     if (!effect) return;
-    const active = (_getActivePackage()?.effectModules || []).includes('wraithAmbient')
-                   && _isModuleEnabled('wraithAmbient');
-    if (active) {
-      if (!effect.running) effect.start({});
+    const mods = _getActivePackage()?.effectModules || [];
+
+    const cobwebsOn   = mods.includes('wraithCobwebs')   && _isModuleEnabled('wraithCobwebs');
+    const spiritsOn   = mods.includes('wraithSpirits')   && _isModuleEnabled('wraithSpirits');
+    const lightningOn = mods.includes('wraithLightning') && _isModuleEnabled('wraithLightning');
+
+    if (cobwebsOn || spiritsOn || lightningOn) {
+      const cfg = {
+        cobwebsEnabled:    cobwebsOn,
+        cobwebSwayHz:      (state.wraithCobwebSwayHz  ?? 2) / 10,
+        cobwebAmp:          state.wraithCobwebAmp     ?? 4,
+        cobwebOpacity:     (state.wraithCobwebOpacity ?? 5) / 10,
+        ghostEnabled:      spiritsOn && (state.wraithGhostEnabled  !== false),
+        ghostInterval:      state.wraithGhostInterval  || 'normal',
+        spiderEnabled:     spiritsOn && (state.wraithSpiderEnabled !== false),
+        spiderInterval:     state.wraithSpiderInterval || 'normal',
+        lightningEnabled:  lightningOn && (state.wraithLightningEnabled !== false),
+        lightningInterval:  state.wraithLightningInterval || 'normal',
+      };
+      if (!effect.running) {
+        effect.start(cfg);
+      } else {
+        Object.entries(cfg).forEach(([k, v]) => effect.update(k, v));
+      }
     } else {
       effect.stop();
     }
@@ -578,7 +608,8 @@ const BackgroundSettings = (() => {
     if (!_isModuleEnabled('arcadeAmbient')) {
       PackageRegistry.getEffect('arcadeAmbient')?.stop();
     }
-    if (!_isModuleEnabled('wraithAmbient')) {
+    // Wraith: stop the shared effect only when ALL three sub-modules are off
+    if (!_isModuleEnabled('wraithCobwebs') && !_isModuleEnabled('wraithSpirits') && !_isModuleEnabled('wraithLightning')) {
       PackageRegistry.getEffect('wraithAmbient')?.stop();
     }
   }
@@ -697,6 +728,28 @@ const BackgroundSettings = (() => {
     _setToggle('ambient-dust-btn',    state.arcadePixelDust  !== false);
     _setToggle('ambient-attract-btn', state.arcadeAttract    !== false);
     _setToggle('ambient-glitch-btn',  state.arcadeGlitches   !== false);
+    // Wraith sub-system controls
+    _updateSlider('wraith-cobweb-sway-speed', 'wraith-cobweb-sway-speed-val', state.wraithCobwebSwayHz ?? 2, 1, 6);
+    const swEl = document.getElementById('wraith-cobweb-sway-speed-val');
+    if (swEl) swEl.textContent = ((state.wraithCobwebSwayHz ?? 2) / 10).toFixed(1) + 'hz';
+    _updateSlider('wraith-cobweb-sway-amp',   'wraith-cobweb-sway-amp-val',   state.wraithCobwebAmp ?? 4, 0, 12);
+    const ampEl = document.getElementById('wraith-cobweb-sway-amp-val');
+    if (ampEl) ampEl.textContent = (state.wraithCobwebAmp ?? 4) + 'px';
+    _updateSlider('wraith-cobweb-opacity', 'wraith-cobweb-opacity-val', state.wraithCobwebOpacity ?? 5, 1, 10);
+    const opEl = document.getElementById('wraith-cobweb-opacity-val');
+    if (opEl) opEl.textContent = ((state.wraithCobwebOpacity ?? 5) * 10) + '%';
+    _setToggle('wraith-ghost-toggle',     state.wraithGhostEnabled   !== false);
+    _setToggle('wraith-spider-toggle',    state.wraithSpiderEnabled  !== false);
+    _setToggle('wraith-lightning-toggle', state.wraithLightningEnabled !== false);
+    document.querySelectorAll('input[name="wraith-ghost-interval"]').forEach(r => {
+      r.checked = (r.value === (state.wraithGhostInterval || 'normal'));
+    });
+    document.querySelectorAll('input[name="wraith-spider-interval"]').forEach(r => {
+      r.checked = (r.value === (state.wraithSpiderInterval || 'normal'));
+    });
+    document.querySelectorAll('input[name="wraith-lightning-interval"]').forEach(r => {
+      r.checked = (r.value === (state.wraithLightningInterval || 'normal'));
+    });
     // Module toggle buttons
     _syncModuleToggleUI();
   }
@@ -1033,6 +1086,98 @@ const BackgroundSettings = (() => {
         _syncUI();
         const effect = PackageRegistry.getEffect('arcadeAmbient');
         if (effect?.running) effect.update(effectKey, state[stateKey]);
+        _save();
+      });
+    });
+
+    // ── Wraith sub-system controls ──────────────────────────────────────────
+    const _wraithEffect = () => PackageRegistry.getEffect('wraithAmbient');
+
+    // Cobweb sliders
+    document.getElementById('wraith-cobweb-sway-speed')?.addEventListener('input', function () {
+      state.wraithCobwebSwayHz = parseInt(this.value, 10);
+      const el = document.getElementById('wraith-cobweb-sway-speed-val');
+      if (el) el.textContent = (state.wraithCobwebSwayHz / 10).toFixed(1) + 'hz';
+      this.style.setProperty('--pct', ((state.wraithCobwebSwayHz - 1) / 5 * 100).toFixed(1));
+      _wraithEffect()?.running && _wraithEffect().update('cobwebSwayHz', state.wraithCobwebSwayHz / 10);
+    });
+    document.getElementById('wraith-cobweb-sway-speed')?.addEventListener('change', _save);
+
+    document.getElementById('wraith-cobweb-sway-amp')?.addEventListener('input', function () {
+      state.wraithCobwebAmp = parseInt(this.value, 10);
+      const el = document.getElementById('wraith-cobweb-sway-amp-val');
+      if (el) el.textContent = state.wraithCobwebAmp + 'px';
+      this.style.setProperty('--pct', (state.wraithCobwebAmp / 12 * 100).toFixed(1));
+      _wraithEffect()?.running && _wraithEffect().update('cobwebAmp', state.wraithCobwebAmp);
+    });
+    document.getElementById('wraith-cobweb-sway-amp')?.addEventListener('change', _save);
+
+    document.getElementById('wraith-cobweb-opacity')?.addEventListener('input', function () {
+      state.wraithCobwebOpacity = parseInt(this.value, 10);
+      const el = document.getElementById('wraith-cobweb-opacity-val');
+      if (el) el.textContent = (state.wraithCobwebOpacity * 10) + '%';
+      this.style.setProperty('--pct', ((state.wraithCobwebOpacity - 1) / 9 * 100).toFixed(1));
+      _wraithEffect()?.running && _wraithEffect().update('cobwebOpacity', state.wraithCobwebOpacity / 10);
+    });
+    document.getElementById('wraith-cobweb-opacity')?.addEventListener('change', _save);
+
+    document.getElementById('wraith-cobweb-regen-btn')?.addEventListener('click', () => {
+      _wraithEffect()?.running && _wraithEffect().update('cobwebRegen', true);
+    });
+
+    // Ghost controls
+    document.getElementById('wraith-ghost-toggle')?.addEventListener('click', () => {
+      state.wraithGhostEnabled = !(state.wraithGhostEnabled !== false);
+      _setToggle('wraith-ghost-toggle', state.wraithGhostEnabled);
+      _wraithEffect()?.running && _wraithEffect().update('ghostEnabled', state.wraithGhostEnabled);
+      _save();
+    });
+    document.getElementById('wraith-ghost-spawn-btn')?.addEventListener('click', () => {
+      _wraithEffect()?.spawnGhost?.();
+    });
+    document.querySelectorAll('input[name="wraith-ghost-interval"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        state.wraithGhostInterval = r.value;
+        _wraithEffect()?.running && _wraithEffect().update('ghostInterval', r.value);
+        _save();
+      });
+    });
+
+    // Spider controls
+    document.getElementById('wraith-spider-toggle')?.addEventListener('click', () => {
+      state.wraithSpiderEnabled = !(state.wraithSpiderEnabled !== false);
+      _setToggle('wraith-spider-toggle', state.wraithSpiderEnabled);
+      _wraithEffect()?.running && _wraithEffect().update('spiderEnabled', state.wraithSpiderEnabled);
+      _save();
+    });
+    document.getElementById('wraith-spider-spawn-btn')?.addEventListener('click', () => {
+      _wraithEffect()?.spawnSpider?.();
+    });
+    document.querySelectorAll('input[name="wraith-spider-interval"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        state.wraithSpiderInterval = r.value;
+        _wraithEffect()?.running && _wraithEffect().update('spiderInterval', r.value);
+        _save();
+      });
+    });
+
+    // Lightning controls
+    document.getElementById('wraith-lightning-toggle')?.addEventListener('click', () => {
+      state.wraithLightningEnabled = !(state.wraithLightningEnabled !== false);
+      _setToggle('wraith-lightning-toggle', state.wraithLightningEnabled);
+      _wraithEffect()?.running && _wraithEffect().update('lightningEnabled', state.wraithLightningEnabled);
+      _save();
+    });
+    document.getElementById('wraith-lightning-spawn-btn')?.addEventListener('click', () => {
+      _wraithEffect()?.triggerLightning?.();
+    });
+    document.querySelectorAll('input[name="wraith-lightning-interval"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        state.wraithLightningInterval = r.value;
+        _wraithEffect()?.running && _wraithEffect().update('lightningInterval', r.value);
         _save();
       });
     });

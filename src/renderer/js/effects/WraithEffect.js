@@ -265,42 +265,47 @@ class WraithEffect extends VisualEffect {
     ];
 
     this._cobwebs = corners.map(({ xSign, ySign }) => {
-      const spread       = 45 + Math.random() * 45;           // 45–90° arc span
-      const numInterior  = Math.floor(Math.random() * 4);     // 0–3 extra spokes
-      const numRings     = 1 + Math.floor(Math.random() * 4); // 1–4 ring tiers
-      const maxRadius    = 24 + Math.random() * 44;           // 24–68px reach
-      const alpha        = 0.16 + Math.random() * 0.24;       // per-web opacity
-      const lineWidth    = 0.35 + Math.random() * 0.55;       // per-web weight
+      const spread      = 50 + Math.random() * 35;            // 50–85° arc span
+      const numInterior = 1 + Math.floor(Math.random() * 4); // 1–4 interior spokes (3–6 total)
+      const baseRadius  = 32 + Math.random() * 52;            // 32–84px rough reach
+      const numRings    = 3 + Math.floor(Math.random() * 3); // 3–5 rings
+      const alpha       = 0.18 + Math.random() * 0.22;       // per-web opacity
+      const lineWidth   = 0.40 + Math.random() * 0.55;       // per-web stroke weight
+      const missRate    = 0.05 + Math.random() * 0.20;       // 5–25% ring segment miss rate
 
-      // Spoke angles: always 0° and spread° as wall anchors, random interior
-      const angles = [0];
+      // Build spoke angles — 0° and spread° are wall-anchor endpoints; interior vary randomly
+      const rawAngles = [0];
       for (let i = 0; i < numInterior; i++)
-        angles.push(spread * (0.1 + Math.random() * 0.8));
-      angles.push(spread);
-      angles.sort((a, b) => a - b);
+        rawAngles.push(spread * (0.1 + Math.random() * 0.8));
+      rawAngles.push(spread);
+      rawAngles.sort((a, b) => a - b);
 
-      // De-duplicate spokes closer than 6°
-      const deduped = [angles[0]];
-      for (let i = 1; i < angles.length; i++)
-        if (angles[i] - deduped[deduped.length - 1] >= 6) deduped.push(angles[i]);
-      const finalAngles = deduped;
+      // Remove spokes closer than 7° to keep gaps readable
+      const angles = [rawAngles[0]];
+      for (let i = 1; i < rawAngles.length; i++)
+        if (rawAngles[i] - angles[angles.length - 1] >= 7) angles.push(rawAngles[i]);
 
-      // Sway: 0 at wall-edge anchors, sine-peaks at middle
-      const swayFactors = finalAngles.map(a => Math.sin((a / spread) * Math.PI));
+      // Each spoke gets its own length so the web has a natural ragged silhouette.
+      // Wall anchors run ~full length; interior spokes vary more.
+      const spokeLengths = angles.map((_, i) => {
+        const isEdge = (i === 0 || i === angles.length - 1);
+        return baseRadius * (isEdge ? 0.80 + Math.random() * 0.40 : 0.55 + Math.random() * 0.65);
+      });
 
-      // Ring tiers at irregular radii; each gap independently present/absent
-      const minRadius  = maxRadius * 0.18;
-      const missingRate= 0.15 + Math.random() * 0.35;
+      // Sway factors: 0 at wall-anchors (fixed), sine peak in middle
+      const swayFactors = angles.map(a => Math.sin((a / spread) * Math.PI));
+
+      // Ring tiers stored as fractions of each spoke's individual length.
+      // Tiers spread from ~15% to ~95% of each spoke.
       const rings = [];
       for (let i = 0; i < numRings; i++) {
-        const frac   = (i + 0.5 + (Math.random() - 0.5) * 0.55) / numRings;
-        const radius = minRadius + (maxRadius - minRadius) * frac;
-        const segments = finalAngles.slice(0, -1).map(() => Math.random() > missingRate);
-        rings.push({ radius, segments });
+        const frac = 0.15 + 0.80 * ((i + 0.5 + (Math.random() - 0.5) * 0.4) / numRings);
+        const segments = angles.slice(0, -1).map(() => Math.random() > missRate);
+        rings.push({ frac, segments });
       }
-      rings.sort((a, b) => a.radius - b.radius);
+      rings.sort((a, b) => a.frac - b.frac);
 
-      return { xSign, ySign, angles: finalAngles, rings, swayFactors, alpha, lineWidth };
+      return { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth };
     });
   }
 
@@ -321,46 +326,50 @@ class WraithEffect extends VisualEffect {
   }
 
   _drawCornerWeb(ctx, cx, cy, web, sway) {
-    const { xSign, ySign, angles, rings, swayFactors, alpha, lineWidth } = web;
-    if (!rings.length) return;
+    const { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth } = web;
+    if (!rings.length || !angles.length) return;
 
     ctx.save();
     ctx.strokeStyle = '#c8b4ee';
     ctx.lineWidth   = lineWidth;
     ctx.globalAlpha = alpha * this._cobwebOpacityMult;
 
-    const pt = (a, i, radius) => {
-      const rad = a * Math.PI / 180;
+    // Return canvas coords for spoke[i] at fraction frac of its own length, with sway.
+    const pt = (i, frac) => {
+      const rad = angles[i] * Math.PI / 180;
+      const r   = spokeLengths[i] * frac;
       const sf  = swayFactors[i];
       return {
-        x: cx + xSign * (Math.cos(rad) * radius + sway * sf * 0.60),
-        y: cy + ySign * (Math.sin(rad) * radius - sway * sf * 0.35),
+        x: cx + xSign * (Math.cos(rad) * r + sway * sf * 0.60),
+        y: cy + ySign * (Math.sin(rad) * r - sway * sf * 0.35),
       };
     };
 
-    const outerRadius = rings[rings.length - 1].radius;
-
-    // Radial spokes
+    // Radial spokes — each extends to its own max length
     for (let i = 0; i < angles.length; i++) {
-      const tip = pt(angles[i], i, outerRadius);
+      const tip = pt(i, 1.0);
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(tip.x, tip.y);
       ctx.stroke();
     }
 
-    // Ring segments (each drawn separately so missing gaps leave clean breaks)
+    // Ring segments — each drawn individually; bezier control point pushed AWAY from
+    // the corner so rings curve outward (classic drooping spiderweb look).
     for (const ring of rings) {
       for (let i = 0; i < angles.length - 1; i++) {
         if (!ring.segments[i]) continue;
-        const p0 = pt(angles[i],     i,     ring.radius);
-        const p1 = pt(angles[i + 1], i + 1, ring.radius);
-        const midAngle = (angles[i] + angles[i + 1]) / 2;
-        const midRad   = midAngle * Math.PI / 180;
-        const cpRadius = ring.radius * 0.87;
-        const sf       = (swayFactors[i] + swayFactors[i + 1]) / 2;
-        const cpx = cx + xSign * (Math.cos(midRad) * cpRadius + sway * sf * 0.6);
-        const cpy = cy + ySign * (Math.sin(midRad) * cpRadius - sway * sf * 0.35);
+        const p0  = pt(i,     ring.frac);
+        const p1  = pt(i + 1, ring.frac);
+        const midX = (p0.x + p1.x) / 2;
+        const midY = (p0.y + p1.y) / 2;
+        // Push midpoint outward from corner to make rings droop naturally
+        const vx   = midX - cx;
+        const vy   = midY - cy;
+        const dist = Math.sqrt(vx * vx + vy * vy) || 1;
+        const push = dist * 0.28;
+        const cpx  = midX + (vx / dist) * push;
+        const cpy  = midY + (vy / dist) * push;
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
         ctx.quadraticCurveTo(cpx, cpy, p1.x, p1.y);

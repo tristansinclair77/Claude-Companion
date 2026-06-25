@@ -53,7 +53,10 @@ class WraithPackage extends VisualPackage {
     };
 
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['filmGrain', 'overlayEffects', 'scanlines', 'wraithAmbient'];
+    this.effectModules = [
+      'filmGrain', 'overlayEffects', 'scanlines',
+      'wraithCobwebs', 'wraithSpirits', 'wraithLightning',
+    ];
 
     this.defaultEffects = {
       grid:                'off',
@@ -61,22 +64,34 @@ class WraithPackage extends VisualPackage {
       gridAnimate:         false,
       gridOpacity:         0,
       filmGrain:           true,
-      filmGrainOpacity:    8,          // misty spectral noise — slightly heavier
+      filmGrainOpacity:    8,
       filmGrainAnimate:    true,
       dataRain:            false,
       circuitPattern:      false,
-      edgeGlow:            true,       // spectral emanation from the edges
-      chromaticAberration: true,       // seen-through-a-veil distortion
-      scanlinesIntensity:  'light',    // subtle texture, not full CRT
+      edgeGlow:            true,
+      chromaticAberration: true,
+      scanlinesIntensity:  'light',
       parchmentOpacity:    0,
       seasonMode:          'off',
       vuAmp:               0,
       vuSpeed:             22,
+      // Wraith sub-system settings
+      wraithCobwebSwayHz:   2,          // slider 1-6 → effect /10
+      wraithCobwebAmp:      4,          // slider 0-12
+      wraithCobwebOpacity:  5,          // slider 1-10 → effect /10
+      wraithGhostEnabled:   true,
+      wraithGhostInterval:  'normal',
+      wraithSpiderEnabled:  true,
+      wraithSpiderInterval: 'normal',
+      wraithLightningEnabled:  true,
+      wraithLightningInterval: 'normal',
       moduleEnabled: {
-        filmGrain:      true,
-        overlayEffects: true,
-        scanlines:      true,
-        wraithAmbient:  true,
+        filmGrain:       true,
+        overlayEffects:  true,
+        scanlines:       true,
+        wraithCobwebs:   true,
+        wraithSpirits:   true,
+        wraithLightning: true,
       },
     };
   }
