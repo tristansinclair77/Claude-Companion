@@ -440,20 +440,39 @@ const TextAdventure = (function () {
     } else if (_drawerActiveTab === 'memory') {
       _renderWorldDrawer(state.memory || {});
     } else if (_drawerActiveTab === 'map') {
-      _renderMapDrawer(state.positions, state);
+      _renderMapDrawer(state.positions, state, char);
     }
   }
 
-  function _renderMapDrawer(positions, state) {
+  function _compassDesc(dx, dy, ft) {
+    if (ft === 0) return 'right here';
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const dirs  = ['east','northeast','north','northwest','west','southwest','south','southeast'];
+    const idx   = Math.round(((angle % 360) + 360) % 360 / 45) % 8;
+    return `${ft} ft ${dirs[idx]}`;
+  }
+
+  function _renderMapDrawer(positions, state, char) {
     if (!positions || !Array.isArray(positions.entities) || !positions.entities.length) {
       drawerSections.innerHTML = '<div class="ta-list-empty">// no position data yet<br>// updates each story turn</div>';
       return;
     }
     const entities = positions.entities;
-    const ref   = _escape(positions.ref   || '(0,0)');
-    const scale = _escape(positions.scale || '1 unit = 5 ft');
-
     const player = entities.find((e) => e.id === 'player') || { x: 0, y: 0 };
+
+    // Character-specific blurb — match selected char to an entity by key/id
+    const charKey = char && char.key;
+    const charEnt = charKey ? entities.find((e) => e.id === charKey) : null;
+    let charBlurb = '';
+    if (charEnt) {
+      if (charKey === 'player') {
+        charBlurb = `at (${charEnt.x}, ${charEnt.y}) — reference point`;
+      } else {
+        const dx = charEnt.x - player.x, dy = charEnt.y - player.y;
+        const ft = Math.round(Math.sqrt(dx * dx + dy * dy) * 5);
+        charBlurb = `at (${charEnt.x}, ${charEnt.y}) — ${_compassDesc(dx, dy, ft)} from you`;
+      }
+    }
 
     // Fixed-scale viewport: 1 grid cell = 1 coordinate unit.
     // Center viewport on midpoint of all entities, then expand to fixed grid size.
@@ -506,10 +525,13 @@ const TextAdventure = (function () {
       </div>`;
     }).join('');
 
+    const charLine = charBlurb
+      ? `<div class="ta-map-char-blurb">${_escape(char.label)} — ${charBlurb}</div>`
+      : '';
+
     drawerSections.innerHTML = `
       <div class="ta-section-title">// POSITIONS</div>
-      <div class="ta-map-meta">ref: ${ref}</div>
-      <div class="ta-map-meta">scale: ${scale}</div>
+      ${charLine}
       <pre class="ta-map-grid">${gridHtml}</pre>
       <div class="ta-map-legend">${rows}</div>
     `;

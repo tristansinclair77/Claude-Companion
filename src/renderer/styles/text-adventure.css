@@ -1080,11 +1080,11 @@ body:not(.adventure-mode) #text-adventure {
 }
 
 /* ── MAP drawer ─────────────────────────────────────────────────────────── */
-.ta-map-meta {
-  color: rgba(102, 255, 139, 0.5);
-  font-size: 8px;
+.ta-map-char-blurb {
+  color: #fff7c2;
+  font-size: 9px;
   letter-spacing: 1px;
-  padding: 1px 0;
+  padding: 3px 0 2px;
 }
 .ta-map-grid {
   font-family: 'Courier New', monospace;
