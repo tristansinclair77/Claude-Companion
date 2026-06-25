@@ -57,6 +57,16 @@
       <span id="badge-local"  class="source-badge badge-local"  title="Local brain response">LOCAL ●</span>
       <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
     </div>
+    <!-- Music bar: shows current track, click to browse -->
+    <div id="chat-music-bar" title="Music — click to browse tracks">
+      <span class="chat-music-icon">♫</span>
+      <span id="chat-music-name">—</span>
+    </div>
+    <!-- Music dropdown (positioned absolute below bar) -->
+    <div id="music-dropdown" class="hidden">
+      <input id="md-search" class="md-search" type="text" placeholder="search tracks..." spellcheck="false" />
+      <div id="md-track-list" class="md-track-list"></div>
+    </div>
     <div id="window-controls">
       <button id="btn-save-chat" class="title-action-btn" title="Save this conversation to long-term memory">💾</button>
       <button id="btn-axis"      class="title-action-btn" title="View Aria's persistent emotional axis state">💠</button>
@@ -142,7 +152,6 @@
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-msg-editor" title="View and delete messages from session history">📋 MSGS</button>
       <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
-      <button class="action-btn" id="btn-music"       title="Browse and play the adventure soundtrack">♫ MUSIC</button>
       <!-- ARCHIVED: Voice buttons — TTS feature disabled, code preserved
       <div class="voice-btn-group">
         <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
@@ -156,27 +165,6 @@
     <!-- ARCHIVED: Voice picker popup — TTS feature disabled
     <div id="voice-picker" class="hidden"></div>
     END ARCHIVED -->
-
-    <!-- Music selector panel -->
-    <div id="music-selector-panel" class="hidden">
-      <div class="ms-header">
-        <span class="ms-title">// MUSIC_SELECTOR</span>
-        <div class="ms-header-actions">
-          <button id="ms-stop-btn" class="ms-stop" title="Stop music" disabled>■ STOP</button>
-          <button id="ms-close-btn" class="ms-close" title="Close">✕</button>
-        </div>
-      </div>
-      <div id="ms-now-playing" class="ms-nowplaying ms-nowplaying-idle">— nothing playing —</div>
-      <div class="ms-search-row">
-        <input id="ms-search" class="ms-search-input" type="text" placeholder="search tracks..." spellcheck="false" />
-      </div>
-      <div id="ms-cat-tabs" class="ms-cat-tabs"></div>
-      <div id="ms-track-list" class="ms-track-list"></div>
-      <div class="ms-vol-row">
-        <span class="ms-vol-label">VOL</span>
-        <input id="ms-volume" class="ms-vol-slider" type="range" min="0" max="1" step="0.02" value="0.55" />
-      </div>
-    </div>
 
     <!-- Persona force popup -->
     <div id="persona-popup" class="hidden">

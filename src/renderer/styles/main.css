@@ -1222,129 +1222,84 @@ body.portrait-hidden #portrait-panel { display: none; }
   letter-spacing: 0.08em;
 }
 
-/* ── Music Selector panel ────────────────────────────────────────────────── */
-#music-selector-panel {
-  position: absolute;
-  bottom: calc(var(--input-h) + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-panel);
-  border: 1px solid var(--cyan-dim);
-  box-shadow: 0 4px 24px #000b, 0 0 16px #00ffcc18;
-  z-index: 200;
-  width: 420px;
-  max-width: calc(100vw - 24px);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.ms-header {
+/* ── Chat Music Bar + Dropdown ───────────────────────────────────────────── */
+#chat-music-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px 5px;
-  border-bottom: 1px solid #00ffcc18;
+  gap: 5px;
+  padding: 2px 10px;
+  border: 1px solid #00ffcc22;
+  background: transparent;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  max-width: 220px;
+  min-width: 80px;
+  transition: border-color 0.15s;
 }
-.ms-title {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
+#chat-music-bar:hover { border-color: var(--cyan-dim); }
+#chat-music-bar.active { border-color: var(--cyan-dim); }
+#chat-music-bar.playing { border-color: #ff88cc66; }
+.chat-music-icon {
+  font-size: 11px;
   color: #00ffcc55;
-  text-transform: uppercase;
+  flex-shrink: 0;
 }
-.ms-header-actions { display: flex; gap: 6px; align-items: center; }
-.ms-stop {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  background: transparent;
-  border: 1px solid #ff446666;
-  color: #ff4466aa;
-  cursor: pointer;
-}
-.ms-stop:hover:not(:disabled) { border-color: #ff4466; color: #ff4466; }
-.ms-stop:disabled { opacity: 0.3; cursor: default; }
-.ms-close {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  background: transparent;
-  border: none;
-  color: var(--cyan-dim);
-  cursor: pointer;
-  padding: 2px 4px;
-}
-.ms-close:hover { color: var(--cyan); }
-.ms-nowplaying {
+#chat-music-bar.playing .chat-music-icon { color: #ff88cc; }
+#chat-music-name {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.06em;
-  padding: 5px 10px;
-  color: #ff88cc;
-  border-bottom: 1px solid #00ffcc10;
+  color: #00ffcc55;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ms-nowplaying-idle { color: #00ffcc33; }
-.ms-search-row { padding: 5px 10px 4px; }
-.ms-search-input {
+#chat-music-bar.playing #chat-music-name { color: #ff88cccc; }
+
+#music-dropdown {
+  position: fixed;
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 6px 28px #000c, 0 0 18px #00ffcc14;
+  z-index: 500;
+  width: 380px;
+  max-width: calc(100vw - 16px);
+  display: flex;
+  flex-direction: column;
+}
+.md-search {
   width: 100%;
   box-sizing: border-box;
   background: #0a0a14;
-  border: 1px solid var(--cyan-dim);
+  border: none;
+  border-bottom: 1px solid #00ffcc18;
   color: var(--cyan);
   font-family: var(--font-mono);
   font-size: 10px;
-  padding: 4px 8px;
+  padding: 7px 10px;
   outline: none;
 }
-.ms-search-input:focus { border-color: var(--cyan); }
-.ms-search-input::placeholder { color: #00ffcc33; }
-.ms-cat-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 4px 10px;
-  overflow-x: auto;
-  flex-shrink: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--cyan-dim) transparent;
-}
-.ms-cat-tabs::-webkit-scrollbar { height: 3px; }
-.ms-cat-tabs::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
-.ms-cat-tab {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  padding: 2px 7px;
-  background: transparent;
-  border: 1px solid #00ffcc22;
-  color: #00ffcc55;
-  cursor: pointer;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.ms-cat-tab:hover { border-color: var(--cyan-dim); color: var(--cyan-dim); }
-.ms-cat-tab.active { border-color: var(--cyan); color: var(--cyan); }
-.ms-track-list {
+.md-search::placeholder { color: #00ffcc33; }
+.md-search:focus { border-bottom-color: var(--cyan-dim); }
+.md-track-list {
   overflow-y: auto;
-  max-height: 280px;
+  max-height: 380px;
   scrollbar-width: thin;
   scrollbar-color: var(--cyan-dim) transparent;
 }
-.ms-track-list::-webkit-scrollbar { width: 4px; }
-.ms-track-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
-.ms-cat-header {
+.md-track-list::-webkit-scrollbar { width: 4px; }
+.md-track-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+.md-cat-header {
   font-family: var(--font-mono);
   font-size: 8px;
   letter-spacing: 0.14em;
-  color: #00ffcc33;
-  padding: 5px 10px 2px;
+  color: #00ffcc44;
+  padding: 6px 10px 3px;
   text-transform: uppercase;
-  border-top: 1px solid #00ffcc10;
+  background: #00ffcc06;
+  border-top: 1px solid #00ffcc12;
 }
-.ms-cat-header:first-child { border-top: none; }
-.ms-track {
+.md-track {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1352,16 +1307,16 @@ body.portrait-hidden #portrait-panel { display: none; }
   cursor: pointer;
   border-bottom: 1px solid #00ffcc08;
 }
-.ms-track:hover { background: #00ffcc0a; }
-.ms-track-active { background: #00ffcc14 !important; border-left: 2px solid var(--cyan); padding-left: 8px; }
-.ms-track-id {
+.md-track:hover { background: #00ffcc0a; }
+.md-track-active { background: #00ffcc14 !important; border-left: 2px solid #ff88cc; padding-left: 8px; }
+.md-track-id {
   font-family: var(--font-mono);
   font-size: 8px;
-  color: #00ffcc44;
+  color: #00ffcc33;
   min-width: 28px;
   flex-shrink: 0;
 }
-.ms-track-name {
+.md-track-name {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--cyan-dim);
@@ -1370,36 +1325,17 @@ body.portrait-hidden #portrait-panel { display: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ms-track-active .ms-track-name { color: var(--cyan); }
-.ms-track-energy {
+.md-track-active .md-track-name { color: #ff88cc; }
+.md-track-energy {
   font-family: var(--font-mono);
   font-size: 8px;
   letter-spacing: 0.06em;
   flex-shrink: 0;
 }
-.ms-empty {
+.md-empty {
   padding: 16px 10px;
   font-family: var(--font-mono);
   font-size: 10px;
   color: #00ffcc33;
   text-align: center;
-}
-.ms-vol-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px 7px;
-  border-top: 1px solid #00ffcc10;
-}
-.ms-vol-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: #00ffcc55;
-  flex-shrink: 0;
-}
-.ms-vol-slider {
-  flex: 1;
-  accent-color: var(--cyan);
-  cursor: pointer;
 }

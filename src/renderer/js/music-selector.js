@@ -1,25 +1,25 @@
 'use strict';
-// Music selector — browse and play the adventure soundtrack from normal chat.
+// Music selector — title bar bar + dropdown to browse/play the adventure soundtrack.
 
 const MusicSelector = (() => {
-  let _panel, _btn, _searchInput, _trackList, _nowPlayingBar, _volSlider, _stopBtn;
+  let _bar, _nameEl, _dropdown, _searchInput, _trackList;
   let _bible = null;
-  let _activeCategory = 'ALL';
   let _currentBibleId = null;
+  let _open = false;
 
   const CAT_SHORT = {
-    'I. FIELD & OVERWORLD':                  'FIELD',
-    'II. TOWNS & SETTLEMENTS':               'TOWNS',
-    'III. SACRED, SCHOLARLY & SAFE INTERIORS': 'SACRED',
-    'IV. DUNGEONS & UNDERGROUND':            'DUNGEONS',
-    'V. STRONGHOLDS & ENEMY CAMPS':          'CAMPS',
-    'VI. BATTLE THEMES':                     'BATTLE',
-    'VII. CUTSCENES — TENDER & WARM':        'TENDER',
-    'VIII. CUTSCENES — SORROW & LOSS':       'SORROW',
-    'IX. CUTSCENES — DRAMA & REVELATION':    'DRAMA',
-    'X. CUTSCENES — HOPE & TRIUMPH':         'TRIUMPH',
-    'XI. CELEBRATIONS & CEREMONIES':         'CELEBRATE',
-    'XII. ENDINGS & CREDITS':               'ENDINGS',
+    'I. FIELD & OVERWORLD':                    'FIELD & OVERWORLD',
+    'II. TOWNS & SETTLEMENTS':                 'TOWNS & SETTLEMENTS',
+    'III. SACRED, SCHOLARLY & SAFE INTERIORS': 'SACRED & SAFE INTERIORS',
+    'IV. DUNGEONS & UNDERGROUND':              'DUNGEONS & UNDERGROUND',
+    'V. STRONGHOLDS & ENEMY CAMPS':            'STRONGHOLDS & CAMPS',
+    'VI. BATTLE THEMES':                       'BATTLE THEMES',
+    'VII. CUTSCENES — TENDER & WARM':          'CUTSCENES: TENDER',
+    'VIII. CUTSCENES — SORROW & LOSS':         'CUTSCENES: SORROW',
+    'IX. CUTSCENES — DRAMA & REVELATION':      'CUTSCENES: DRAMA',
+    'X. CUTSCENES — HOPE & TRIUMPH':           'CUTSCENES: TRIUMPH',
+    'XI. CELEBRATIONS & CEREMONIES':           'CELEBRATIONS',
+    'XII. ENDINGS & CREDITS':                  'ENDINGS & CREDITS',
   };
 
   const ENERGY_COLOR = {
@@ -29,45 +29,44 @@ const MusicSelector = (() => {
     EXTREME: '#ff446688',
   };
 
-  function _catShort(fullCat) {
-    return CAT_SHORT[fullCat] || fullCat.split(/[.—]/)[0].trim().slice(0, 10);
+  function _catLabel(fullCat) {
+    return CAT_SHORT[fullCat] || fullCat;
   }
 
   function _filteredTracks() {
     if (!_bible) return [];
     const q = (_searchInput?.value || '').trim().toLowerCase();
-    return _bible.filter((t) => {
-      if (_activeCategory !== 'ALL' && t.category !== _activeCategory) return false;
-      if (q && !t.name.toLowerCase().includes(q) && !String(t.id).includes(q)) return false;
-      return true;
-    });
+    if (!q) return _bible;
+    return _bible.filter((t) =>
+      t.name.toLowerCase().includes(q) || String(t.id).includes(q)
+    );
   }
 
   function _renderTracks() {
     if (!_trackList) return;
     const tracks = _filteredTracks();
     if (!tracks.length) {
-      _trackList.innerHTML = '<div class="ms-empty">No tracks match.</div>';
+      _trackList.innerHTML = '<div class="md-empty">No tracks match.</div>';
       return;
     }
     let html = '';
     let lastCat = null;
     for (const t of tracks) {
-      if (_activeCategory === 'ALL' && t.category !== lastCat) {
+      if (t.category !== lastCat) {
         lastCat = t.category;
-        html += `<div class="ms-cat-header">${_catShort(t.category)}</div>`;
+        html += `<div class="md-cat-header">${_catLabel(t.category)}</div>`;
       }
       const active = t.id === _currentBibleId;
       const ec = ENERGY_COLOR[t.energy] || '#ffffff44';
-      html += `<div class="ms-track${active ? ' ms-track-active' : ''}" data-id="${t.id}">
-        <span class="ms-track-id">${String(t.id).padStart(3, '0')}</span>
-        <span class="ms-track-name">${t.name}</span>
-        <span class="ms-track-energy" style="color:${ec}">${t.energy}</span>
+      html += `<div class="md-track${active ? ' md-track-active' : ''}" data-id="${t.id}">
+        <span class="md-track-id">${String(t.id).padStart(3, '0')}</span>
+        <span class="md-track-name">${t.name}</span>
+        <span class="md-track-energy" style="color:${ec}">${t.energy}</span>
       </div>`;
     }
     _trackList.innerHTML = html;
 
-    _trackList.querySelectorAll('.ms-track').forEach((el) => {
+    _trackList.querySelectorAll('.md-track').forEach((el) => {
       el.addEventListener('click', () => {
         const id = parseInt(el.dataset.id, 10);
         if (id === _currentBibleId) {
@@ -75,124 +74,101 @@ const MusicSelector = (() => {
         } else {
           window.musicAPI.playCue(id);
         }
+        _closeDropdown();
       });
     });
   }
 
-  function _renderCategoryTabs() {
-    const tabBar = _panel.querySelector('#ms-cat-tabs');
-    if (!tabBar || !_bible) return;
-    const cats = [...new Set(_bible.map((t) => t.category))];
-    let html = `<button class="ms-cat-tab${_activeCategory === 'ALL' ? ' active' : ''}" data-cat="ALL">ALL</button>`;
-    for (const c of cats) {
-      const active = _activeCategory === c;
-      html += `<button class="ms-cat-tab${active ? ' active' : ''}" data-cat="${c}">${_catShort(c)}</button>`;
-    }
-    tabBar.innerHTML = html;
-    tabBar.querySelectorAll('.ms-cat-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        _activeCategory = btn.dataset.cat;
-        _renderCategoryTabs();
-        _renderTracks();
-      });
-    });
+  function _positionDropdown() {
+    if (!_bar || !_dropdown) return;
+    const rect = _bar.getBoundingClientRect();
+    _dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+    _dropdown.style.top = rect.bottom + 'px';
   }
 
-  function _updateNowPlaying(detail) {
-    _currentBibleId = detail ? detail.bibleId : null;
-
-    if (_btn) {
-      _btn.classList.toggle('active', !!detail && !detail.paused);
-    }
-    if (_nowPlayingBar) {
-      if (detail) {
-        const icon = detail.paused ? '⏸' : '♫';
-        _nowPlayingBar.textContent = `${icon} ${detail.name}`;
-        _nowPlayingBar.classList.remove('ms-nowplaying-idle');
-      } else {
-        _nowPlayingBar.textContent = '— nothing playing —';
-        _nowPlayingBar.classList.add('ms-nowplaying-idle');
-      }
-    }
-    if (_stopBtn) {
-      _stopBtn.disabled = !detail;
-    }
-    // Re-highlight active row without full re-render
-    if (_trackList) {
-      _trackList.querySelectorAll('.ms-track').forEach((el) => {
-        el.classList.toggle('ms-track-active', parseInt(el.dataset.id, 10) === _currentBibleId);
-      });
-    }
-  }
-
-  async function _open() {
-    if (!_bible) {
-      const result = await window.musicAPI.getBible();
-      _bible = result.tracks || result;
-    }
-    const settings = await window.musicAPI.getSettings();
-    if (_volSlider) _volSlider.value = settings.volume ?? 0.55;
-
-    _renderCategoryTabs();
+  function _openDropdown() {
+    if (!_bible) return;
     _renderTracks();
-
-    // Sync current playing state from MusicPlayer
-    if (window.MusicPlayer) {
-      _updateNowPlaying(window.MusicPlayer.getNowPlaying());
-    }
-
-    _panel.classList.remove('hidden');
-    _btn.classList.add('open');
+    _positionDropdown();
+    _dropdown.classList.remove('hidden');
+    _open = true;
+    _bar.classList.add('active');
+    // Focus search
+    setTimeout(() => _searchInput?.focus(), 30);
   }
 
-  function _close() {
-    _panel.classList.add('hidden');
-    _btn.classList.remove('open');
+  function _closeDropdown() {
+    _dropdown?.classList.add('hidden');
+    _open = false;
+    _bar?.classList.remove('active');
+  }
+
+  function _updateBar(detail) {
+    _currentBibleId = detail ? detail.bibleId : null;
+    if (_nameEl) {
+      _nameEl.textContent = detail ? detail.name : '—';
+    }
+    if (_bar) {
+      _bar.classList.toggle('playing', !!detail && !detail.paused);
+    }
+    // Update active highlight in open dropdown
+    if (_open && _trackList) {
+      _trackList.querySelectorAll('.md-track').forEach((el) => {
+        el.classList.toggle('md-track-active', parseInt(el.dataset.id, 10) === _currentBibleId);
+      });
+    }
+  }
+
+  async function _loadBible() {
+    if (_bible) return;
+    const result = await window.musicAPI.getBible();
+    _bible = result.tracks || result;
   }
 
   function init() {
-    _panel  = document.getElementById('music-selector-panel');
-    _btn    = document.getElementById('btn-music');
-    _trackList   = document.getElementById('ms-track-list');
-    _nowPlayingBar = document.getElementById('ms-now-playing');
-    _searchInput = document.getElementById('ms-search');
-    _volSlider   = document.getElementById('ms-volume');
-    _stopBtn     = document.getElementById('ms-stop-btn');
+    _bar        = document.getElementById('chat-music-bar');
+    _nameEl     = document.getElementById('chat-music-name');
+    _dropdown   = document.getElementById('music-dropdown');
+    _searchInput = document.getElementById('md-search');
+    _trackList  = document.getElementById('md-track-list');
 
-    if (!_panel || !_btn) return;
+    if (!_bar || !_dropdown) return;
 
-    _btn.addEventListener('click', (e) => {
+    // Eagerly load bible in background so first click is instant
+    _loadBible();
+
+    _bar.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (_panel.classList.contains('hidden')) {
-        _open();
+      if (_open) {
+        _closeDropdown();
       } else {
-        _close();
+        _openDropdown();
       }
     });
-
-    document.addEventListener('click', (e) => {
-      if (!_panel.classList.contains('hidden') &&
-          !_panel.contains(e.target) && e.target !== _btn) {
-        _close();
-      }
-    });
-
-    document.getElementById('ms-close-btn')?.addEventListener('click', _close);
-
-    _stopBtn?.addEventListener('click', () => window.musicAPI.stop());
 
     _searchInput?.addEventListener('input', () => _renderTracks());
 
-    _volSlider?.addEventListener('input', () => {
-      const v = parseFloat(_volSlider.value);
-      window.MusicPlayer?.setVolume(v);
-      window.musicAPI.setSettings({ volume: v });
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (_open && !_dropdown.contains(e.target) && e.target !== _bar) {
+        _closeDropdown();
+      }
     });
 
-    // Track playback state changes
-    document.addEventListener('music:now-playing', (e) => {
-      _updateNowPlaying(e.detail);
+    // Reposition on resize
+    window.addEventListener('resize', () => {
+      if (_open) _positionDropdown();
     });
+
+    // Track playback state
+    document.addEventListener('music:now-playing', (e) => {
+      _updateBar(e.detail);
+    });
+
+    // Sync initial state if music is already playing
+    if (window.MusicPlayer) {
+      _updateBar(window.MusicPlayer.getNowPlaying());
+    }
   }
 
   return { init };
