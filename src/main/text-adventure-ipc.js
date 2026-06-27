@@ -817,11 +817,12 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         log = store.appendLog(characterDir, { kind: 'narrator', text: parsed.narrator });
       }
       // The aria meta-commentary channel was removed. If the model slips and
-      // emits a [DIALOGUE] block anyway, we just absorb the portrait emotion
-      // from it (so the (emotion) tag still drives the portrait when present)
-      // and silently drop the rest — no log entry, no render.
-      if (parsed.aria && parsed.aria.emotion) {
-        state.player.lastAriaEmotion = parsed.aria.emotion;
+      // emits a [DIALOGUE] block anyway, we silently drop the text — no log
+      // entry, no render. portraitEmotion (from [ARIA_EMOTION], required
+      // every turn) is the authoritative source for the saved adventure
+      // portrait that gets restored on the next app launch.
+      if (parsed.portraitEmotion) {
+        state.player.lastAriaEmotion = parsed.portraitEmotion;
       }
 
       store.tickStateAfterDiff(state);

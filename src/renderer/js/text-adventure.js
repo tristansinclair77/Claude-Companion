@@ -132,6 +132,16 @@ const TextAdventure = (function () {
       _renderLog(log || []);
       if (!state.alive) _showDeathOverlay(state.deathCause || 'You have fallen.', state.deathOf);
       else _hideOverlays();
+      // Restore Aria's last-known adventure portrait. Adventure tracks its
+      // own portrait state separate from chat mode — state.player.lastAriaEmotion
+      // is written on every turn (see text-adventure-ipc.js take-action) and
+      // survives app shutdown via text-adventure.json. Without this restore,
+      // the portrait would either show whatever was in chat mode or fall back
+      // to the default until the next turn lands.
+      const restoreEmotion = state.player && state.player.lastAriaEmotion;
+      if (restoreEmotion && window.CompanionDisplay && typeof window.CompanionDisplay.setEmotion === 'function') {
+        window.CompanionDisplay.setEmotion(restoreEmotion);
+      }
       // Resume the last-known music cue if there is one — gives a returning
       // run an immediate soundtrack instead of waiting for the next [MUSIC].
       if (resumeCue && resumeCue.ok && window.MusicPlayer && !state.deathOf) {
