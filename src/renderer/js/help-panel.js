@@ -869,6 +869,24 @@ const HelpPanel = (() => {
         note('To see a party member\'s full stat block, open any drawer (INV / SPL / STA / etc.) and use the ◀ ▶ arrows to target them.')
     },
     {
+      catId: 'rpg', id: 'ta-level-up',
+      title: 'Level Ups — Pop-up & Rewards',
+      tags: ['level up', 'levelup', 'level-up', 'rewards', 'leveling', 'xp', 'experience', 'stats', 'new spell', 'new ability', 'gains', 'popup', 'pop-up'],
+      content:
+        p('When a character\'s XP crosses their <code>xpToNext</code> threshold, the engine auto-bumps their <strong>level counter</strong> and re-computes the next threshold. It does <strong>not</strong> automatically grant HP, MP, stats, spells, or abilities — those are picked by the gamemaster narratively, scaled to the character\'s playstyle.') +
+        p('When a level-up lands, a gold pop-up appears showing what was gained. Click <em>CONTINUE</em> to advance — multiple level-ups in the same turn queue and show one after another.') +
+        p('What the GM can grant:') +
+        kv([
+          ['Max HP / MP capacity', 'Permanent bumps to the character\'s health/mana ceiling. Typical: +3 to +8 HP, +1 to +4 MP, scaled to class flavor.'],
+          ['Stat increases',       'Small bumps to str/dex/int/wis/con/luck — usually tied to how the character\'s been playing (a brawler earns STR, a careful caster earns INT/WIS).'],
+          ['New spells',           'Named with a cost and a short description, especially around milestone levels (3, 5, 7, 10).'],
+          ['New abilities',        'Passive perks or active maneuvers, with cost (if any) and description.'],
+          ['Narrative status',     'Flavor notes like "Eel-marked — predators of the deep recognize you now."'],
+        ]) +
+        p('HP and MP are <strong>not</strong> auto-refilled on level-up. The GM can choose to include a heal as part of the rewards if it fits the moment, but the engine doesn\'t do it on its own.') +
+        note('If a level-up fires without specific rewards described, the popup shows a default message reminding you to check the GM\'s narration — that\'s an oversight; you can ASK the GM via the meta-chat to fill in the gains.')
+    },
+    {
       catId: 'rpg', id: 'ta-character-profiles',
       title: 'Character Profiles — Voice & Personality Memory',
       tags: ['character profile', 'profiles', 'personality', 'voice', 'quirks', 'mannerisms', 'speech', 'consistency', 'continuity', 'companion personality', 'npc personality', 'gm memory', 'character memory', 'dossier'],

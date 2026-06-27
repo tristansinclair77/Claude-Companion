@@ -31,6 +31,47 @@ function _extractBlock(raw, openTag, closeTag) {
   return { value, residue };
 }
 
+// Multi-block extractor — pulls every [TAG] ... [/TAG] occurrence and returns
+// an array of bodies plus the residue with all matches removed. Used for
+// [LEVEL_UP] which can appear more than once per turn (multi-character
+// level-ups on the same XP grant).
+function _extractAllBlocks(raw, tag) {
+  const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'gi');
+  const values = [];
+  let residue = raw;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    values.push(m[1].trim());
+    residue = residue.replace(m[0], '').trim();
+  }
+  return { values, residue };
+}
+
+// Parse a [LEVEL_UP] block body into a popup-ready record.
+// Header line format: "<who> | Level <old> → <new>"
+// Body: free-form narrative + gain bullets — pass through as-is for display.
+function _parseLevelUpBlock(body) {
+  if (!body) return null;
+  const lines = body.split(/\r?\n/);
+  // First non-empty line is the header.
+  let headerIdx = lines.findIndex((l) => l.trim().length > 0);
+  if (headerIdx === -1) return null;
+  const header = lines[headerIdx].trim();
+  const rest = lines.slice(headerIdx + 1).join('\n').trim();
+  // Pull "who" — first token before "|" (or before whitespace).
+  let who = header.split('|')[0].trim().toLowerCase();
+  // "who" might be wrapped in quotes or have stray punctuation; strip.
+  who = who.replace(/^["'`]+|["'`]+$/g, '');
+  // Try to extract old/new levels from "Level X → Y" or "Level X -> Y".
+  let oldLevel = null, newLevel = null;
+  const lvlMatch = header.match(/Level\s+(\d+)\s*(?:→|->|to)\s*(\d+)/i);
+  if (lvlMatch) {
+    oldLevel = parseInt(lvlMatch[1], 10);
+    newLevel = parseInt(lvlMatch[2], 10);
+  }
+  return { who, oldLevel, newLevel, header, body: rest };
+}
+
 function _extractLine(raw, tagName) {
   const re = new RegExp(`^[ \\t]*\\[${tagName}\\][ \\t]*(.+?)[ \\t]*$`, 'mi');
   const m = raw.match(re);
@@ -81,6 +122,7 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
   const scene    = _extractLine (residue, 'SCENE');                  residue = scene.residue;
   const narrator = _extractBlock(residue, 'NARRATOR', 'NARRATOR');   residue = narrator.residue;
   const gameSt   = _extractBlock(residue, 'GAME_STATE', 'GAME_STATE'); residue = gameSt.residue;
+  const levelUps = _extractAllBlocks(residue, 'LEVEL_UP');           residue = levelUps.residue;
   const enemy    = _extractLine (residue, 'ENEMY');                  residue = enemy.residue;
   const death    = _extractLine (residue, 'DEATH');                  residue = death.residue;
   const music    = _extractLine (residue, 'MUSIC');                  residue = music.residue;
@@ -99,6 +141,10 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
     ? (ariaParsed.emotion || ariaEm.value || previousEmotion)
     : (ariaEm.value || previousEmotion);
 
+  const levelUpBlocks = (levelUps.values || [])
+    .map(_parseLevelUpBlock)
+    .filter((x) => x);
+
   return {
     scene:        scene.value     || null,
     narrator:     _scrubRenderedText(narrator.value || ''),
@@ -113,6 +159,7 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
       emotion:  ariaParsed.emotion  || previousEmotion,
     } : null,
     featureRequests: ariaParsed.featureRequests || [],
+    levelUpBlocks,
   };
 }
 
@@ -469,6 +516,10 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
       const parsed = result.parsed;
       raw = result.raw;
 
+      // Snapshot levels BEFORE the diff applies so we can detect level-ups
+      // even if the GM forgets the [LEVEL_UP] block.
+      const levelsBefore = store.snapshotLevels(state);
+
       if (parsed.gameStateDiff) {
         store.applyStateDiff(state, parsed.gameStateDiff);
       }
@@ -487,6 +538,59 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
       }
 
       store.tickStateAfterDiff(state);
+
+      // Bundle level-up events: detected level changes ⊕ GM-emitted blocks.
+      // The GM's block is the rich narrative; the detection is the safety
+      // net so the popup still fires if they forgot.
+      const levelsAfter = store.snapshotLevels(state);
+      const detected = store.detectLevelChanges(levelsBefore, levelsAfter, state);
+      const blocksByWho = new Map();
+      for (const blk of (parsed.levelUpBlocks || [])) {
+        if (blk && blk.who) blocksByWho.set(blk.who, blk);
+      }
+      const levelUps = [];
+      const claimedBlockKeys = new Set();
+      for (const ch of detected) {
+        const blk = blocksByWho.get(ch.who);
+        if (blk) claimedBlockKeys.add(ch.who);
+        levelUps.push({
+          who:      ch.who,
+          name:     ch.name,
+          oldLevel: ch.oldLevel,
+          newLevel: ch.newLevel,
+          header:   blk ? blk.header : `${ch.name} | Level ${ch.oldLevel} → ${ch.newLevel}`,
+          body:     blk ? blk.body   : '(The GM did not describe specific rewards for this level. Check your stats and inventory for any changes.)',
+          hasGmBlock: !!blk,
+        });
+      }
+      // GM emitted a [LEVEL_UP] block but no actual level change was detected
+      // (e.g. they forgot to award XP that crossed the threshold). Still
+      // surface it so the player sees what was intended.
+      for (const blk of (parsed.levelUpBlocks || [])) {
+        if (!blk || !blk.who) continue;
+        if (claimedBlockKeys.has(blk.who)) continue;
+        if (detected.find((c) => c.who === blk.who)) continue;
+        levelUps.push({
+          who:      blk.who,
+          name:     blk.who,
+          oldLevel: blk.oldLevel,
+          newLevel: blk.newLevel,
+          header:   blk.header,
+          body:     blk.body,
+          hasGmBlock: true,
+          orphan:   true,
+        });
+      }
+
+      for (const lu of levelUps) {
+        const noun = lu.who === 'player' ? 'Trist'
+                   : lu.who === 'aria'   ? (state.aria && state.aria.name) || 'Aria'
+                   :                       lu.name;
+        log = store.appendLog(characterDir, {
+          kind: 'system',
+          text: `LEVEL UP — ${noun} reached Level ${lu.newLevel}.`,
+        });
+      }
 
       // Narrative death override — Claude declared a death even if HP wasn't 0.
       if (parsed.deathCause && state.alive) {
@@ -548,6 +652,7 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
           portraitEmotion: parsed.portraitEmotion,
           music:           musicDirective,
           featureRequestsAdded,
+          levelUps,
         },
       };
 

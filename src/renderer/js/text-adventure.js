@@ -50,6 +50,8 @@ const TextAdventure = (function () {
   let scScroll, scInput, scSendBtn, scResumeBtn, scClearBtn;
   let partyPanelEl, partyExtrasEl, partyToggleBtn;
   let overlayGmChat, gmScrollEl, gmInputEl, gmSendBtn, gmCloseBtn;
+  let overlayLevelUp, luTitleEl, luNarrativeEl, luGainsEl, luContinueBtn;
+  let _levelUpQueue = [];
   let unsubscribeUpdate = null;
 
   let _selectedTone = TONES[0].id;
@@ -263,6 +265,17 @@ const TextAdventure = (function () {
         </div>
       </div>
 
+      <!-- Level-up overlay -->
+      <div class="ta-overlay level-up hidden" id="ta-overlay-levelup">
+        <div class="ta-lu-badge">LEVEL UP</div>
+        <h2 id="ta-lu-title">— LEVEL UP —</h2>
+        <div class="ta-lu-narrative" id="ta-lu-narrative"></div>
+        <div class="ta-lu-gains" id="ta-lu-gains"></div>
+        <div class="ta-overlay-actions">
+          <button class="ta-overlay-btn" id="ta-lu-continue">CONTINUE</button>
+        </div>
+      </div>
+
       <!-- GM chat overlay -->
       <div class="ta-overlay gm-chat hidden" id="ta-overlay-gm">
         <div class="ta-gm-header">
@@ -337,6 +350,12 @@ const TextAdventure = (function () {
     gmInputEl   = root.querySelector('#ta-gm-input');
     gmSendBtn   = root.querySelector('#ta-gm-send');
     gmCloseBtn  = root.querySelector('#ta-gm-close');
+    overlayLevelUp = root.querySelector('#ta-overlay-levelup');
+    luTitleEl     = root.querySelector('#ta-lu-title');
+    luNarrativeEl = root.querySelector('#ta-lu-narrative');
+    luGainsEl     = root.querySelector('#ta-lu-gains');
+    luContinueBtn = root.querySelector('#ta-lu-continue');
+    luContinueBtn.addEventListener('click', _showNextLevelUp);
 
     _renderToneGrid();
     _renderDrawerTabs();
@@ -1049,6 +1068,8 @@ const TextAdventure = (function () {
 
     if (!state.alive) {
       _showDeathOverlay(state.deathCause || 'You have fallen.', state.deathOf);
+    } else if (turnResponse && Array.isArray(turnResponse.levelUps) && turnResponse.levelUps.length > 0) {
+      _enqueueLevelUps(turnResponse.levelUps);
     } else {
       _focusInput();
     }
@@ -1261,6 +1282,74 @@ const TextAdventure = (function () {
     overlayDeath.classList.add('hidden');
     overlaySideChat.classList.add('hidden');
     overlayGmChat.classList.add('hidden');
+    if (overlayLevelUp) overlayLevelUp.classList.add('hidden');
+  }
+
+  // ── Level-up overlay ─────────────────────────────────────────────────────
+  // Each level-up event is rendered in sequence — click CONTINUE to advance.
+  // The renderer is dumb about the structure of `body` (the GM-authored gain
+  // summary); we just show it as-is with light formatting.
+
+  function _escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function _formatLevelUpBody(body) {
+    // Split on lines. Lines starting with "-" or "•" become bullets; others
+    // become plain paragraphs. Empty lines become spacing.
+    const lines = String(body || '').split(/\r?\n/);
+    const out = [];
+    let inList = false;
+    const flushList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { flushList(); continue; }
+      if (/^[-•]\s+/.test(line)) {
+        if (!inList) { out.push('<ul class="ta-lu-bullets">'); inList = true; }
+        out.push(`<li>${_escapeHtml(line.replace(/^[-•]\s+/, ''))}</li>`);
+      } else {
+        flushList();
+        out.push(`<p>${_escapeHtml(line)}</p>`);
+      }
+    }
+    flushList();
+    return out.join('\n');
+  }
+
+  function _enqueueLevelUps(levelUps) {
+    if (!Array.isArray(levelUps) || levelUps.length === 0) return;
+    for (const lu of levelUps) _levelUpQueue.push(lu);
+    // If no overlay is currently displaying a level-up, kick off the queue.
+    if (overlayLevelUp && overlayLevelUp.classList.contains('hidden')) {
+      _showNextLevelUp();
+    }
+  }
+
+  function _showNextLevelUp() {
+    if (!overlayLevelUp) return;
+    if (_levelUpQueue.length === 0) {
+      overlayLevelUp.classList.add('hidden');
+      _focusInput();
+      return;
+    }
+    const lu = _levelUpQueue.shift();
+    const displayName = (lu.name || lu.who || '???').toString();
+    const levelText = (typeof lu.newLevel === 'number')
+      ? `Level ${lu.newLevel}`
+      : (lu.header || '');
+    luTitleEl.textContent = `${displayName.toUpperCase()} — ${levelText}`;
+    // Narrative is the first paragraph (non-bullet text) — already part of body.
+    // For visual hierarchy we don't try to split here; we just render the
+    // whole body via _formatLevelUpBody.
+    luNarrativeEl.innerHTML = '';
+    luGainsEl.innerHTML = _formatLevelUpBody(lu.body || '');
+    overlayDeath.classList.add('hidden');
+    overlaySideChat.classList.add('hidden');
+    overlayLevelUp.classList.remove('hidden');
+    setTimeout(() => luContinueBtn.focus(), 50);
   }
 
   // ── Side chat ────────────────────────────────────────────────────────────

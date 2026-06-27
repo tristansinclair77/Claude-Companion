@@ -618,14 +618,16 @@ function _tickCharacter(c) {
   c.hp   = Math.max(0, Math.min(c.maxHp, c.hp));
   c.mp   = Math.max(0, Math.min(c.maxMp, c.mp));
   if (typeof c.gold === 'number') c.gold = Math.max(0, c.gold);
+  // Level-ups: the engine handles the mechanical roll-over (level counter
+  // and xpToNext growth) but does NOT auto-grant HP/MP/stat/spell rewards.
+  // The GM is the source of truth for level-up benefits — they pick the
+  // rewards narratively, emit them in the [GAME_STATE] diff (same turn the
+  // XP was awarded), and announce them via [LEVEL_UP]. See LEVEL UPS in
+  // text-adventure-rules.js.
   while (c.xp >= c.xpToNext) {
     c.xp      -= c.xpToNext;
     c.level   += 1;
     c.xpToNext = Math.round(c.xpToNext * 1.5 + 25);
-    c.maxHp   += 5;
-    c.hp       = c.maxHp;
-    c.maxMp   += 2;
-    c.mp       = c.maxMp;
   }
   for (const key of ['buffs', 'debuffs']) {
     c[key] = (c[key] || []).filter((b) => {
@@ -672,6 +674,59 @@ function tickStateAfterDiff(state) {
 
   state.turnCount += 1;
   return state;
+}
+
+// ── Level-up detection ────────────────────────────────────────────────────────
+//
+// The GM is fully responsible for level-up benefits — they pick the rewards
+// and apply them via the [GAME_STATE] diff in the same turn they award the
+// XP, and they describe the gains in a [LEVEL_UP] block for the popup.
+//
+// The engine only needs to detect "did anyone's level change this turn?" so
+// the renderer can surface the popup. We snapshot levels BEFORE applying the
+// diff and tick, then re-snapshot AFTER and compute the delta.
+
+function snapshotLevels(state) {
+  return {
+    player: state && state.player ? (state.player.level || 0) : 0,
+    aria:   state && state.aria   ? (state.aria.level   || 0) : 0,
+    party:  Object.fromEntries(
+      ((state && state.party) || [])
+        .filter((m) => m)
+        .map((m) => [String(m.id || m.name), m.level || 0])
+    ),
+  };
+}
+
+function detectLevelChanges(before, after, state) {
+  if (!before || !after || !state) return [];
+  const out = [];
+  if ((after.player || 0) > (before.player || 0)) {
+    out.push({
+      who:      'player',
+      name:     state.player && state.player.name ? state.player.name : 'Trist',
+      oldLevel: before.player,
+      newLevel: after.player,
+    });
+  }
+  if ((after.aria || 0) > (before.aria || 0)) {
+    out.push({
+      who:      'aria',
+      name:     state.aria && state.aria.name ? state.aria.name : 'Aria',
+      oldLevel: before.aria,
+      newLevel: after.aria,
+    });
+  }
+  for (const m of (state.party || [])) {
+    if (!m) continue;
+    const id = String(m.id || m.name);
+    const oldL = before.party[id] || 0;
+    const newL = after.party[id] || 0;
+    if (newL > oldL) {
+      out.push({ who: id, name: m.name || id, oldLevel: oldL, newLevel: newL });
+    }
+  }
+  return out;
 }
 
 // ── Compact-state helper for side-chat context ────────────────────────────────
@@ -738,5 +793,7 @@ module.exports = {
   resetGame,
   applyStateDiff,
   tickStateAfterDiff,
+  snapshotLevels,
+  detectLevelChanges,
   formatStateSummary,
 };

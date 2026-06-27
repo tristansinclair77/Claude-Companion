@@ -535,6 +535,76 @@ body:not(.adventure-mode) #text-adventure {
   color: #ffaabb;
 }
 
+/* ── Level-up overlay ────────────────────────────────────────────── */
+.ta-overlay.level-up {
+  background: rgba(0, 0, 0, 0.93);
+}
+.ta-lu-badge {
+  font-size: 9px;
+  letter-spacing: 6px;
+  color: #ffe488;
+  background: rgba(255, 228, 136, 0.08);
+  border: 1px solid rgba(255, 228, 136, 0.5);
+  padding: 4px 14px;
+  margin-bottom: 14px;
+  text-shadow: 0 0 8px rgba(255, 228, 136, 0.7);
+  animation: ta-lu-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ta-lu-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 228, 136, 0.35); }
+  50%      { box-shadow: 0 0 18px rgba(255, 228, 136, 0.85); }
+}
+.ta-overlay.level-up h2 {
+  color: #ffe488;
+  text-shadow: 0 0 12px rgba(255, 228, 136, 0.7);
+  letter-spacing: 4px;
+  margin: 0 0 14px;
+}
+.ta-lu-narrative {
+  color: #cfead8;
+  font-size: 10px;
+  line-height: 1.7;
+  max-width: 540px;
+  margin: 0 0 8px;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.95;
+}
+.ta-lu-narrative p { margin: 0 0 6px; }
+.ta-lu-gains {
+  color: #d8f5e3;
+  font-size: 10px;
+  line-height: 1.7;
+  max-width: 540px;
+  margin: 6px 0 18px;
+  text-align: left;
+  border-top: 1px dashed rgba(255, 228, 136, 0.35);
+  padding-top: 12px;
+}
+.ta-lu-gains p {
+  margin: 0 0 8px;
+  text-align: center;
+  font-style: italic;
+  color: #cfead8;
+}
+.ta-lu-bullets {
+  margin: 0;
+  padding-left: 16px;
+  list-style: none;
+}
+.ta-lu-bullets li {
+  position: relative;
+  padding: 3px 0 3px 4px;
+}
+.ta-lu-bullets li::before {
+  content: '+';
+  color: #ffe488;
+  font-weight: bold;
+  position: absolute;
+  left: -12px;
+  text-shadow: 0 0 4px rgba(255, 228, 136, 0.6);
+}
+
 /* ── Side-chat overlay ───────────────────────────────────────────── */
 .ta-overlay.side-chat {
   background: rgba(0, 0, 0, 0.94);
