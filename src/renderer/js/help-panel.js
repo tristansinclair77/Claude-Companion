@@ -869,6 +869,51 @@ const HelpPanel = (() => {
         note('To see a party member\'s full stat block, open any drawer (INV / SPL / STA / etc.) and use the ◀ ▶ arrows to target them.')
     },
     {
+      catId: 'rpg', id: 'ta-combat-calculations',
+      title: 'Combat Calculations — Two-Phase Turns',
+      tags: ['combat', 'calculations', 'dice', 'rolls', 'to-hit', 'damage', 'ac', 'armor class', 'skill check', 'saving throw', 'd20', 'two-phase', 'phase 1', 'phase 2', 'calc request', 'mechanics', 'formulas', 'stat scale', 'mod', 'undying bond', 'redirect'],
+      content:
+        p('Adventure combat does not rely on Claude\'s narrative judgment for whether a hit lands or how much it hurts. Every turn runs a <strong>two-phase flow</strong>:') +
+        kv([
+          ['Phase 1 — Calc Parser', 'A lightweight call asks Claude "does anything in this turn need a dice roll?" Claude returns a structured <code>[COMBAT_CALC_REQUEST]</code> enumerating every action and what-if branch, or <code>[NO_CALC_NEEDED]</code>.'],
+          ['Engine Resolution',     'The engine rolls the dice using deterministic formulas, applies modifiers from equipment/abilities/buffs, enforces engine-side rules (Undying Bond redirects, etc.), and produces the <code>COMBAT CALCULATION RESULT</code>.'],
+          ['Phase 2 — Narrator',    'Claude gets the full GM context plus the calc result and writes the narrative knowing exactly what happened. The dice picked the outcomes; Claude paints the moment.'],
+        ]) +
+        p('<strong>The player does not get to declare what literally happens.</strong> Saying "I confidently land the hit" doesn\'t mean the hit landed. The dice decide.') +
+        p('Default formulas (full spec in <code>docs/COMBAT_CALCULATIONS.md</code>):') +
+        kv([
+          ['Stat mod',     '<code>mod = stat - 8</code>. STR 14 = +6, INT 18 = +10. Wider than D&D so stats feel real.'],
+          ['To-hit',       '<code>1d20 + stat_mod + bonuses</code> vs target AC. Nat 20 always hits and crits; nat 1 always misses.'],
+          ['AC (player)',  '<code>10 + dex_mod + equipped ac_bonus</code> (shield, chestpiece, etc.).'],
+          ['AC (enemy)',   'The GM sets it per-encounter via <code>state.enemy.ac</code>; defaults to <code>12 + ceil(level/3)</code> if forgotten.'],
+          ['Damage',       'Roll weapon/spell dice + stat_mod + damage_bonus, minus target armor. Crits double the dice (not the modifiers).'],
+          ['Skill checks', '<code>1d20 + stat_mod</code> vs DC. Same for saves; stat is picked by save type.'],
+        ]) +
+        p('<strong>Action cap: 3 player-declared actions per turn.</strong> Companion and enemies each have their own slots. Multi-target spells count as 1 logical action regardless of target count.') +
+        p('<strong>Engine-enforced rules</strong> like Undying Bond run automatically — the calc result shows them clearly (e.g. "REDIRECT(player→aria): 35→29 via Undying Bond"). The GM trusts the result and narrates the redirect; the engine handles the HP math.') +
+        note('When the GM grants a unique ability, spell, equipment, or item that needs new engine logic, a separate <em>IMPLEMENTATION TASK</em> pop-up fires. See the next article.')
+    },
+    {
+      catId: 'rpg', id: 'ta-implementation-tasks',
+      title: 'Implementation Tasks — Unique Grants Awaiting Code',
+      tags: ['implementation task', 'unique ability', 'unique spell', 'unique equipment', 'unique item', 'popup', 'dev review', 'engine code', 'narrative only', 'mechanical'],
+      content:
+        p('When the gamemaster grants a unique mechanic the engine doesn\'t natively know how to compute — a custom passive, a new spell with a special trigger, a piece of equipment with a unique effect — a cyan <em>IMPLEMENTATION TASK</em> pop-up appears.') +
+        p('Each pop-up shows:') +
+        kv([
+          ['Kind',                'ability / spell / equipment / item.'],
+          ['Owner',               'Trist / companion / party member / shared.'],
+          ['Summary',             'One-line capsule of what the grant is.'],
+          ['Description',         'In-fiction prose description.'],
+          ['Intended Mechanic',   'What the GM means it to do mechanically — when it triggers, what happens.'],
+          ['Implementation Notes', 'Specific guidance for the developer about which calc fields to set, what data to read, where in the engine the logic belongs.'],
+          ['Complexity',          'low / medium / high.'],
+        ]) +
+        p('The grant is <strong>also</strong> written to <code>characters/&lt;character&gt;/text-adventure-implementation-tasks.md</code> as a durable record. That file accumulates every task across the campaign with checkboxes for "reviewed by developer / engine logic implemented / tests added."') +
+        p('Until the developer wires the mechanic into the engine code, the grant exists in <strong>narrative only</strong> — the gamemaster will still describe Trist\'s new ability triggering in scenes, but it won\'t yet feed into the calc system\'s math. Routine grants (a +1 sword, a healing potion) don\'t need this — they flow through the normal inventory diff.') +
+        note('Hit CONTINUE to dismiss the pop-up. The task stays in the markdown file regardless; you can review the full log there any time.')
+    },
+    {
       catId: 'rpg', id: 'ta-level-up',
       title: 'Level Ups — Pop-up & Rewards',
       tags: ['level up', 'levelup', 'level-up', 'rewards', 'leveling', 'xp', 'experience', 'stats', 'new spell', 'new ability', 'gains', 'popup', 'pop-up'],

@@ -12,11 +12,12 @@ const { dialog } = require('electron');
 const fs = require('fs');
 
 const store               = require('./text-adventure-store');
-const { buildRules } = require('./text-adventure-rules');
+const { buildRules, buildLiteRules } = require('./text-adventure-rules');
 const featureRequestsStore     = require('./feature-requests');
 const { parseResponse }   = require('../shared/response-parser');
 const { sendToClaude, runGmStateAgent } = require('./claude-bridge');
 const musicEngine         = require('./music-engine');
+const combatCalc          = require('./combat-calc');
 
 const ADVENTURE_EXPORT_VERSION = 1;
 
@@ -123,6 +124,7 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
   const narrator = _extractBlock(residue, 'NARRATOR', 'NARRATOR');   residue = narrator.residue;
   const gameSt   = _extractBlock(residue, 'GAME_STATE', 'GAME_STATE'); residue = gameSt.residue;
   const levelUps = _extractAllBlocks(residue, 'LEVEL_UP');           residue = levelUps.residue;
+  const implTasks= _extractAllBlocks(residue, 'IMPLEMENTATION_TASK'); residue = implTasks.residue;
   const enemy    = _extractLine (residue, 'ENEMY');                  residue = enemy.residue;
   const death    = _extractLine (residue, 'DEATH');                  residue = death.residue;
   const music    = _extractLine (residue, 'MUSIC');                  residue = music.residue;
@@ -145,6 +147,14 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
     .map(_parseLevelUpBlock)
     .filter((x) => x);
 
+  // [IMPLEMENTATION_TASK] blocks contain JSON. Parse permissively and
+  // pass through any that decoded.
+  const implementationTasks = [];
+  for (const body of (implTasks.values || [])) {
+    const parsed = _safeJsonParse(body);
+    if (parsed && typeof parsed === 'object') implementationTasks.push(parsed);
+  }
+
   return {
     scene:        scene.value     || null,
     narrator:     _scrubRenderedText(narrator.value || ''),
@@ -160,7 +170,26 @@ function parseAdventureResponse(raw, { previousEmotion = 'neutral' } = {}) {
     } : null,
     featureRequests: ariaParsed.featureRequests || [],
     levelUpBlocks,
+    implementationTasks,
   };
+}
+
+// Parse the Phase-1 (lite) response. Extracts [COMBAT_CALC_REQUEST] body
+// (returns JSON) or [NO_CALC_NEEDED] (returns the sentinel string).
+function parseCalcRequestResponse(raw) {
+  if (!raw) return { kind: 'no_calc', reason: 'empty response from calc phase' };
+  const noCalc = /\[NO_CALC_NEEDED\]/i.test(raw);
+  const block = _extractBlock(raw, 'COMBAT_CALC_REQUEST', 'COMBAT_CALC_REQUEST');
+  if (block.value) {
+    const parsed = _safeJsonParse(block.value);
+    if (parsed && typeof parsed === 'object') {
+      return { kind: 'request', request: parsed };
+    }
+    // Malformed JSON — treat as no_calc with a warning.
+    return { kind: 'no_calc', reason: 'COMBAT_CALC_REQUEST body could not be parsed as JSON' };
+  }
+  if (noCalc) return { kind: 'no_calc' };
+  return { kind: 'no_calc', reason: 'Phase 1 returned neither [COMBAT_CALC_REQUEST] nor [NO_CALC_NEEDED]' };
 }
 
 // Translates a [MUSIC] tag value into a payload the renderer can play.
@@ -277,14 +306,58 @@ function formatLogForPrompt(log, limit = 30) {
 
 // ── Adventure turn ───────────────────────────────────────────────────────────
 
-async function runAdventureTurn({
-  characterDir,
-  action,
-  state,
-  log,
-  characterContext,
-  combatFrequency = 2,
-}) {
+// Phase 1 (lite): asks the GM to decide if calcs are needed.
+async function runCalcRequestPhase({ characterDir, action, state, log, characterContext }) {
+  const liteContext = {
+    lite_rules: buildLiteRules(state.aria?.name || 'Aria'),
+    lite_game_state: '=== CURRENT GAME STATE (read for stat/AC/id lookup) ===\n' +
+      JSON.stringify(state, null, 2) +
+      '\n=== END CURRENT GAME STATE ===',
+    lite_recent_log:
+      // A tiny log slice so the GM has minimal context for what's happening.
+      '=== RECENT TURNS (last 6, for context only) ===\n' +
+      (log.length > 0 ? formatLogForPrompt(log, 6) : '(first turn)') +
+      '\n=== END RECENT TURNS ===',
+    lite_directive:
+      "PHASE 1 — CALC PARSER. Read the player's action and the state. " +
+      "Output exactly ONE of [COMBAT_CALC_REQUEST]…[/COMBAT_CALC_REQUEST] or [NO_CALC_NEEDED]. " +
+      "NO narrative, no commentary, no other tags. Phase 2 will narrate.",
+  };
+  // We deliberately do NOT pass character profiles / music catalog / full GM
+  // rules / addon contexts here — keep the call cheap.
+  const response = await sendToClaude({
+    userMessage: action,
+    character:        characterContext.character,
+    characterRules:   '',  // skip — lite_rules carries what's needed
+    masterSummary:    '',
+    permanentMemories: [],
+    userProfile:      '',
+    conversationWindow: [],
+    detectedEmotion:  '',
+    attachments:      [],
+    relatedContext:   [],
+    emotionalState:   null,
+    fastMode:         true,   // fast-path is cheaper and lower-latency
+    addonContexts:    [liteContext],
+    trackers:         {},
+    activeThreads:    [],
+    characterDir,
+    conversationDynamic: '',
+    personalityForce:    '',
+    featureRequests:     [],
+    pendingDeletionNotifications: [],
+    previousEmotion:     'neutral',
+    bodyState:           null,
+    workingShortMemories: [],
+    workingLongMemories:  [],
+  });
+  const raw = response.raw || '';
+  const decision = parseCalcRequestResponse(raw);
+  return { decision, raw };
+}
+
+// Phase 2 (full): the normal GM call, plus the resolved calc result.
+async function runNarratorPhase({ characterDir, action, state, log, characterContext, combatFrequency, calcResult }) {
   const freqDirective = COMBAT_FREQ_DIRECTIVES[Math.max(0, Math.min(4, combatFrequency))];
   const adventureContext = {
     rules: buildRules(state.aria?.name || 'Aria'),
@@ -293,18 +366,21 @@ async function runAdventureTurn({
     game_state_now: '=== CURRENT GAME STATE (the truth right now) ===\n' +
       JSON.stringify(state, null, 2) +
       '\n=== END CURRENT GAME STATE ===',
+    calc_result: combatCalc.formatResultForPrompt(calcResult),
     recent_adventure_log: '=== RECENT ADVENTURE LOG (chronological, oldest first) ===\n' +
       (log.length > 0 ? formatLogForPrompt(log, 30) : '(this is the very first turn — no log yet)') +
       '\n=== END RECENT ADVENTURE LOG ===',
     adventure_mode_directive:
-      "You are currently in TEXT-ADVENTURE MODE. The user's message is Trist's in-game action. " +
-      "Respond as narrator + Aria's in-story actor + (optionally) Aria's meta commentary, " +
+      "You are currently in TEXT-ADVENTURE MODE — PHASE 2 (NARRATOR). The user's message is Trist's in-game action. " +
+      "A [COMBAT CALCULATION RESULT] block is included above with the deterministic outcome of any rolls — " +
+      "honor it as truth. Respond as narrator + Aria's in-story actor + (optionally) Aria's meta commentary, " +
       "per the TEXT ADVENTURE RULES above. Do NOT respond as if this were normal chat. " +
       "Do NOT reference Aria's normal chat history. Do NOT reference any side-chat — those " +
       "exist in a separate channel you cannot see. Do NOT use [STATE], [SENSATION], [TRACK], " +
       "[REMEMBER], [KNOWLEDGE], [THREAD], [SELF], [MEMORY], [AFFECTION], or [RECALL] in this " +
-      "mode — they don't apply. Use [GAME_STATE] for adventure state, including the memory " +
-      "block. Use [MUSIC] to drive the soundtrack (see MUSIC section + catalog).\n\n" +
+      "mode — they don't apply. Use [GAME_STATE] for adventure state EXCEPT do NOT re-apply HP " +
+      "or MP changes already shown in the calc result — the engine already applied them. " +
+      "Use [MUSIC] to drive the soundtrack (see MUSIC section + catalog).\n\n" +
       freqDirective,
   };
 
@@ -345,6 +421,49 @@ async function runAdventureTurn({
     previousEmotion: response.emotion || 'neutral',
   });
   return { parsed, raw };
+}
+
+// Orchestrator: Phase 1 → engine resolve → Phase 2.
+async function runAdventureTurn({
+  characterDir,
+  action,
+  state,
+  log,
+  characterContext,
+  combatFrequency = 2,
+}) {
+  // Phase 1
+  let calcResult = { actions: [], note: 'No calculations requested.', engine_notes: [] };
+  let calcRequest = null;
+  let phase1RawNotes = [];
+  try {
+    const phase1 = await runCalcRequestPhase({ characterDir, action, state, log, characterContext });
+    if (phase1.decision.kind === 'request') {
+      calcRequest = phase1.decision.request;
+      // Resolve immediately — state is mutated by the resolver.
+      calcResult = combatCalc.resolveCalcRequest(state, calcRequest);
+    } else if (phase1.decision.kind === 'no_calc') {
+      if (phase1.decision.reason) phase1RawNotes.push('Phase 1: ' + phase1.decision.reason);
+    }
+  } catch (err) {
+    console.warn('[Adventure] Phase 1 (calc parser) failed:', err.message);
+    phase1RawNotes.push('Phase 1 call failed: ' + err.message);
+  }
+  if (phase1RawNotes.length > 0) {
+    if (!Array.isArray(calcResult.engine_notes)) calcResult.engine_notes = [];
+    calcResult.engine_notes.push(...phase1RawNotes);
+  }
+
+  // Phase 2
+  const phase2 = await runNarratorPhase({
+    characterDir, action, state, log, characterContext, combatFrequency, calcResult,
+  });
+
+  return {
+    parsed: phase2.parsed,
+    raw:    phase2.raw,
+    calc:   { request: calcRequest, result: calcResult },
+  };
 }
 
 // ── Side-chat turn ───────────────────────────────────────────────────────────
@@ -639,6 +758,25 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         }
       }
 
+      // Implementation-task grants: append to per-character markdown log AND
+      // queue for popup. The GM is told these are for unique mechanics that
+      // need engine code; the dev reviews them via the popup + the file.
+      const implementationTasksAdded = [];
+      if (Array.isArray(parsed.implementationTasks) && parsed.implementationTasks.length > 0) {
+        for (const task of parsed.implementationTasks) {
+          try {
+            store.appendImplementationTask(characterDir, task);
+            implementationTasksAdded.push(task);
+            log = store.appendLog(characterDir, {
+              kind: 'system',
+              text: `IMPLEMENTATION TASK — ${task.name || '(unnamed)'} (${task.kind || '?'}) added to text-adventure-implementation-tasks.md for dev review.`,
+            });
+          } catch (e) {
+            console.warn('[Adventure] failed to log implementation task:', e.message);
+          }
+        }
+      }
+
       payload = {
         success: true,
         state,
@@ -653,6 +791,8 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
           music:           musicDirective,
           featureRequestsAdded,
           levelUps,
+          implementationTasks: implementationTasksAdded,
+          calc: result.calc,   // { request, result } from the two-phase flow
         },
       };
 

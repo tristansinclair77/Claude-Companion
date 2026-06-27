@@ -223,6 +223,111 @@ A startup sanity check in `text-adventure-store.js` (`_verifyMonsterRoster`)
 warns on drift in both directions. If you see those warnings in the console
 on app boot, fix them before committing.
 
+### Adventure Mode — Two-Phase Combat & the Calculations System
+
+Adventure mode resolves combat (and any other dice-rolled outcome — stat
+checks, saving throws, multi-step branching actions) through a deterministic
+engine, NOT through Claude's narrative judgment. This exists because Claude
+will heavily bias toward whatever the player narrates ("I swing and definitely
+hit") if combat outcomes are purely narrative. The two-phase architecture
+fixes that: Claude *asks* for math, the engine *resolves* it, then Claude
+*narrates* the truthful outcome.
+
+**The canonical spec is [docs/COMBAT_CALCULATIONS.md](docs/COMBAT_CALCULATIONS.md).**
+Read it whenever you're touching combat math, calc tag schemas, the
+two-phase turn flow, the modifier/buff system, or unique-grant tracking.
+That document defines the formulas, the stat scale (mod = stat - 8), the
+AC system, what counts as a calc-required action vs. a narrative-only beat,
+and the canonical schemas for `[COMBAT_CALC_REQUEST]`,
+`[COMBAT_CALCULATION_RESULT]`, and `[IMPLEMENTATION_TASK]`.
+
+**Core invariants — do not break these without updating the spec:**
+
+1. **Every turn runs both phases.** Call 1 (lite calc-parser) → engine
+   resolution → Call 2 (full narrator + calc results). There is NO
+   single-call fast path, even for pure-narrative turns. On
+   pure-narrative turns Call 1 returns `[NO_CALC_NEEDED]` and the calc
+   result block in Call 2 is `{ "actions": [], "note": "No calculations
+   requested." }`. The GM's prompt shape is consistent across all turns.
+2. **The player does not get to declare what literally happens.** They
+   declare intent and approach. The engine's math decides hits, misses,
+   damage, and consequences. Claude narrates the truthful outcome.
+3. **If anything requires a dice roll, a stat check, an HP change, or any
+   D&D-like resolution — a `[COMBAT_CALC_REQUEST]` is required before the
+   narration is written.** This includes all skill checks (climb,
+   persuade, sneak, recall lore) and all saves. When in doubt, request
+   a calc. Missing a calc and fudging damage is the exact failure mode
+   this system prevents.
+4. **Enemies and NPCs must be fully statted at introduction.** When the
+   GM brings any enemy or recurring NPC onto the page, they emit a
+   complete stat block (str/dex/int/wis/con/luck, ac, armor, dmg, tags,
+   hp/maxHp). The engine has NO fallback math for half-statted entities.
+5. **3-action cap per turn.** The player gets at most 3 logical actions
+   per turn declaration. Beyond 3 = truncated. Companion (1 autonomous
+   action) and enemies (1 action per active enemy / 1 group action for
+   swarms) get their own slots and don't count against the player cap.
+   Multi-target spells are 1 logical action regardless of target count.
+6. **The engine enforces certain rules silently** — the canonical example
+   is Undying Bond, which redirects damage from Trist to Vesper when
+   thresholds are met. These engine-enforced rules are hard-coded in
+   `src/main/combat-calc.js` (when built) and the calc result clearly
+   labels when one fires. The GM should NOT try to redo the redirect math
+   in their narration — they should trust the result block and narrate
+   accordingly.
+7. **Other modifiers are GM-applied** — passives like Void Resonance,
+   equipped weapon bonuses, blessed buffs. The GM includes them in the
+   `modifiers` block of each calc request action. The engine respects
+   modifiers it's told about; it doesn't auto-detect them. This is
+   intentional — the GM has the narrative context to know when a buff
+   applies and when it doesn't.
+8. **Unique abilities, spells, equipment, and items that need engine-side
+   logic must emit an `[IMPLEMENTATION_TASK]`** — this appends to the
+   per-character `text-adventure-implementation-tasks.md` and fires a
+   pop-up. Until the dev implements the engine code, the grant exists as
+   narrative-only (it works in prose but doesn't feed into calcs).
+
+**Per-story files** live in each character directory alongside the other
+runtime files (state, log, side-chat, gm-chat):
+
+- `text-adventure-implementation-tasks.md` — append-only log of unique
+  grants the dev needs to implement. Starts blank, gitignored as runtime
+  state.
+
+**Stat scale rule:** stats run 8–20 normally. `mod = stat - 8`. A STR 14
+fighter gets +6 on melee attacks; a STR 8 mage gets +0. The wide mod range
+is intentional — stats are meant to feel real, not flatten under D&D's
+`(stat-10)/2` formula.
+
+**Starting characters (post-rebalance) use D&D-sensible spreads.** Trist
+starts as a STR-focused fighter (`STR 14 / DEX 12 / CON 12 / WIS 10 /
+INT 10 / LUCK 8`, HP 20, MP 10). Vesper starts god-tier (`DEX 16 / INT 18
+/ WIS 16 / CON 14 / STR 10 / LUCK 12`, HP 30, MP 30) because her ancient
+threshold-keeper nature means she's nearly impossible to miss with and
+has deep mana reserves. These live in `_freshPlayer()` and `_freshAria()`
+in [src/main/text-adventure-store.js](src/main/text-adventure-store.js).
+
+**When the spec and the code disagree, the spec wins** — update the code
+to match `docs/COMBAT_CALCULATIONS.md`. The spec is the source of truth.
+If you find a case the spec doesn't cover, extend the spec FIRST, then
+the code.
+
+**Keep the spec, the rules-doc-template, and this CLAUDE.md section in
+lockstep.** Any time the combat / calc / adventure-mechanics behavior is
+about to change, the order is:
+
+1. Edit `docs/COMBAT_CALCULATIONS.md` first — that's the contract.
+2. Update `src/main/text-adventure-rules.js` (the prompt sent to the
+   GM each turn) so the GM is told about the change.
+3. Update CLAUDE.md → "Adventure Mode" invariants if a load-bearing
+   rule shifted.
+4. Update the engine (`src/main/combat-calc.js`, `text-adventure-ipc.js`,
+   `text-adventure-store.js`) to match.
+5. Update the in-app help panel article so the player can read about it.
+
+Skipping the doc step is a regression. The GM, the renderer, the engine,
+and the player must all see the same rules; the only way that holds is
+to treat the docs as the source and propagate from there.
+
 ## Project: Claude Companion
 
 ### What it is

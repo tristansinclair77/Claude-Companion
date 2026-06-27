@@ -605,6 +605,103 @@ body:not(.adventure-mode) #text-adventure {
   text-shadow: 0 0 4px rgba(255, 228, 136, 0.6);
 }
 
+/* ── Implementation-task overlay ─────────────────────────────────── */
+.ta-overlay.impl-task {
+  background: rgba(0, 0, 0, 0.94);
+  justify-content: flex-start;
+  padding: 30px 24px;
+  overflow-y: auto;
+}
+.ta-it-badge {
+  font-size: 9px;
+  letter-spacing: 6px;
+  color: #88e4ff;
+  background: rgba(136, 228, 255, 0.08);
+  border: 1px solid rgba(136, 228, 255, 0.5);
+  padding: 4px 14px;
+  margin-bottom: 14px;
+  text-shadow: 0 0 8px rgba(136, 228, 255, 0.7);
+  animation: ta-it-pulse 2s ease-in-out infinite;
+}
+@keyframes ta-it-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(136, 228, 255, 0.35); }
+  50%      { box-shadow: 0 0 18px rgba(136, 228, 255, 0.85); }
+}
+.ta-overlay.impl-task h2 {
+  color: #88e4ff;
+  text-shadow: 0 0 12px rgba(136, 228, 255, 0.7);
+  letter-spacing: 3px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  text-align: center;
+}
+.ta-it-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 14px;
+  max-width: 600px;
+}
+.ta-it-meta-pill {
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border: 1px solid rgba(136, 228, 255, 0.4);
+  color: #b3e8f5;
+  background: rgba(136, 228, 255, 0.05);
+}
+.ta-it-meta-pill code {
+  color: #88e4ff;
+  font-family: inherit;
+}
+.ta-it-meta-pill.complexity-low    { border-color: rgba(134, 222, 132, 0.55); color: #b8f0b5; }
+.ta-it-meta-pill.complexity-medium { border-color: rgba(255, 228, 136, 0.55); color: #ffe488; }
+.ta-it-meta-pill.complexity-high   { border-color: rgba(255, 110, 130, 0.55); color: #ffaabb; }
+.ta-it-body {
+  max-width: 620px;
+  width: 100%;
+  color: #d8f5e3;
+  font-size: 10px;
+  line-height: 1.7;
+  margin: 0 0 14px;
+}
+.ta-it-summary {
+  font-style: italic;
+  text-align: center;
+  color: #cfead8;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-left: 2px solid rgba(136, 228, 255, 0.55);
+  border-right: 2px solid rgba(136, 228, 255, 0.55);
+}
+.ta-it-section {
+  margin: 0 0 12px;
+}
+.ta-it-section h4 {
+  color: #88e4ff;
+  font-size: 9px;
+  letter-spacing: 3px;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+.ta-it-section p {
+  margin: 0;
+  color: #cfead8;
+}
+.ta-it-footnote {
+  font-size: 8px;
+  color: #88a9b8;
+  margin: 0 0 14px;
+  max-width: 560px;
+  text-align: center;
+  font-style: italic;
+}
+.ta-it-footnote code {
+  color: #b3e8f5;
+  font-family: inherit;
+}
+
 /* ── Side-chat overlay ───────────────────────────────────────────── */
 .ta-overlay.side-chat {
   background: rgba(0, 0, 0, 0.94);

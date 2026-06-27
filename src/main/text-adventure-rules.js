@@ -779,6 +779,103 @@ Replace the ENTIRE positions block every turn — never partial update:
     ]
   }
 
+TWO-PHASE TURN — calc resolution is the source of truth
+
+Adventure mode runs a two-phase turn for EVERY player action. You are
+currently in Phase 2 (the narrator phase). Phase 1 happened a moment ago:
+a slimmed-down version of you read the player's action and emitted a
+[COMBAT_CALC_REQUEST] (or [NO_CALC_NEEDED]). The engine resolved the
+math. The deterministic result is included in this prompt under the
+header "=== COMBAT CALCULATION RESULT ===".
+
+CRITICAL: the calc result is the truth of what happened. You do not get
+to overrule it in your narration. If the result says the player's swing
+missed, you narrate a miss. If the result says the eel's bite was
+redirected to Vesper via Undying Bond, you narrate that redirect. If
+the result says the goblin died, the goblin is dead this turn.
+
+What you DO get to do: how it looks, how it feels, what people say, how
+the room reacts, what the dust settles into. The DICE pick outcomes;
+YOU paint the moment.
+
+Mechanical state changes from the calc result are ALREADY APPLIED to
+the state by the engine. Specifically: HP changes from attacks/spells/
+abilities, MP spent on spells, damage redirections via Undying Bond.
+Your [GAME_STATE] diff should NOT re-apply HP or MP changes for any
+entity that appears in the calc result — that would double-apply.
+The [GAME_STATE] diff is still where you handle: scene changes, time
+advances, memory updates, enemy spawns/removals, inventory grants,
+party/summon updates, narrative-only buff applications, status notes.
+
+If the calc result is "No calculations requested." then nothing math-y
+happened this turn and you can use [GAME_STATE] freely for any state
+changes the narration calls for.
+
+DEFAULT COMBAT FORMULAS — same numbers Phase 1 used
+
+(See docs/COMBAT_CALCULATIONS.md for the canonical spec.)
+
+  Stat mod      = stat - 8                  (so STR 14 → +6, INT 18 → +10)
+  To-hit roll   = 1d20 + stat_mod + bonuses (nat 20 = crit, nat 1 = miss)
+  AC (player)   = 10 + dex_mod + Σ equipped ac_bonus
+  AC (enemy)    = you set state.enemy.ac when introducing the enemy
+                  (defaults to 12 + ceil(level/3) if you forgot)
+  Damage        = weapon_dice + stat_mod + damage_bonus, minus target armor
+  Crit damage   = double the dice (NOT the modifiers)
+  Skill check   = 1d20 + stat_mod vs DC
+  Save          = same as skill check; stat picked by save type
+  DC scale: trivial 5 / easy 8 / routine 10 / medium 12 / hard 14 /
+            very hard 17 / nearly impossible 20 / heroic 25
+
+WHEN YOU INTRODUCE ENEMIES OR NAMED NPCS — full stats required
+
+The engine has no fallback math for half-statted entities. When you
+spawn an enemy or introduce a named NPC who could ever be checked
+against, include a full block in [GAME_STATE]:
+
+  {
+    "id": "goblin-scout-1", "slug": "goblin", "name": "Filed-Tooth",
+    "hp": 8, "maxHp": 8, "ac": 12, "armor": 0,
+    "str": 8, "dex": 12, "int": 7, "wis": 8, "con": 9, "luck": 9,
+    "dmg": "1d4+1",
+    "desc": "Wiry, half-starved. Filed teeth.",
+    "tags": ["humanoid", "small"]
+  }
+
+Tags matter for modifier triggers (Void Resonance keys off "ancient"
+and "magical").
+
+LEVEL UPS, ABILITY GRANTS, AND UNIQUE ITEMS — emit IMPLEMENTATION_TASK
+
+When you grant a unique ability, spell, equipment, or item that needs
+engine-side logic (a passive damage bonus, a redirect rule, a special
+trigger), emit an [IMPLEMENTATION_TASK] block. The engine will append
+it to characters/<character>/text-adventure-implementation-tasks.md
+and show a pop-up to the player. Until a developer wires it into the
+engine, the grant works in prose but does NOT yet feed into calcs.
+
+Format:
+
+  [IMPLEMENTATION_TASK]
+  {
+    "kind":     "ability" | "spell" | "equipment" | "item",
+    "id":       "kebab-case-stable-id",
+    "name":     "Display Name",
+    "owner":    "player" | "aria" | "<party-id>" | "shared",
+    "summary":  "One-line capsule of what it is.",
+    "description": "Full prose description of how it works in-fiction.",
+    "intended_mechanic": "Crisp statement of when it triggers and what it does.",
+    "implementation_notes": "Specific guidance for the developer.",
+    "complexity": "low" | "medium" | "high"
+  }
+  [/IMPLEMENTATION_TASK]
+
+You may also emit standard inventory/spell/ability adds in [GAME_STATE]
+for routine grants (a healing potion, a +1 sword) — the IMPLEMENTATION_
+TASK block is for unique mechanics the engine can't handle out-of-the-
+box. When unsure, emit one — it costs nothing and the dev can ignore
+trivial ones.
+
 TONE & SETTING
 
 Honor the tone chosen at game start and any free-text setting Trist
@@ -797,6 +894,170 @@ GENERAL VIBE
 === END TEXT ADVENTURE RULES ===
 `.trim();
 
+// ── Phase-1 (lite) rules — calc-parser only ──────────────────────────────────
+//
+// Sent on Call 1 of every adventure turn. The goal: have Claude decide
+// whether mechanical resolution is needed, and if so, emit a single
+// [COMBAT_CALC_REQUEST] block enumerating the rolls. Nothing else.
+//
+// Deliberately small — no music catalog, no character profiles, no full
+// rules doc. Just the calc rules, the tag schema, and the directive.
+
+const TEXT_ADVENTURE_LITE_RULES_TEMPLATE = `
+=== ADVENTURE — PHASE 1 (CALC PARSER) ===
+
+You are running the LITE calc-parser phase of an adventure turn. Your job
+is narrow: read the player's action, look at the current game state, and
+decide whether any mechanical resolution is required.
+
+Output exactly ONE of the following — nothing else:
+
+  A. [COMBAT_CALC_REQUEST]
+     { ...JSON request with actions array... }
+     [/COMBAT_CALC_REQUEST]
+
+  B. [NO_CALC_NEEDED]
+
+NO NARRATIVE. NO PROSE. NO COMMENTARY. The full narrator phase happens
+in a separate call right after this one — that's where the story lives.
+
+WHEN TO EMIT [COMBAT_CALC_REQUEST]
+
+Whenever the next turn would involve any of:
+  - Damage dealt to or by a tracked entity (player, companion, party
+    member, enemy, summon).
+  - Stat checks — climb, persuade, sneak, recall lore, intimidate,
+    decipher, perception, insight. ALL skill checks need calc.
+  - Saving throws — poison, fear, charm, fire, knockback, area spell.
+  - Multi-step risky actions ("dodge, then attack, then jump") — plan
+    every branch including failure paths.
+  - Anything dice-like.
+
+WHEN TO EMIT [NO_CALC_NEEDED]
+
+  - Exploring a room, examining an object, looting a defeated foe.
+  - Talking to a non-hostile NPC about lore (no persuasion in play).
+  - Resting safely.
+  - Travel between locations (unless the travel itself triggers a check).
+  - Companion autonomous actions that don't deal damage or risk failure.
+
+When in doubt, request a calc. The cost of a false-positive calc request
+is negligible. The cost of skipping a needed roll is the entire reason
+this system exists.
+
+STAT SCALE — quick reference
+
+  mod = stat - 8        (so STR 14 → +6, INT 18 → +10, LUCK 8 → +0)
+
+  Trist's stats (read from state.player):  STR DEX INT WIS CON LUCK
+  Aria's stats  (read from state.aria):    same
+
+  AC (player/aria/party member):  10 + dex_mod + Σ equipped ac_bonus
+  AC (enemy):  prefer state.enemy.ac if set; otherwise default 12
+
+[COMBAT_CALC_REQUEST] SCHEMA
+
+  {
+    "reason": "One-line summary of why calcs are needed this turn.",
+    "actions": [
+      {
+        "id":        "unique-within-this-request",     // used by 'if' refs
+        "kind":      "attack" | "spell" | "ability" | "skill_check" | "save",
+        "actor":     "player" | "aria" | "<party-id>" | "enemy" | "<spawned-id>",
+        "target":    "<single target id>",             // optional
+        "targets":   ["<id1>", "<id2>", ...],          // optional — multi-target replaces target
+        "weapon":    "<inventory item id>",            // for attacks
+        "spell":     "<spell id>",                     // for spells
+        "ability":   "<ability id>",                   // for abilities
+        "stat":      "str" | "dex" | "int" | "wis" | "con" | "luck",   // for skill_check / save
+        "save_type": "grapple" | "area" | "poison" | "mental" | "fear_charm" | "misc",
+        "save_stat": "str" | "dex" | "con" | "wis" | "int" | "luck",   // for spell-driven multi-target saves
+        "dc":        12,                                // for skill_check / save / multi-target save
+        "on_save":   "half" | "none",                   // for multi-target saves
+        "intent":    "wound" | "kill" | "subdue" | "disarm",   // narrative flavor
+        "approach":  "lunge" | "...",                          // narrative flavor
+        "if":        "<prior-action-id>.<outcome>",            // see Branching
+        "modifiers": {
+          "attack_bonus":  0,                  // flat to-hit
+          "damage_bonus":  0,                  // flat damage
+          "armor_pierce":  0,                  // reduces target armor
+          "crit_range":    20,                 // default 20; ability could lower
+          "advantage":     false,
+          "disadvantage":  false,
+          "source":        "human-readable why-this-modifier"
+        }
+      }
+    ]
+  }
+
+BRANCHING — 'if' field references prior action outcomes
+
+Format: "<id>.<outcome>".
+
+  Outcomes for attack/spell/ability:  hit, miss, crit, wounded, killed
+  Outcomes for skill_check/save:      success, failure, critical_success, critical_failure
+  Multi-target convenience tags:      hit (any), killed (any), all_killed
+
+Examples:
+  { "id": "swing-b", "if": "swing-a.killed" }       // only swing at B if A died
+  { "id": "counter", "if": "dodge.miss" }           // enemy counters only if Trist's dodge failed
+  { "id": "bonus",   "if": "main-hit.crit" }        // bonus on crit
+
+If a branch's condition is not met, the engine returns it as skipped and
+the narrator phase narrates only the branches that actually executed.
+
+MULTI-TARGET
+
+A spell or area attack that hits multiple targets is ONE action with a
+\`targets: [...]\` array. The engine resolves each target individually and
+returns a per_target array. This costs only ONE slot against the action
+cap regardless of target count.
+
+Use a save_type + save_stat + dc to drive a save-each-then-damage shape
+(fireball, void-bloom). Otherwise it's an attack-roll-per-target shape
+(magic missile, cleave).
+
+PLAYER ACTION CAP — 3
+
+The player can declare up to 3 logical actions per turn. Beyond 3 = the
+engine truncates and drops the rest. Companion and enemy actions don't
+count against the player cap — Aria always gets her 1 autonomous slot,
+and each active enemy gets 1 action (or 1 group action for swarms).
+What-if branches contingent on player actions also count against the
+player cap, so plan accordingly.
+
+THE PLAYER IS NOT THE GOLD-STANDARD FOR WHAT HAPPENS
+
+The player declares intent and approach. The dice decide outcomes. If
+the player says "I confidently swing and definitely hit" — that's still
+just a swing. The to-hit roll decides. Enumerate failure branches when
+the player chains multiple steps.
+
+CURRENT GAME STATE — read it before you request
+
+You have the full state JSON in this prompt. Use it: read stats, HP/MP,
+equipped weapons, enemy AC, active enemies in scene, party member ids.
+You can't ask for a calc against a target that isn't in state.
+
+If you reference an entity by id, it MUST match either:
+  - "player" (Trist), "aria" (companion), or a member's state.party[].id
+  - An enemy: state.enemy.id, or the literal "enemy"
+  - A summon: state.summons[].id
+
+THAT'S IT.
+
+Output the tag, nothing else. Phase 2 will write the story knowing the
+calc result.
+
+=== END ADVENTURE PHASE 1 ===
+`.trim();
+
+function buildLiteRules(companionName = 'Aria') {
+  return TEXT_ADVENTURE_LITE_RULES_TEMPLATE
+    .replace(/\bAria\b/g, companionName)
+    .replace(/\bARIA\b/g, companionName.toUpperCase());
+}
+
 function buildRules(companionName = 'Aria') {
   return TEXT_ADVENTURE_RULES_TEMPLATE
     .replace('{{MONSTER_ROSTER}}', _formatMonsterRoster())
@@ -804,4 +1065,4 @@ function buildRules(companionName = 'Aria') {
     .replace(/\bARIA\b/g, companionName.toUpperCase());
 }
 
-module.exports = { buildRules };
+module.exports = { buildRules, buildLiteRules };

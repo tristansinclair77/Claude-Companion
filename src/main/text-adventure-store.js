@@ -10,10 +10,11 @@
 const fs   = require('fs');
 const path = require('path');
 
-const STATE_FILENAME     = 'text-adventure.json';
-const LOG_FILENAME       = 'text-adventure-log.json';
-const SIDECHAT_FILENAME  = 'text-adventure-side-chat.json';
-const GMCHAT_FILENAME    = 'text-adventure-gm-chat.json';
+const STATE_FILENAME       = 'text-adventure.json';
+const LOG_FILENAME         = 'text-adventure-log.json';
+const SIDECHAT_FILENAME    = 'text-adventure-side-chat.json';
+const GMCHAT_FILENAME      = 'text-adventure-gm-chat.json';
+const IMPL_TASKS_FILENAME  = 'text-adventure-implementation-tasks.md';
 
 const LOG_MAX_ENTRIES       = 200;
 const SIDECHAT_MAX_ENTRIES  = 80;
@@ -189,25 +190,37 @@ function _emptyCharacter(overrides = {}) {
 }
 
 function _freshPlayer() {
+  // STR-focused fighter baseline. See docs/COMBAT_CALCULATIONS.md for the
+  // stat scale (mod = stat - 8) and starting-character philosophy.
   return _emptyCharacter({
     name:    'Trist',
-    str:     9,
-    con:     9,
+    hp:      20, maxHp: 20,
+    mp:      10, maxMp: 10,
+    str:     14,
+    dex:     12,
+    int:     10,
+    wis:     10,
+    con:     12,
+    luck:     8,
     gold:    10,
   });
 }
 
 function _freshAria(name = 'Aria') {
+  // Ancient threshold-keeper baseline — god-tier on purpose. High INT/DEX/WIS
+  // so she lands hits and saves reliably; CON 14 + HP 30 so she can absorb
+  // damage through the Undying Bond redirect without breaking immediately.
+  // See docs/COMBAT_CALCULATIONS.md.
   return _emptyCharacter({
     name,
-    hp:      18, maxHp: 18,
-    mp:      14, maxMp: 14,
-    str:      7,
-    dex:      9,
-    int:     10,
-    wis:      9,
-    con:      7,
-    luck:     8,
+    hp:      30, maxHp: 30,
+    mp:      30, maxMp: 30,
+    str:     10,
+    dex:     16,
+    int:     18,
+    wis:     16,
+    con:     14,
+    luck:    12,
     spells: [
       { id: 'firebolt',   name: 'Firebolt',   cost: 3, desc: 'A small darting flame she can throw at one foe.' },
       { id: 'mend_wound', name: 'Mend Wound', cost: 4, desc: 'Closes a gash and restores a little HP to an ally.' },
@@ -359,6 +372,72 @@ function appendGmChat(characterDir, entry) {
 
 function clearGmChat(characterDir) {
   try { fs.unlinkSync(_gmChatPath(characterDir)); } catch {}
+}
+
+// ── Implementation tasks (per-character markdown log) ────────────────────────
+//
+// When the GM emits [IMPLEMENTATION_TASK], we append a markdown entry here
+// so the developer can review and implement engine logic for the grant.
+// Pure markdown — no JSON, no schema enforcement. The renderer also gets a
+// pop-up via IPC; this file is the durable record.
+
+function _implTasksPath(characterDir) { return path.join(characterDir, IMPL_TASKS_FILENAME); }
+
+function appendImplementationTask(characterDir, task) {
+  const p = _implTasksPath(characterDir);
+  const t = task || {};
+  const stamp = new Date().toISOString();
+  const lines = [];
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push(`## ${t.name || '(unnamed)'}  —  ${t.kind || '?'}  ·  owner: ${t.owner || '?'}`);
+  lines.push(`*Logged ${stamp}*`);
+  lines.push('');
+  if (t.id)                   lines.push(`**id:** \`${t.id}\``);
+  if (t.complexity)           lines.push(`**complexity:** ${t.complexity}`);
+  if (t.summary)              lines.push(`\n**Summary:** ${t.summary}`);
+  if (t.description)          lines.push(`\n**Description:**\n${t.description}`);
+  if (t.intended_mechanic)    lines.push(`\n**Intended mechanic:**\n${t.intended_mechanic}`);
+  if (t.implementation_notes) lines.push(`\n**Implementation notes:**\n${t.implementation_notes}`);
+  lines.push('');
+  lines.push('- [ ] Reviewed by developer');
+  lines.push('- [ ] Engine logic implemented');
+  lines.push('- [ ] Tests added');
+  lines.push('');
+  const body = lines.join('\n');
+
+  // Create file with header if missing.
+  if (!fs.existsSync(p)) {
+    const header = [
+      '# Adventure Implementation Tasks',
+      '',
+      'Auto-generated log of unique abilities, spells, equipment, and items',
+      'awarded by the gamemaster during this character\'s adventure that need',
+      'engine-side implementation work.',
+      '',
+      'Each entry below was emitted by the GM via `[IMPLEMENTATION_TASK]` and',
+      'represents a grant that currently exists in narrative only. Implementing',
+      'one means wiring its mechanical effect into `src/main/combat-calc.js` (or',
+      'the appropriate engine file) so it feeds into the calc system on every',
+      'turn that triggers it.',
+      '',
+      'See `docs/COMBAT_CALCULATIONS.md` for the calc system design.',
+      '',
+    ].join('\n');
+    fs.writeFileSync(p, header + body, 'utf8');
+  } else {
+    fs.appendFileSync(p, body, 'utf8');
+  }
+  return p;
+}
+
+function loadImplementationTasks(characterDir) {
+  try {
+    const p = _implTasksPath(characterDir);
+    if (!fs.existsSync(p)) return '';
+    return fs.readFileSync(p, 'utf8');
+  } catch { return ''; }
 }
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
@@ -789,6 +868,8 @@ module.exports = {
   saveGmChat,
   appendGmChat,
   clearGmChat,
+  appendImplementationTask,
+  loadImplementationTasks,
   newGame,
   resetGame,
   applyStateDiff,

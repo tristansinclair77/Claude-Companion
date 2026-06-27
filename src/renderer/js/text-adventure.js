@@ -51,7 +51,9 @@ const TextAdventure = (function () {
   let partyPanelEl, partyExtrasEl, partyToggleBtn;
   let overlayGmChat, gmScrollEl, gmInputEl, gmSendBtn, gmCloseBtn;
   let overlayLevelUp, luTitleEl, luNarrativeEl, luGainsEl, luContinueBtn;
+  let overlayImplTask, itTitleEl, itMetaEl, itBodyEl, itContinueBtn;
   let _levelUpQueue = [];
+  let _implTaskQueue = [];
   let unsubscribeUpdate = null;
 
   let _selectedTone = TONES[0].id;
@@ -265,6 +267,18 @@ const TextAdventure = (function () {
         </div>
       </div>
 
+      <!-- Implementation-task overlay -->
+      <div class="ta-overlay impl-task hidden" id="ta-overlay-impltask">
+        <div class="ta-it-badge">IMPLEMENTATION TASK</div>
+        <h2 id="ta-it-title">— UNIQUE GRANT —</h2>
+        <div class="ta-it-meta" id="ta-it-meta"></div>
+        <div class="ta-it-body" id="ta-it-body"></div>
+        <p class="ta-it-footnote">Logged to <code>text-adventure-implementation-tasks.md</code>. Ask the developer to implement to activate engine-side effects.</p>
+        <div class="ta-overlay-actions">
+          <button class="ta-overlay-btn" id="ta-it-continue">CONTINUE</button>
+        </div>
+      </div>
+
       <!-- Level-up overlay -->
       <div class="ta-overlay level-up hidden" id="ta-overlay-levelup">
         <div class="ta-lu-badge">LEVEL UP</div>
@@ -356,6 +370,12 @@ const TextAdventure = (function () {
     luGainsEl     = root.querySelector('#ta-lu-gains');
     luContinueBtn = root.querySelector('#ta-lu-continue');
     luContinueBtn.addEventListener('click', _showNextLevelUp);
+    overlayImplTask = root.querySelector('#ta-overlay-impltask');
+    itTitleEl    = root.querySelector('#ta-it-title');
+    itMetaEl     = root.querySelector('#ta-it-meta');
+    itBodyEl     = root.querySelector('#ta-it-body');
+    itContinueBtn = root.querySelector('#ta-it-continue');
+    itContinueBtn.addEventListener('click', _showNextImplTask);
 
     _renderToneGrid();
     _renderDrawerTabs();
@@ -1068,10 +1088,16 @@ const TextAdventure = (function () {
 
     if (!state.alive) {
       _showDeathOverlay(state.deathCause || 'You have fallen.', state.deathOf);
-    } else if (turnResponse && Array.isArray(turnResponse.levelUps) && turnResponse.levelUps.length > 0) {
-      _enqueueLevelUps(turnResponse.levelUps);
     } else {
-      _focusInput();
+      if (turnResponse && Array.isArray(turnResponse.levelUps) && turnResponse.levelUps.length > 0) {
+        _enqueueLevelUps(turnResponse.levelUps);
+      }
+      if (turnResponse && Array.isArray(turnResponse.implementationTasks) && turnResponse.implementationTasks.length > 0) {
+        _enqueueImplTasks(turnResponse.implementationTasks);
+      }
+      if ((!turnResponse || !((turnResponse.levelUps && turnResponse.levelUps.length) || (turnResponse.implementationTasks && turnResponse.implementationTasks.length)))) {
+        _focusInput();
+      }
     }
   }
 
@@ -1282,7 +1308,52 @@ const TextAdventure = (function () {
     overlayDeath.classList.add('hidden');
     overlaySideChat.classList.add('hidden');
     overlayGmChat.classList.add('hidden');
+    if (overlayLevelUp)  overlayLevelUp.classList.add('hidden');
+    if (overlayImplTask) overlayImplTask.classList.add('hidden');
+  }
+
+  // ── Implementation-task overlay ──────────────────────────────────────────
+  // Fires when the GM grants a unique ability/spell/equipment/item via the
+  // [IMPLEMENTATION_TASK] tag. Each task is queued and shown in sequence;
+  // the player clicks CONTINUE to advance. The grant is logged to
+  // text-adventure-implementation-tasks.md regardless of whether the
+  // popup was acknowledged.
+
+  function _enqueueImplTasks(tasks) {
+    if (!Array.isArray(tasks) || tasks.length === 0) return;
+    for (const t of tasks) _implTaskQueue.push(t);
+    if (overlayImplTask && overlayImplTask.classList.contains('hidden')) {
+      _showNextImplTask();
+    }
+  }
+
+  function _showNextImplTask() {
+    if (!overlayImplTask) return;
+    if (_implTaskQueue.length === 0) {
+      overlayImplTask.classList.add('hidden');
+      _focusInput();
+      return;
+    }
+    const t = _implTaskQueue.shift();
+    const name = t.name || t.id || '(unnamed)';
+    const kindBadge = (t.kind || 'grant').toUpperCase();
+    itTitleEl.textContent = `${name.toUpperCase()} — ${kindBadge}`;
+    const metaBits = [];
+    if (t.owner)      metaBits.push(`<span class="ta-it-meta-pill">owner: ${_escapeHtml(t.owner)}</span>`);
+    if (t.id)         metaBits.push(`<span class="ta-it-meta-pill">id: <code>${_escapeHtml(t.id)}</code></span>`);
+    if (t.complexity) metaBits.push(`<span class="ta-it-meta-pill complexity-${_escapeHtml(t.complexity)}">complexity: ${_escapeHtml(t.complexity)}</span>`);
+    itMetaEl.innerHTML = metaBits.join(' ');
+    const bodyParts = [];
+    if (t.summary)              bodyParts.push(`<p class="ta-it-summary">${_escapeHtml(t.summary)}</p>`);
+    if (t.description)          bodyParts.push(`<div class="ta-it-section"><h4>Description</h4><p>${_escapeHtml(t.description)}</p></div>`);
+    if (t.intended_mechanic)    bodyParts.push(`<div class="ta-it-section"><h4>Intended Mechanic</h4><p>${_escapeHtml(t.intended_mechanic)}</p></div>`);
+    if (t.implementation_notes) bodyParts.push(`<div class="ta-it-section"><h4>Implementation Notes (for the dev)</h4><p>${_escapeHtml(t.implementation_notes)}</p></div>`);
+    itBodyEl.innerHTML = bodyParts.join('\n');
+    overlayDeath.classList.add('hidden');
+    overlaySideChat.classList.add('hidden');
     if (overlayLevelUp) overlayLevelUp.classList.add('hidden');
+    overlayImplTask.classList.remove('hidden');
+    setTimeout(() => itContinueBtn.focus(), 50);
   }
 
   // ── Level-up overlay ─────────────────────────────────────────────────────
