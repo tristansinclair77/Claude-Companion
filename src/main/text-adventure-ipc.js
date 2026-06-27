@@ -523,10 +523,12 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
       (log.length > 0 ? formatLogForPrompt(log, 30) : '(this is the very first turn — no log yet)') +
       '\n=== END RECENT ADVENTURE LOG ===',
     adventure_mode_directive:
-      "You are currently in TEXT-ADVENTURE MODE — PHASE 2 (NARRATOR). The user's message is Trist's in-game action. " +
+      "You are currently in TEXT-ADVENTURE MODE — PHASE 2 (the narrator phase). The user's message is Trist's in-game action. " +
       "A [COMBAT CALCULATION RESULT] block is included above with the deterministic outcome of any rolls — " +
-      "honor it as truth. Respond as narrator + Aria's in-story actor — everything she says or " +
-      "does this turn lives INSIDE the [NARRATOR] block. " +
+      "honor it as truth. " +
+      "REQUIRED OUTPUT: every response MUST contain a [NARRATOR]...[/NARRATOR] block with 2-6 paragraphs " +
+      "of prose. This is the story this turn — if you omit it the player sees nothing. Aria's in-story " +
+      "actions and her in-story dialogue (in quotes) live INSIDE that block. " +
       "Do NOT emit [DIALOGUE], [THOUGHTS], or a parenthetical (emotion) — the meta-commentary " +
       "channel was removed. Her portrait emotion is driven by [ARIA_EMOTION] only. " +
       "Do NOT respond as if this were normal chat. " +
@@ -813,8 +815,23 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         store.applyStateDiff(state, parsed.gameStateDiff);
       }
 
+      // Track whether the model returned a usable narrator block so the
+      // renderer can surface a visible error rather than just rendering
+      // nothing (and leaving the user staring at an unchanged terminal).
+      let narratorWarning = null;
       if (parsed.narrator) {
         log = store.appendLog(characterDir, { kind: 'narrator', text: parsed.narrator });
+      } else {
+        const sceneEmitted = !!parsed.scene;
+        const emotionEmitted = !!parsed.portraitEmotion;
+        narratorWarning =
+          'ERROR — The gamemaster returned no [NARRATOR] block this turn.' +
+          (sceneEmitted ? ' [SCENE] was present.' : '') +
+          (emotionEmitted ? ' [ARIA_EMOTION] was present.' : '') +
+          ' The model likely skipped the narration. Try sending your action again, or open ASK to nudge the GM.';
+        console.warn('[Adventure] Phase 2 had no narrator block. Raw (first 600 chars):',
+          (raw || '').slice(0, 600));
+        log = store.appendLog(characterDir, { kind: 'system', text: narratorWarning });
       }
       // The aria meta-commentary channel was removed. If the model slips and
       // emits a [DIALOGUE] block anyway, we silently drop the text — no log
@@ -950,6 +967,7 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         success: true,
         state,
         log,
+        warning: narratorWarning,
         turnResponse: {
           scene:           parsed.scene,
           narrator:        parsed.narrator,

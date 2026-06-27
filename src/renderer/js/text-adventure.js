@@ -1084,8 +1084,16 @@ const TextAdventure = (function () {
     const { state, turnResponse } = payload;
     _activeState = state;
 
+    // Surface explicit errors from the IPC handler. Without this the user
+    // would see the spinner stop with no other feedback.
+    if (payload.success === false && payload.error) {
+      _addEntry('system', 'ERROR — ' + payload.error);
+    }
+
     if (turnResponse) {
-      if (turnResponse.narrator) _addEntryAnimated('narrator', turnResponse.narrator);
+      if (turnResponse.narrator) {
+        _addEntryAnimated('narrator', turnResponse.narrator);
+      }
       // Aria meta-commentary is no longer surfaced — it was just summarizing
       // what the narrator already said. The portrait emotion still flows
       // through (see [ARIA_EMOTION] in text-adventure-rules.js).
@@ -1094,6 +1102,16 @@ const TextAdventure = (function () {
       if (pe && window.CompanionDisplay && typeof window.CompanionDisplay.setEmotion === 'function') {
         window.CompanionDisplay.setEmotion(pe);
       }
+    }
+
+    // Warning case: Phase 2 succeeded structurally but returned no narrator
+    // block. The system entry that explains this was already appended to the
+    // log by the IPC handler (and is part of `state.log` if the renderer
+    // re-renders) — but the user is looking at the live terminal right now,
+    // so surface it visibly. Without this the user just sees the portrait
+    // swap with no story and assumes the app froze.
+    if (payload.warning) {
+      _addEntry('system', payload.warning);
     }
 
     _renderHud(state);
