@@ -285,6 +285,34 @@ and the canonical schemas for `[COMBAT_CALC_REQUEST]`,
    per-character `text-adventure-implementation-tasks.md` and fires a
    pop-up. Until the dev implements the engine code, the grant exists as
    narrative-only (it works in prose but doesn't feed into calcs).
+9. **Bestiary is the persistent registry for enemies/NPCs/bosses.** The
+   GM registers any named enemy or stat-bearing NPC via the
+   `bestiary.add` diff on first appearance. The engine hydrates
+   `state.enemy` from the bestiary on subsequent encounters so HP, AC,
+   stats, abilities, and status effects survive across scenes. See
+   `docs/COMBAT_CALCULATIONS.md` → Bestiary.
+10. **Status effects are structured and engine-enforced.** `bound`,
+    `stunned`, `poisoned`, `blessed`, `hasted`, etc. live on every
+    entity's `status_effects[]` with concrete behavioral fields
+    (`skip_turn`, `disadvantage_on`, `damage_per_turn`, `ac_mod`,
+    `stat_mod`, `incoming_damage_mod`). The engine ticks DoT/regen and
+    decrements durations automatically. The GM is told about active
+    effects in the prompt's `[ACTIVE STATUS EFFECTS]` block every turn
+    and should honor them in both narration AND calc requests (don't
+    request actions for stunned actors).
+11. **Hidden abilities are companion-only.** The companion's
+    `abilities[]` can carry `hidden: true`. The renderer's ABL drawer
+    skips them; the engine respects them; the GM uses them when the
+    moment calls for it. Player/enemy/NPC abilities are never hidden.
+12. **Diff-strip filter prevents double-applying HP/MP.** After the calc
+    engine resolves a turn, the engine post-processes the GM's
+    `[GAME_STATE]` diff and strips any hp/mp/maxHp/maxMp field on
+    entities that appear in the calc result. Logs a warning. Safety net,
+    not a license for the GM to slop.
+
+The spec — `docs/COMBAT_CALCULATIONS.md` — is the canonical source for
+all of the above: schemas, formulas, lookup order, the deliberately-out-
+of-scope list, and the rationale behind each design choice.
 
 **Per-story files** live in each character directory alongside the other
 runtime files (state, log, side-chat, gm-chat):

@@ -719,18 +719,313 @@ turn." This is the escape hatch.
 
 ---
 
-## Future work (explicitly NOT in v1)
+## Status effects — structured, engine-enforced
 
-- **Calc-override code blocks** that the engine reads and applies
-  automatically (see "Engine code-block emissions" above).
-- **Initiative tracking** with formal turn order. Currently the GM declares
-  order in the request and the engine resolves in that order.
-- **Reach / range / line-of-sight** as first-class calc inputs. Currently
-  positions tracking is informational; reach is the GM's call.
-- **Status effects** with structured triggers (DoT, regen, condition
-  immunity). Currently buffs/debuffs are descriptive only.
-- **Critical-tier table** for narrative crit consequences (sever limb,
-  disarm, knockdown). Currently a crit just doubles damage dice.
+`state.player.status_effects[]`, `state.aria.status_effects[]`, party
+members' `.status_effects[]`, every bestiary entry's `.status_effects[]`,
+every summon's `.status_effects[]` — all hold structured condition
+records that the engine respects every turn.
 
-When demand pressures any of these, extend this document and the engine
-together — keep the spec and the code in lockstep.
+Schema:
+
+```json
+{
+  "id":          "kebab-case-stable-id",   // e.g. "bound-by-void-tendrils"
+  "name":        "Display Name",           // e.g. "Bound"
+  "type":        "bound" | "stunned" | "paralyzed" | "rooted" |
+                 "poisoned" | "on_fire" | "bleeding" |
+                 "blessed" | "hasted" | "slowed" |
+                 "blinded" | "feared" | "charmed" | "incapacitated" |
+                 "regen" | "<custom>",
+  "turns_remaining":  3,                   // decremented each tick; null = permanent until cured
+  "severity":         1,                   // 1=minor, 2=moderate, 3=severe — flavor scale
+  "source":           "Void Tendrils — DC 19 STR save",
+  "description":      "Bound by void-tendrils. Cannot move or attack.",
+  "effects": {
+    "skip_turn":         true,             // engine skips any action this entity would take
+    "disadvantage_on":   ["attack", "save", "skill_check"],   // engine forces disadvantage on listed roll kinds
+    "advantage_on":      ["attack"],       // grants advantage on listed roll kinds
+    "damage_per_turn":   "1d4",            // applied at start of each turn (DoT)
+    "heal_per_turn":     "1d6",            // applied at start of each turn (regen)
+    "ac_mod":            -2,               // flat AC delta
+    "stat_mod":          { "str": -2, "dex": 2 },   // flat stat mod for the duration
+    "incoming_damage_mod": 1.5             // multiplier on damage taken — 1.5 = vulnerable, 0.5 = resistant
+  }
+}
+```
+
+Every field inside `effects` is optional. A bound creature might only have
+`skip_turn: true`. A poisoned creature might only have `damage_per_turn: "1d4"`.
+A blessed character might have `advantage_on: ["save"], ac_mod: 1`.
+
+The engine ticks status effects at the start of each turn AFTER the calc
+phase, in this order:
+
+1. Tick `damage_per_turn` and `heal_per_turn` (DoT/regen applies as untyped
+   damage/heal — Undying Bond still redirects DoT damage from player to
+   companion).
+2. Resolve all calc actions (skip_turn / disadvantage_on / advantage_on /
+   ac_mod / stat_mod / incoming_damage_mod apply during resolution).
+3. Decrement `turns_remaining`. Effects with `turns_remaining: 0` are
+   removed. Effects with `turns_remaining: null` persist until explicitly
+   removed via a diff.
+
+The GM applies new status effects via the `[GAME_STATE]` diff:
+
+```json
+"player": {
+  "status_effects": {
+    "add":    [ { "id": "blessed", "name": "Blessed", "type": "blessed", "turns_remaining": 5,
+                  "effects": { "advantage_on": ["save"], "ac_mod": 1 } } ],
+    "remove": [ "rooted-by-vines" ],
+    "update": [ { "id": "poisoned", "turns_remaining": 2 } ]
+  }
+}
+```
+
+Active status effects are surfaced in the prompt's "ACTIVE STATUS EFFECTS"
+block every turn so the GM is reminded who's affected by what. The GM
+should:
+
+- Reference them in narration when relevant ("the poison drags at his
+  step; he stumbles").
+- Honor the mechanical effect (don't request an attack action for a
+  stunned actor — the engine would skip it anyway, but the GM should not
+  even ask).
+- Remove effects via `remove` when the narrative resolves them (an ally
+  cures the poison, the bound creature breaks free, the bless wears off
+  early).
+
+## Bestiary — persistent stat blocks for recurring entities
+
+`state.bestiary[]` holds full stat blocks for every named enemy, NPC,
+boss, summon, and recurring creature in the campaign. Once registered,
+the engine uses these blocks for all calc resolution. Recurring foes
+keep their stats across encounters. Recurring NPCs don't get re-improvised
+on every appearance.
+
+Schema (per entity):
+
+```json
+{
+  "id":            "kebab-case-stable-id",   // e.g. "old-mara"
+  "kind":          "enemy" | "npc" | "boss" | "summon",
+  "slug":          "<monster sprite slug>",   // optional — used by enemies for the portrait
+  "name":          "Display Name",
+  "level":         3,
+  "hp":            24, "maxHp": 24,
+  "ac":            14, "armor": 1,
+  "str": 12, "dex": 14, "int": 10, "wis": 12, "con": 13, "luck": 9,
+  "dmg":           "1d8+2",
+  "desc":          "Free-form description.",
+  "tags":          ["humanoid", "veteran", "ancient"],
+  "abilities":     [ /* same schema as player/companion abilities */ ],
+  "spells":        [ /* same schema as player/companion spells */ ],
+  "equipment":     { /* same shape as player.equipment */ },
+  "inventory":     [ /* same shape as player.inventory */ ],
+  "status_effects": [ /* see Status Effects above */ ],
+  "alive":         true,
+  "active_in_scene": false,           // whether the entity is currently on the page
+  "first_seen_turn": 12,
+  "last_seen_turn":  47,
+  "locations":     ["greyhollow", "the-keep"],   // memory.locations ids
+  "notes":         "Veteran captain of the keep guard. Loyal to the queen."
+}
+```
+
+The GM creates and updates entries via the `[GAME_STATE]` diff:
+
+```json
+"bestiary": {
+  "add":    [ { full entity object as above } ],
+  "update": [ { "id": "old-mara", "alive": false, "active_in_scene": false } ],
+  "remove": [ "id-of-entity-truly-erased-from-canon" ]
+}
+```
+
+How entities flow between `state.enemy`, `state.party`, `state.summons`,
+and the bestiary:
+
+- **First introduction in a scene:** GM emits a complete bestiary entry
+  via `bestiary.add`, then sets `state.enemy` (for hostile) or adds to
+  `state.party` (for companion) or `state.summons` (for bound) using the
+  same id. The engine validates that the id exists in the bestiary.
+- **Subsequent turns / re-encounters:** GM just references the id;
+  doesn't need to repeat stats. Engine looks up from bestiary.
+- **Combat HP changes:** the engine mutates HP on `state.enemy` AND on
+  the bestiary entry (kept in sync). On combat end, the bestiary entry
+  retains the HP state — if the foe escaped at 4/30 HP, next encounter
+  starts at 4/30.
+- **Death:** GM sets `bestiary.update: [{ id, alive: false }]` AND clears
+  `state.enemy`. The bestiary entry stays in the file so the campaign
+  log of "things slain" is durable.
+- **Bestiary cap:** soft cap at 200 entries. Beyond that, the engine
+  warns. The GM should periodically prune dead, never-recurring trash
+  mobs via `remove`.
+
+Lookup order for calc target ids: `state.enemy` → `state.party[]` →
+`state.summons[]` → `state.bestiary[]`. First hit wins.
+
+The bestiary lets the calc engine resolve actions against entities that
+aren't currently "in scene" (e.g. an enemy off-screen that's about to
+trigger something) and gives recurring named NPCs full mechanical
+presence without the GM re-statting them every appearance.
+
+## Hidden abilities — companion-only
+
+Companion abilities can carry `"hidden": true`. Hidden abilities:
+
+- Are NOT displayed in the in-game ability panel (the ABL drawer skips
+  them).
+- ARE respected by the engine for calcs — the GM can reference them as
+  ability ids in calc requests just like normal abilities.
+- ARE included in the active character profile block so the GM knows
+  they exist.
+
+The use case is the companion's "true power" — abilities that fit her
+character lore (an ancient threshold-keeper's binding void-tendrils, her
+void-fire that lights up areas) but aren't presented to the player as a
+selectable menu. The GM uses them when narratively appropriate.
+
+**Only the companion** gets hidden abilities. Player abilities are always
+visible (the player picks what to do based on their kit). Enemies, NPCs,
+and party members don't use this flag — their stat blocks are public.
+
+To grant a hidden ability:
+
+```json
+"aria": {
+  "abilities": {
+    "add": [
+      {
+        "id":      "void-tendril-bind",
+        "name":    "Void Tendril Bind",
+        "type":    "spell",
+        "hidden":  true,
+        "cost":    5,
+        "desc":    "Manifests woven tendrils of void-matter that lift and restrain one foe. Target rolls STR save vs Vesper's spell DC.",
+        "save":    { "stat": "str", "dc_formula": "8 + int_mod" }
+      }
+    ]
+  }
+}
+```
+
+The renderer's ABL drawer filters out abilities where `hidden === true`.
+The companion's `characterProfiles` entry's `quirks` or `motivations`
+sections should mention the hidden capabilities so the player has a sense
+of "what Vesper can do" without seeing the explicit ability list.
+
+## Gear stat budget — at creation time
+
+When the GM crafts or grants new gear, stats should fit a per-level
+budget. The engine doesn't enforce these caps (the GM is trusted not to
+shower the party with legendaries), but the spec defines what "reasonable"
+looks like at each tier.
+
+### Weapons (the `dmg` field, before stat_mod):
+
+| Tier              | Player level | Dice formula      | Notes                                  |
+|-------------------|--------------|-------------------|----------------------------------------|
+| Crude / improvised| any          | `1d4`             | Rusted dagger, broken stick            |
+| Common            | 1–3          | `1d6` or `1d8`    | Standard sword, mace, bow              |
+| Uncommon          | 3–5          | `1d8+1` or `1d10` | Well-crafted, slightly enchanted       |
+| Rare              | 5–8          | `1d10+2` or `2d6` | Named weapon, named smith              |
+| Epic              | 8–12         | `2d8+2` or `2d10` | Hero-tier, story-significant           |
+| Legendary         | 12+          | `2d10+4` or `3d8` | Once-in-a-campaign, named in legend    |
+
+Add `+1` to the dice formula for each rare property the weapon carries
+(armor pierce, vs-undead bonus, returning, etc.) instead of bumping dice
+further. Two-handed weapons get +2 to base damage.
+
+### Armor (the `ac_bonus` field):
+
+| Tier                | Player level | ac_bonus |
+|---------------------|--------------|----------|
+| Padded / light      | 1–3          | +1       |
+| Leather / hide      | 1–4          | +2       |
+| Chain / scale       | 3–6          | +3       |
+| Plate / heavy       | 5–9          | +4       |
+| Enchanted plate     | 7+           | +5       |
+| Legendary (named)   | 10+          | +6       |
+
+Shields stack: small shield +1, kite shield +2, tower shield +3.
+A character can equip one body armor + one offhand shield.
+
+### Accessories (`stats.*_bonus`):
+
+Stat-boosting accessories should be sparing:
+
+- Common ring of +1 to one stat: rare drop, level 3+
+- +2 to one stat: legendary drop, level 7+
+- +1 to two stats: legendary drop, level 8+
+- +3 to any stat: campaign-ending artifact tier
+
+### Resistance / damage-type accessories:
+
+A "Cloak of Fire Resistance" should grant `incoming_damage_mod: 0.5` for
+fire damage specifically (via status effect or item-trigger ability).
+These are uncommon-tier rewards.
+
+### When the GM doesn't know the budget
+
+The GM should reference this table when creating gear. If unsure,
+emit `[IMPLEMENTATION_TASK]` describing the unique mechanic and let the
+dev review the stats.
+
+## Diff-strip filter — prevents double-applying HP/MP
+
+The engine post-processes the Phase 2 GM `[GAME_STATE]` diff before
+applying it: for any entity that appears in the calc result with an HP
+or MP change, the engine **strips that entity's hp/mp/maxHp/maxMp set or
+delta fields** from the diff. This prevents the GM from accidentally
+re-applying damage the engine already resolved.
+
+What gets stripped:
+
+- `player.delta.hp`, `player.delta.mp`, `player.set.hp`, `player.set.mp`,
+  `player.delta.maxHp`, `player.delta.maxMp`, `player.set.maxHp`,
+  `player.set.maxMp` — IF the calc result mentions `player`.
+- Same for `aria.*` if calc mentions `aria`.
+- Same for `party[].update[].delta/set` hp/mp fields if calc mentions
+  that party member id.
+- For bestiary/enemy: `bestiary.update[].hp/mp` is stripped for any
+  bestiary id in the calc result.
+
+What is NOT stripped:
+
+- Stat changes (str/dex/etc) — those come from level-ups, items,
+  buffs; the calc engine doesn't touch them.
+- Inventory adds/removes.
+- Equipment changes.
+- Status effects (those flow through a separate diff field).
+- HP/MP changes for entities the calc didn't touch.
+
+The engine logs every stripped field to `engine_notes` so debugging is
+possible.
+
+## Explicitly out of scope (and why)
+
+These features were considered and deliberately omitted from the design.
+They are not "future work" — they will only be implemented if a concrete
+need forces a rethink:
+
+- **Initiative tracking with formal turn order.** The GM declares actor
+  order in the calc request; the engine resolves in that order. Formal
+  initiative would add ceremony without changing outcomes for our
+  narrative-driven turn cadence.
+- **Reach / range / line-of-sight as first-class calc inputs.** Positions
+  are tracked for narrative coherence (see SPATIAL TRACKING in
+  text-adventure-rules.js). Whether a target is reachable is the GM's
+  judgment — they choose not to request actions against unreachable foes.
+- **Critical-tier consequence tables** (sever limb on a 20-vs-AC<5 hit,
+  knockdown on a crit with heavy weapon, etc.). Crits double dice and
+  that's it. Narrative consequences live in the GM's prose, not in a
+  mechanical table.
+- **Auto-executed calc overrides from GM-emitted code.** The
+  `[IMPLEMENTATION_TASK]` pipeline already covers the unique-grant case
+  with a human review gate. Auto-execution of model-generated logic is a
+  blast-radius problem we're not solving.
+
+When the spec genuinely needs to grow, update this document FIRST, then
+the rules-doc, then CLAUDE.md, then the engine — per the lockstep rule.

@@ -469,7 +469,11 @@ const TextAdventure = (function () {
     } else if (_drawerActiveTab === 'spells') {
       _renderSpellsDrawer(cd.spells || []);
     } else if (_drawerActiveTab === 'abilities') {
-      _renderAbilitiesDrawer(cd.abilities || []);
+      // Filter out hidden abilities — companion's "true power" capabilities
+      // exist in state and the engine respects them, but they're not shown
+      // to the player. See docs/COMBAT_CALCULATIONS.md → Hidden abilities.
+      const visible = (cd.abilities || []).filter((a) => !(a && a.hidden === true));
+      _renderAbilitiesDrawer(visible);
     } else if (_drawerActiveTab === 'stats') {
       _renderStatsDrawer(cd, char.label);
     } else if (_drawerActiveTab === 'summons') {
@@ -721,8 +725,10 @@ const TextAdventure = (function () {
       ${typeof s.cost === 'number' ? `<span class="qty">${s.cost} MP</span>` : ''}
       ${s.desc ? `<div class="desc">${_escape(s.desc)}</div>` : ''}
     </div>`).join('') || '<div class="ta-list-empty">// no spells known</div>';
-    const abilitiesHtml = (aria.abilities || []).length
-      ? (aria.abilities || []).map((a) => `<div class="ta-list-row">
+    // Filter hidden abilities — see docs/COMBAT_CALCULATIONS.md → Hidden abilities.
+    const visibleAbilities = (aria.abilities || []).filter((a) => !(a && a.hidden === true));
+    const abilitiesHtml = visibleAbilities.length
+      ? visibleAbilities.map((a) => `<div class="ta-list-row">
           <span class="name">${_escape(a.name || a.id)}</span>
           ${a.cost ? `<span class="qty">${_escape(a.cost)}</span>` : ''}
           ${a.desc ? `<div class="desc">${_escape(a.desc)}</div>` : ''}

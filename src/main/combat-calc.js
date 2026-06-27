@@ -56,7 +56,8 @@ function statMod(stat) {
 }
 
 // Find an entity in state by id. Returns { entity, kind } where kind is
-// 'player' | 'aria' | 'party' | 'enemy' | 'summon' | null.
+// 'player' | 'aria' | 'party' | 'enemy' | 'summon' | 'bestiary' | null.
+// Lookup order: state.enemy → state.party → state.summons → state.bestiary.
 function findEntity(state, id) {
   if (!id || !state) return { entity: null, kind: null };
   const lid = String(id).toLowerCase();
@@ -72,31 +73,81 @@ function findEntity(state, id) {
   for (const s of (state.summons || [])) {
     if (s && String(s.id || s.name).toLowerCase() === lid) return { entity: s, kind: 'summon' };
   }
+  for (const b of (state.bestiary || [])) {
+    if (b && String(b.id || b.name).toLowerCase() === lid) return { entity: b, kind: 'bestiary' };
+  }
   return { entity: null, kind: null };
 }
 
-// Default AC for an entity when not explicitly set on it.
+// ── Status-effect aggregation ──────────────────────────────────────────────
+//
+// Walks an entity's status_effects[] and produces an aggregated modifier
+// object the resolvers consult per-action: skip_turn, disadvantage_on,
+// advantage_on, ac_mod, stat_mod, incoming_damage_mod.
+function aggregateStatusEffects(entity) {
+  const agg = {
+    skip_turn:         false,
+    disadvantage_on:   new Set(),
+    advantage_on:      new Set(),
+    ac_mod:            0,
+    stat_mod:          { str: 0, dex: 0, int: 0, wis: 0, con: 0, luck: 0 },
+    incoming_damage_mod: 1,
+    sources:           [],
+  };
+  if (!entity || !Array.isArray(entity.status_effects)) return agg;
+  for (const se of entity.status_effects) {
+    if (!se || !se.effects) continue;
+    const fx = se.effects;
+    if (fx.skip_turn === true) { agg.skip_turn = true; agg.sources.push(`${se.name || se.id}: skip_turn`); }
+    if (Array.isArray(fx.disadvantage_on)) for (const k of fx.disadvantage_on) agg.disadvantage_on.add(String(k).toLowerCase());
+    if (Array.isArray(fx.advantage_on))    for (const k of fx.advantage_on)    agg.advantage_on.add(String(k).toLowerCase());
+    if (typeof fx.ac_mod === 'number') agg.ac_mod += fx.ac_mod;
+    if (fx.stat_mod && typeof fx.stat_mod === 'object') {
+      for (const k of STAT_KEYS) {
+        if (typeof fx.stat_mod[k] === 'number') agg.stat_mod[k] += fx.stat_mod[k];
+      }
+    }
+    if (typeof fx.incoming_damage_mod === 'number') agg.incoming_damage_mod *= fx.incoming_damage_mod;
+    if (Object.keys(fx).length > 0 && (se.name || se.id)) agg.sources.push(se.name || se.id);
+  }
+  return agg;
+}
+
+// Resolve the effective stat value after status_effects stat_mods.
+function effectiveStat(entity, statKey) {
+  if (!entity) return 8;
+  const base = entity[statKey] || 8;
+  const agg = aggregateStatusEffects(entity);
+  return base + (agg.stat_mod[statKey] || 0);
+}
+
+// Default AC for an entity when not explicitly set on it. Status-effect
+// ac_mod (e.g. blessed, prone, vulnerable) is added on top whether the base
+// is explicit or computed.
 function computeAC(entity, kind) {
   if (!entity) return 12;
-  if (typeof entity.ac === 'number') return entity.ac;
-  if (kind === 'player' || kind === 'aria' || kind === 'party') {
-    const dexm = statMod(entity.dex || 8);
+  const seAgg = aggregateStatusEffects(entity);
+  let base;
+  if (typeof entity.ac === 'number') {
+    base = entity.ac;
+  } else if (kind === 'player' || kind === 'aria' || kind === 'party') {
+    const dexm = statMod(effectiveStat(entity, 'dex'));
     let armorBonus = 0;
     const eq = entity.equipment || {};
     for (const slot of Object.values(eq)) {
       if (!slot) continue;
-      // equipment slot stores { id, name } only — look up the full item in inventory
       const item = (entity.inventory || []).find((it) => it && it.id === slot.id);
       const ab = item && item.stats && typeof item.stats.ac_bonus === 'number' ? item.stats.ac_bonus : 0;
       armorBonus += ab;
     }
-    return 10 + dexm + armorBonus;
-  }
-  if (kind === 'enemy' || kind === 'summon') {
+    base = 10 + dexm + armorBonus;
+  } else if (kind === 'enemy' || kind === 'summon' || kind === 'bestiary') {
     const level = (entity.level || 1);
-    return 12 + Math.ceil(level / 3);
+    base = 12 + Math.ceil(level / 3);
+  } else {
+    base = 12;
   }
-  return 12;
+  return base + seAgg.ac_mod;
 }
 
 function armorReduction(entity) {
@@ -241,11 +292,36 @@ function resolveAttackOrSpellAgainstSingle(state, action, targetId) {
   if (!actor)  return { id: action.id, executed: false, error: `unknown actor "${action.actor}"` };
   if (!target) return { id: action.id, executed: false, error: `unknown target "${targetId}"` };
 
+  // Status-effect aggregation for actor + target.
+  const actorAgg  = aggregateStatusEffects(actor);
+  const targetAgg = aggregateStatusEffects(target);
+
+  // Skip turn if actor is stunned/paralyzed/bound/etc.
+  if (actorAgg.skip_turn) {
+    return {
+      id: action.id, kind: action.kind, actor: action.actor, target: targetId,
+      executed: false,
+      reason: `actor is incapacitated by status effects (${actorAgg.sources.join(', ')})`,
+    };
+  }
+
   const mods = readMods(action);
+  // Merge in status-effect advantage/disadvantage. Per spec: advantage and
+  // disadvantage cancel; if both present we roll straight.
+  const actorAdv  = mods.advantage    || actorAgg.advantage_on.has('attack')   || actorAgg.advantage_on.has('any');
+  const actorDis  = mods.disadvantage || actorAgg.disadvantage_on.has('attack') || actorAgg.disadvantage_on.has('any');
+  // Target disadvantage_on/advantage_on inverts: if target has disadvantage on
+  // "be_attacked", attacker gets advantage.
+  const targetAdv = targetAgg.advantage_on.has('be_attacked');
+  const targetDis = targetAgg.disadvantage_on.has('be_attacked');
+  const finalAdv = (actorAdv || targetDis) && !(actorDis || targetAdv);
+  const finalDis = (actorDis || targetAdv) && !(actorAdv || targetDis);
+  const effectiveRollMods = { ...mods, advantage: finalAdv, disadvantage: finalDis };
+
   const statKey = pickToHitStat(action, actor);
-  const mod = statMod(actor[statKey] || 8);
+  const mod = statMod(effectiveStat(actor, statKey));
   const ac = computeAC(target, targetKind);
-  const roll = rollToHit(mods);
+  const roll = rollToHit(effectiveRollMods);
   const total = roll.die + mod + mods.attack_bonus;
   const isCrit  = roll.die >= mods.crit_range;
   const isNat1  = roll.die === 1;
@@ -286,7 +362,10 @@ function resolveAttackOrSpellAgainstSingle(state, action, targetId) {
     out.crit_dice_extra = extraDice;
   }
   const armor = Math.max(0, armorReduction(target) - mods.armor_pierce);
-  const finalDamage = Math.max(0, damage - armor);
+  const preMod = Math.max(0, damage - armor);
+  // Apply target's incoming_damage_mod (vulnerable / resistant from status).
+  const incomingMod = targetAgg.incoming_damage_mod || 1;
+  const finalDamage = Math.max(0, Math.round(preMod * incomingMod));
 
   out.damage = {
     expr:        dmgExpr,
@@ -296,6 +375,8 @@ function resolveAttackOrSpellAgainstSingle(state, action, targetId) {
     bonus:       mods.damage_bonus,
     target_armor: armorReduction(target),
     armor_pierced: Math.min(armorReduction(target), mods.armor_pierce),
+    pre_status_mod: preMod,
+    incoming_mod: incomingMod,
     total:       finalDamage,
   };
   const applied = applyDamage(state, targetKind, target, finalDamage, action);
@@ -353,8 +434,9 @@ function resolveSaveDrivenMultiTarget(state, action, targets) {
   const per = targets.map((tid) => {
     const { entity: target, kind: targetKind } = findEntity(state, tid);
     if (!target) return { target: tid, executed: false, error: `unknown target "${tid}"` };
+    const targetAgg = aggregateStatusEffects(target);
     const saveStat = String(action.save_stat).toLowerCase();
-    const sm = statMod(target[saveStat] || 8);
+    const sm = statMod(effectiveStat(target, saveStat));
     const die = rollD20();
     const total = die + sm;
     const saveOutcome = (die === 1) ? 'failure'
@@ -363,11 +445,13 @@ function resolveSaveDrivenMultiTarget(state, action, targets) {
 
     const diceCarrier = {};
     let baseDmg = dmgExpr ? rollDice(dmgExpr, diceCarrier) : 0;
-    if (actor) baseDmg += statMod(actor.int || 8);  // spell INT bonus
+    if (actor) baseDmg += statMod(effectiveStat(actor, 'int'));  // spell INT bonus
     baseDmg += mods.damage_bonus;
     const armor = Math.max(0, armorReduction(target) - mods.armor_pierce);
-    let dmg = Math.max(0, baseDmg - armor);
-    if (saveOutcome === 'success') dmg = onSave === 'none' ? 0 : Math.floor(dmg / 2);
+    let preMod = Math.max(0, baseDmg - armor);
+    if (saveOutcome === 'success') preMod = onSave === 'none' ? 0 : Math.floor(preMod / 2);
+    const incomingMod = targetAgg.incoming_damage_mod || 1;
+    let dmg = Math.max(0, Math.round(preMod * incomingMod));
 
     const applied = applyDamage(state, targetKind, target, dmg, action);
     return {
@@ -393,9 +477,23 @@ function resolveSaveDrivenMultiTarget(state, action, targets) {
 function resolveSkillCheck(state, action) {
   const { entity: actor } = findEntity(state, action.actor);
   if (!actor) return { id: action.id, executed: false, error: `unknown actor "${action.actor}"` };
+  const actorAgg = aggregateStatusEffects(actor);
+  if (actorAgg.skip_turn) {
+    return {
+      id: action.id, kind: action.kind, actor: action.actor, executed: false,
+      reason: `actor is incapacitated by status effects (${actorAgg.sources.join(', ')})`,
+    };
+  }
   const statKey = String(action.stat || 'dex').toLowerCase();
-  const mod = statMod(actor[statKey] || 8);
-  const die = rollD20();
+  const mod = statMod(effectiveStat(actor, statKey));
+  const mods = readMods(action);
+  const checkKind = action.kind === 'save' ? 'save' : 'skill_check';
+  const adv = mods.advantage    || actorAgg.advantage_on.has(checkKind)    || actorAgg.advantage_on.has('any');
+  const dis = mods.disadvantage || actorAgg.disadvantage_on.has(checkKind) || actorAgg.disadvantage_on.has('any');
+  const finalAdv = adv && !dis;
+  const finalDis = dis && !adv;
+  const rollResult = rollToHit({ ...mods, advantage: finalAdv, disadvantage: finalDis });
+  const die = rollResult.die;
   const total = die + mod;
   const dc = typeof action.dc === 'number' ? action.dc : 12;
   let outcome;
@@ -404,7 +502,9 @@ function resolveSkillCheck(state, action) {
   else outcome = total >= dc ? 'success' : 'failure';
   return {
     id: action.id, kind: action.kind, actor: action.actor, executed: true,
-    skill_roll: { die, mod, total, dc, stat: statKey, outcome },
+    skill_roll: { die, mod, total, dc, stat: statKey, outcome,
+                  advantage: !!rollResult.advantage, disadvantage: !!rollResult.disadvantage,
+                  rolls: rollResult.rolls },
   };
 }
 

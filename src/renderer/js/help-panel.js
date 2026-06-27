@@ -891,7 +891,34 @@ const HelpPanel = (() => {
         ]) +
         p('<strong>Action cap: 3 player-declared actions per turn.</strong> Companion and enemies each have their own slots. Multi-target spells count as 1 logical action regardless of target count.') +
         p('<strong>Engine-enforced rules</strong> like Undying Bond run automatically — the calc result shows them clearly (e.g. "REDIRECT(player→aria): 35→29 via Undying Bond"). The GM trusts the result and narrates the redirect; the engine handles the HP math.') +
+        p('<strong>Bestiary:</strong> recurring enemies, named NPCs, and bosses are registered to <code>state.bestiary[]</code> with full stat blocks. They persist across encounters — an escaped foe keeps its wounds; a recurring NPC stays statted. The engine auto-hydrates the active enemy from the bestiary so the GM can emit sparse references.') +
+        p('<strong>Status effects:</strong> bound, stunned, poisoned, blessed, hasted — every entity carries a <code>status_effects[]</code> array with structured fields (<code>skip_turn</code>, <code>disadvantage_on</code>, <code>damage_per_turn</code>, <code>ac_mod</code>, <code>incoming_damage_mod</code>). The engine enforces them every turn. DoT/regen ticks automatically. Bound actors literally cannot act.') +
+        p('<strong>Hidden abilities:</strong> the companion can have abilities flagged <code>hidden: true</code> — they don\'t show in the ability drawer, but the engine respects them. Use case: the companion\'s "true power" capabilities that fit her lore but shouldn\'t be a player-selectable menu.') +
+        p('<strong>Diff-strip filter:</strong> if the GM tries to re-apply HP/MP changes in their <code>[GAME_STATE]</code> diff for entities the calc already handled, the engine silently strips those fields. Prevents double-damage from GM oversights.') +
         note('When the GM grants a unique ability, spell, equipment, or item that needs new engine logic, a separate <em>IMPLEMENTATION TASK</em> pop-up fires. See the next article.')
+    },
+    {
+      catId: 'rpg', id: 'ta-status-effects',
+      title: 'Status Effects — Bound, Poisoned, Blessed',
+      tags: ['status effect', 'status effects', 'bound', 'stunned', 'poisoned', 'blessed', 'hasted', 'slowed', 'paralyzed', 'rooted', 'on fire', 'bleeding', 'incapacitated', 'regen', 'dot', 'damage over time', 'condition', 'debuff'],
+      content:
+        p('Every entity in the adventure carries a structured <code>status_effects[]</code> array. The engine enforces these every turn — they\'re not just narrative flavor.') +
+        p('Effect types include:') +
+        chips(['bound', 'stunned', 'paralyzed', 'rooted', 'poisoned', 'on_fire', 'bleeding', 'blessed', 'hasted', 'slowed', 'blinded', 'feared', 'charmed', 'incapacitated', 'regen']) +
+        p('Each effect carries structured behavioral fields:') +
+        kv([
+          ['skip_turn',         'Entity cannot take any action this turn. Engine auto-skips them.'],
+          ['disadvantage_on',   'Forces disadvantage on listed roll kinds (attack, save, skill_check).'],
+          ['advantage_on',      'Forces advantage on listed roll kinds.'],
+          ['damage_per_turn',   'Damage-over-time, dice expression like "1d4". Ticked at start of each turn.'],
+          ['heal_per_turn',     'Regen, same as above.'],
+          ['ac_mod',            'Flat AC delta (-2 for prone, +1 for blessed).'],
+          ['stat_mod',          'Temporary stat changes ({"str": -2} for weakening curse).'],
+          ['incoming_damage_mod','Multiplier on damage taken (1.5 = vulnerable, 0.5 = resistant).'],
+          ['turns_remaining',   'Auto-decremented per turn. Null = persistent until cured.'],
+        ]) +
+        p('Active effects are surfaced in the GM\'s prompt every turn under <em>ACTIVE STATUS EFFECTS</em> so the gamemaster knows who\'s affected. The GM honors them in narration AND in calc requests (a stunned eel doesn\'t get an attack action).') +
+        note('Status effects are part of the calc system — see the full spec in <code>docs/COMBAT_CALCULATIONS.md</code> → Status effects.')
     },
     {
       catId: 'rpg', id: 'ta-implementation-tasks',

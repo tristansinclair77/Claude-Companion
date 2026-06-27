@@ -215,6 +215,156 @@ function _resolveMusicDirective(value, { timeOfDay } = {}) {
   return { kind: 'play', cue };
 }
 
+// ── Diff-strip filter ────────────────────────────────────────────────────────
+//
+// After the engine resolves a [COMBAT_CALC_REQUEST] and applies damage/MP
+// changes via combat-calc.js, the GM in Phase 2 may try to re-apply those
+// same changes in their [GAME_STATE] diff. That would double-apply.
+//
+// This filter walks the GM's diff and STRIPS any hp/mp/maxHp/maxMp set or
+// delta fields for any entity that appears in the calc result. We log every
+// stripped field so debugging is possible.
+
+function _collectCalcTouchedIds(calcResult) {
+  const ids = new Set();
+  if (!calcResult || !Array.isArray(calcResult.actions)) return ids;
+  const add = (id) => { if (id) ids.add(String(id).toLowerCase()); };
+  for (const r of calcResult.actions) {
+    if (!r || !r.executed) continue;
+    add(r.actor);
+    add(r.target);
+    add(r.applied_to);
+    if (r.redirect && r.redirect.redirected_to) add(r.redirect.redirected_to);
+    if (Array.isArray(r.per_target)) {
+      for (const pt of r.per_target) {
+        add(pt.target);
+        add(pt.applied_to);
+        if (pt.redirect && pt.redirect.redirected_to) add(pt.redirect.redirected_to);
+      }
+    }
+  }
+  // Normalize: "player" / "aria" / "<party-id>" / "enemy" / "<bestiary-id>" / "<summon-id>"
+  return ids;
+}
+
+const HP_MP_FIELDS = new Set(['hp', 'mp', 'maxHp', 'maxMp']);
+
+function _stripHpMpForId(diffSlot, label, notes) {
+  if (!diffSlot || typeof diffSlot !== 'object') return;
+  if (diffSlot.delta && typeof diffSlot.delta === 'object') {
+    for (const k of Object.keys(diffSlot.delta)) {
+      if (HP_MP_FIELDS.has(k)) {
+        notes.push(`Stripped ${label}.delta.${k} = ${diffSlot.delta[k]} (calc engine already applied HP/MP changes for this entity)`);
+        delete diffSlot.delta[k];
+      }
+    }
+    if (Object.keys(diffSlot.delta).length === 0) delete diffSlot.delta;
+  }
+  if (diffSlot.set && typeof diffSlot.set === 'object') {
+    for (const k of Object.keys(diffSlot.set)) {
+      if (HP_MP_FIELDS.has(k)) {
+        notes.push(`Stripped ${label}.set.${k} = ${diffSlot.set[k]} (calc engine already applied HP/MP changes for this entity)`);
+        delete diffSlot.set[k];
+      }
+    }
+    if (Object.keys(diffSlot.set).length === 0) delete diffSlot.set;
+  }
+}
+
+function stripDoubleApplyFromDiff(gmDiff, calcResult, state) {
+  if (!gmDiff || typeof gmDiff !== 'object') return { diff: gmDiff, notes: [] };
+  const ids = _collectCalcTouchedIds(calcResult);
+  const notes = [];
+  if (ids.has('player') && gmDiff.player) _stripHpMpForId(gmDiff.player, 'player', notes);
+  if (ids.has('aria')   && gmDiff.aria)   _stripHpMpForId(gmDiff.aria,   'aria',   notes);
+  if (Array.isArray(gmDiff.party && gmDiff.party.update)) {
+    for (const upd of gmDiff.party.update) {
+      const k = String(upd.id || upd.name || '').toLowerCase();
+      if (ids.has(k)) _stripHpMpForId(upd, `party[${k}]`, notes);
+    }
+  }
+  // Bestiary updates with hp / maxHp
+  if (Array.isArray(gmDiff.bestiary && gmDiff.bestiary.update)) {
+    for (const upd of gmDiff.bestiary.update) {
+      const k = String(upd.id || upd.name || '').toLowerCase();
+      if (!ids.has(k)) continue;
+      for (const fld of ['hp', 'mp', 'maxHp', 'maxMp']) {
+        if (Object.prototype.hasOwnProperty.call(upd, fld)) {
+          notes.push(`Stripped bestiary[${k}].${fld} = ${upd[fld]} (calc engine already applied)`);
+          delete upd[fld];
+        }
+      }
+    }
+  }
+  // Enemy block (hp set directly on enemy)
+  if (gmDiff.enemy && typeof gmDiff.enemy === 'object' && state && state.enemy) {
+    const enemyId = state.enemy.id ? String(state.enemy.id).toLowerCase() : null;
+    const touched = ids.has('enemy') || (enemyId && ids.has(enemyId));
+    if (touched) {
+      for (const fld of ['hp', 'mp', 'maxHp', 'maxMp']) {
+        if (Object.prototype.hasOwnProperty.call(gmDiff.enemy, fld)) {
+          notes.push(`Stripped enemy.${fld} = ${gmDiff.enemy[fld]} (calc engine already applied)`);
+          delete gmDiff.enemy[fld];
+        }
+      }
+    }
+  }
+  return { diff: gmDiff, notes };
+}
+
+// ── Active status-effects block (for the prompt) ─────────────────────────────
+//
+// Surfaces every active status_effect across player/companion/party/enemy/
+// summons/bestiary-in-scene so the GM is reminded who's affected. Shown in
+// both Phase 1 (so the GM doesn't request actions for incapacitated actors)
+// and Phase 2 (so the GM narrates effects accurately).
+
+function _formatStatusEffectsBlock(state) {
+  if (!state) return null;
+  const rows = [];
+  const addRow = (whoLabel, entity) => {
+    if (!entity || !Array.isArray(entity.status_effects) || entity.status_effects.length === 0) return;
+    const effLines = entity.status_effects.map((se) => {
+      const turns = (typeof se.turns_remaining === 'number') ? `${se.turns_remaining} turns left` : 'persistent';
+      const fx = se.effects || {};
+      const fxBits = [];
+      if (fx.skip_turn) fxBits.push('skip_turn');
+      if (Array.isArray(fx.disadvantage_on) && fx.disadvantage_on.length) fxBits.push('disadv:' + fx.disadvantage_on.join(','));
+      if (Array.isArray(fx.advantage_on)    && fx.advantage_on.length)    fxBits.push('adv:'    + fx.advantage_on.join(','));
+      if (fx.damage_per_turn) fxBits.push('DoT ' + fx.damage_per_turn);
+      if (fx.heal_per_turn)   fxBits.push('regen ' + fx.heal_per_turn);
+      if (typeof fx.ac_mod === 'number' && fx.ac_mod !== 0) fxBits.push(`AC${fx.ac_mod>=0?'+':''}${fx.ac_mod}`);
+      if (fx.stat_mod) {
+        for (const [k, v] of Object.entries(fx.stat_mod)) if (v !== 0) fxBits.push(`${k.toUpperCase()}${v>=0?'+':''}${v}`);
+      }
+      if (typeof fx.incoming_damage_mod === 'number' && fx.incoming_damage_mod !== 1) fxBits.push(`incoming×${fx.incoming_damage_mod}`);
+      const fxStr = fxBits.length ? ` [${fxBits.join(', ')}]` : '';
+      return `    - ${se.name || se.id} (${se.type || '?'}, ${turns})${fxStr}${se.source ? ` — ${se.source}` : ''}`;
+    });
+    rows.push(`  ${whoLabel}:`);
+    rows.push(...effLines);
+  };
+  addRow('Trist (player)', state.player);
+  addRow(`${(state.aria && state.aria.name) || 'Companion'} (aria)`, state.aria);
+  for (const m of (state.party || [])) addRow(`${m.name || m.id} (party:${m.id})`, m);
+  for (const s of (state.summons || [])) addRow(`${s.name || s.id} (summon:${s.id})`, s);
+  if (state.enemy) addRow(`${state.enemy.name || 'Enemy'} (enemy:${state.enemy.id || 'enemy'})`, state.enemy);
+  // Bestiary entries currently in scene (active_in_scene + has effects)
+  for (const b of (state.bestiary || [])) {
+    if (!b || !b.active_in_scene) continue;
+    // Avoid double-listing if the bestiary entry is the active enemy already covered above
+    if (state.enemy && state.enemy.id === b.id) continue;
+    addRow(`${b.name || b.id} (bestiary:${b.id})`, b);
+  }
+  if (rows.length === 0) {
+    return '=== ACTIVE STATUS EFFECTS ===\n(none active right now)\n=== END ACTIVE STATUS EFFECTS ===';
+  }
+  return ['=== ACTIVE STATUS EFFECTS ===',
+          'Honor these in your narration AND your calc requests. A stunned/bound actor cannot take actions; the engine will skip-turn them regardless.',
+          ...rows,
+          '=== END ACTIVE STATUS EFFECTS ==='].join('\n');
+}
+
 // ── Active character profiles (for the prompt) ───────────────────────────────
 //
 // Pulls every characterProfile whose id matches an entity present in the
@@ -318,6 +468,7 @@ async function runCalcRequestPhase({ characterDir, action, state, log, character
       '=== RECENT TURNS (last 6, for context only) ===\n' +
       (log.length > 0 ? formatLogForPrompt(log, 6) : '(first turn)') +
       '\n=== END RECENT TURNS ===',
+    lite_status_effects: _formatStatusEffectsBlock(state),
     lite_directive:
       "PHASE 1 — CALC PARSER. Read the player's action and the state. " +
       "Output exactly ONE of [COMBAT_CALC_REQUEST]…[/COMBAT_CALC_REQUEST] or [NO_CALC_NEEDED]. " +
@@ -363,6 +514,7 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
     rules: buildRules(state.aria?.name || 'Aria'),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
     active_character_profiles: _buildActiveProfilesBlock(state),
+    active_status_effects: _formatStatusEffectsBlock(state),
     game_state_now: '=== CURRENT GAME STATE (the truth right now) ===\n' +
       JSON.stringify(state, null, 2) +
       '\n=== END CURRENT GAME STATE ===',
@@ -638,6 +790,21 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
       // Snapshot levels BEFORE the diff applies so we can detect level-ups
       // even if the GM forgets the [LEVEL_UP] block.
       const levelsBefore = store.snapshotLevels(state);
+
+      // Diff-strip filter: the calc engine already applied HP/MP changes for
+      // any entity in the calc result. Strip those fields from the GM's diff
+      // to prevent double-application. See docs/COMBAT_CALCULATIONS.md §
+      // "Diff-strip filter".
+      if (parsed.gameStateDiff && result.calc && result.calc.result) {
+        const stripReport = stripDoubleApplyFromDiff(parsed.gameStateDiff, result.calc.result, state);
+        if (stripReport.notes.length > 0) {
+          for (const n of stripReport.notes) console.warn('[Adventure diff-strip]', n);
+          // Also stash them on the calc result so the GM (and the debug
+          // viewer if any) can see what was stripped.
+          if (!Array.isArray(result.calc.result.engine_notes)) result.calc.result.engine_notes = [];
+          result.calc.result.engine_notes.push(...stripReport.notes.map((m) => 'diff-strip: ' + m));
+        }
+      }
 
       if (parsed.gameStateDiff) {
         store.applyStateDiff(state, parsed.gameStateDiff);

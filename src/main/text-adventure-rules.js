@@ -800,12 +800,20 @@ YOU paint the moment.
 
 Mechanical state changes from the calc result are ALREADY APPLIED to
 the state by the engine. Specifically: HP changes from attacks/spells/
-abilities, MP spent on spells, damage redirections via Undying Bond.
+abilities, MP spent on spells, damage redirections via Undying Bond,
+status-effect DoT/regen ticks.
+
 Your [GAME_STATE] diff should NOT re-apply HP or MP changes for any
-entity that appears in the calc result — that would double-apply.
+entity that appears in the calc result — that would double-apply. The
+engine has a diff-strip filter that will automatically remove HP/MP
+fields from your diff for any entity touched by the calc, and log a
+warning, so a slip-up degrades safely. But: write your diff cleanly in
+the first place.
+
 The [GAME_STATE] diff is still where you handle: scene changes, time
-advances, memory updates, enemy spawns/removals, inventory grants,
-party/summon updates, narrative-only buff applications, status notes.
+advances, memory updates, enemy spawns/removals, bestiary registrations
+and updates, inventory grants, equipment changes, party/summon updates,
+status_effects.add/remove/update, level rewards, narrative-only notes.
 
 If the calc result is "No calculations requested." then nothing math-y
 happened this turn and you can use [GAME_STATE] freely for any state
@@ -827,23 +835,152 @@ DEFAULT COMBAT FORMULAS — same numbers Phase 1 used
   DC scale: trivial 5 / easy 8 / routine 10 / medium 12 / hard 14 /
             very hard 17 / nearly impossible 20 / heroic 25
 
-WHEN YOU INTRODUCE ENEMIES OR NAMED NPCS — full stats required
+WHEN YOU INTRODUCE ENEMIES OR NAMED NPCS — full stats required + bestiary
 
 The engine has no fallback math for half-statted entities. When you
 spawn an enemy or introduce a named NPC who could ever be checked
-against, include a full block in [GAME_STATE]:
+against, register them in the bestiary in the SAME turn:
 
-  {
-    "id": "goblin-scout-1", "slug": "goblin", "name": "Filed-Tooth",
-    "hp": 8, "maxHp": 8, "ac": 12, "armor": 0,
-    "str": 8, "dex": 12, "int": 7, "wis": 8, "con": 9, "luck": 9,
-    "dmg": "1d4+1",
-    "desc": "Wiry, half-starved. Filed teeth.",
-    "tags": ["humanoid", "small"]
+  "bestiary": {
+    "add": [
+      {
+        "id":    "goblin-scout-1",
+        "kind":  "enemy",                 // enemy | npc | boss | summon
+        "slug":  "goblin",                // monster sprite slug, optional for NPCs
+        "name":  "Filed-Tooth",
+        "level": 1,
+        "hp":    8, "maxHp": 8,
+        "ac":    12, "armor": 0,
+        "str":   8, "dex": 12, "int": 7, "wis": 8, "con": 9, "luck": 9,
+        "dmg":   "1d4+1",
+        "desc":  "Wiry, half-starved. Filed teeth.",
+        "tags":  ["humanoid", "small"],
+        "abilities": [],
+        "spells":    [],
+        "status_effects": []
+      }
+    ]
   }
+
+And, for active hostiles, ALSO set state.enemy with the same id (sparse
+is fine — engine hydrates the rest from the bestiary):
+
+  "enemy": { "id": "goblin-scout-1", "hp": 8 }
+
+The bestiary persists across encounters. Recurring foes (a named boss
+who flees, a captain you fight twice) keep their stats AND their current
+HP across appearances. Recurring NPCs (the village wisewoman, the rival
+merchant) stay fully statted so a future "intimidate the merchant" check
+finds her WIS in the bestiary without re-statting.
 
 Tags matter for modifier triggers (Void Resonance keys off "ancient"
 and "magical").
+
+STATUS EFFECTS — structured, engine-enforced
+
+Bound, stunned, poisoned, blessed, hasted, on_fire — all live in
+entity.status_effects[] and the engine respects them every turn. The
+prompt above includes an [ACTIVE STATUS EFFECTS] block reminding you who
+is affected by what. Read it; honor it in your narration AND your calc
+requests.
+
+To add a status effect via [GAME_STATE] diff:
+
+  "player": {
+    "status_effects": {
+      "add": [
+        {
+          "id":   "blessed-by-altar",
+          "name": "Blessed",
+          "type": "blessed",
+          "turns_remaining": 5,
+          "source": "Light-altar communion",
+          "description": "Glowing softly. Strikes ring true.",
+          "effects": {
+            "advantage_on": ["attack", "save"],
+            "ac_mod":  1
+          }
+        }
+      ],
+      "remove": [ "rooted-by-vines" ],
+      "update": [ { "id": "poisoned", "turns_remaining": 2 } ]
+    }
+  }
+
+Effect fields the engine respects (all optional):
+  skip_turn: true              → engine skips any action by this entity
+  disadvantage_on: ["attack"]  → forces disadvantage on listed roll kinds
+                                  (kinds: attack, save, skill_check)
+  advantage_on:    ["save"]    → forces advantage on listed roll kinds
+  damage_per_turn: "1d4"       → DoT, applied at tick (engine handles)
+  heal_per_turn:   "1d6"       → regen, applied at tick
+  ac_mod:          -2          → flat AC delta
+  stat_mod:        { str: -2 } → temporary stat changes for the duration
+  incoming_damage_mod: 1.5     → multiplier on damage taken (1.5 = vulnerable,
+                                  0.5 = resistant)
+
+DoT and regen tick automatically — do NOT request a calc action for
+them. Status effects with turns_remaining auto-decrement. Effects with
+turns_remaining: null persist until explicitly removed.
+
+HIDDEN ABILITIES — companion-only
+
+Companion abilities can carry "hidden": true. Hidden abilities are NOT
+displayed in the player's ability panel, but ARE respected by the
+engine for calcs (the GM can reference them in calc requests). Use this
+for "true power" capabilities that fit the companion's character but
+shouldn't be visible to the player as a selectable menu — Vesper's
+binding void-tendrils, her area-lighting void-fire, etc.
+
+ONLY the companion (state.aria) gets hidden abilities. Player abilities
+are always visible. Enemies, NPCs, and party members do not use this
+flag — their stat blocks are public.
+
+To grant a hidden ability:
+
+  "aria": {
+    "abilities": {
+      "add": [
+        {
+          "id":     "void-tendril-bind",
+          "name":   "Void Tendril Bind",
+          "type":   "spell",
+          "hidden": true,
+          "cost":   5,
+          "desc":   "Manifests woven void-matter to lift and restrain one foe."
+        }
+      ]
+    }
+  }
+
+GEAR STAT BUDGET — at creation time
+
+When you craft or grant new gear, use the per-level budget table in
+docs/COMBAT_CALCULATIONS.md (Gear Stat Budget section). Quick reference:
+
+  Weapons (dmg formula, before stat_mod):
+    Common (L1-3): 1d6 or 1d8
+    Uncommon (L3-5): 1d8+1 or 1d10
+    Rare (L5-8): 1d10+2 or 2d6
+    Epic (L8-12): 2d8+2 or 2d10
+    Legendary (L12+): 2d10+4 or 3d8
+
+  Armor (ac_bonus):
+    Light: +1   Leather: +2   Chain: +3   Plate: +4   Enchanted: +5+
+
+  Shields (ac_bonus, stackable with body armor):
+    Small: +1   Kite: +2   Tower: +3
+
+  Accessories: +1 to one stat is rare; +2 is legendary; +3 is artifact tier.
+
+Stash stats in inventory[].stats so the engine reads them at calc time:
+
+  { "id": "shadow-bracer", "name": "Shadow Bracer", "type": "offhand",
+    "stats": { "ac_bonus": 2 }, "desc": "..." }
+
+If gear has a UNIQUE effect (armor-pierce, vs-undead bonus, on-hit
+trigger), emit [IMPLEMENTATION_TASK] so a dev wires the engine logic.
+Until then it works as a normal-stat item mechanically.
 
 LEVEL UPS, ABILITY GRANTS, AND UNIQUE ITEMS — emit IMPLEMENTATION_TASK
 
@@ -1039,10 +1176,37 @@ You have the full state JSON in this prompt. Use it: read stats, HP/MP,
 equipped weapons, enemy AC, active enemies in scene, party member ids.
 You can't ask for a calc against a target that isn't in state.
 
-If you reference an entity by id, it MUST match either:
+If you reference an entity by id, it MUST match one of:
   - "player" (Trist), "aria" (companion), or a member's state.party[].id
   - An enemy: state.enemy.id, or the literal "enemy"
   - A summon: state.summons[].id
+  - A persisted entity: state.bestiary[].id (recurring foe / named NPC)
+
+ACTIVE STATUS EFFECTS — honor them
+
+The prompt includes an [ACTIVE STATUS EFFECTS] block listing every active
+status_effect on every entity (player, companion, enemy, party, summons,
+in-scene bestiary). Honor them when planning calc requests:
+
+  - An actor with skip_turn (stunned, bound, paralyzed, incapacitated):
+    DO NOT request actions for them. The engine would skip them anyway,
+    but don't even ask — narrate them being unable to act.
+  - An actor with disadvantage_on: ["attack"]: include them in actions,
+    but tag the modifier (engine auto-applies if it sees disadvantage in
+    the status; you don't need to repeat it).
+  - DoT (damage_per_turn) and regen (heal_per_turn) are auto-ticked by
+    the engine each turn — do NOT request a calc action for them.
+  - Effects with turns_remaining auto-decrement after each turn; effects
+    with null turns_remaining persist until explicitly cured.
+
+BESTIARY — persistent stats for recurring foes
+
+state.bestiary[] holds full stat blocks for every named enemy, NPC, boss,
+and recurring creature. When the active enemy was previously registered
+in the bestiary, the engine auto-hydrates its stats from there — you can
+emit a sparse "enemy: { id: 'eel-2' }" block in Phase 2 and the engine
+fills in the rest. Reference bestiary entities by their id in calc
+requests just like anyone else.
 
 THAT'S IT.
 

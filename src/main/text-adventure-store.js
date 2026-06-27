@@ -32,6 +32,8 @@ const MEMORY_CAPS = {
   characterProfiles: 30,
 };
 
+const BESTIARY_CAP = 200;
+
 // Every monster sprite the storywriter is allowed to spawn. `slug` MUST
 // match the filename in assets/monsters/<slug>.png — the renderer builds the
 // sprite URL directly from it. `name` is just a default display label; the
@@ -184,6 +186,7 @@ function _emptyCharacter(overrides = {}) {
     abilities: [],
     buffs:     [],
     debuffs:   [],
+    status_effects: [],   // see docs/COMBAT_CALCULATIONS.md
     alive:     true,
     ...overrides,
   };
@@ -263,6 +266,7 @@ function _freshState({ tone, setting, companionName = 'Aria' }) {
     memory:   _freshMemory(),
     party:        [],   // additional party members (NPCs/companions who join)
     summons:      [],   // bound/summoned entities — NOT full party members
+    bestiary:     [],   // persistent stat blocks for recurring enemies/NPCs/bosses/summons
     positions:    null, // spatial grid — updated every turn by the GM
     enemy:        null,
     encounterIdx: 0,
@@ -289,8 +293,15 @@ function loadState(characterDir) {
     if (!state.time)    state.time    = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
     if (!state.party)                      state.party     = [];
     if (!state.summons)                    state.summons   = [];
+    if (!state.bestiary)                   state.bestiary  = [];
     if (state.positions === undefined)     state.positions = null;
     if (!Array.isArray(state.memory.characterProfiles)) state.memory.characterProfiles = [];
+    // status_effects: backfill on player, aria, party, summons, bestiary
+    if (state.player  && !Array.isArray(state.player.status_effects))  state.player.status_effects  = [];
+    if (state.aria    && !Array.isArray(state.aria.status_effects))    state.aria.status_effects    = [];
+    for (const m of state.party)    { if (m && !Array.isArray(m.status_effects)) m.status_effects = []; }
+    for (const s of state.summons)  { if (s && !Array.isArray(s.status_effects)) s.status_effects = []; }
+    for (const b of state.bestiary) { if (b && !Array.isArray(b.status_effects)) b.status_effects = []; }
     return state;
   } catch (e) {
     console.warn('[TextAdventure] loadState failed:', e.message);
@@ -570,6 +581,13 @@ function _applyCharacterDiff(target, diff) {
       _removeCollection(target[key], diff[key].remove || []);
     }
   }
+  // status_effects: add / update / remove
+  if (diff.status_effects) {
+    if (!Array.isArray(target.status_effects)) target.status_effects = [];
+    _addCollection   (target.status_effects, diff.status_effects.add    || []);
+    _removeCollection(target.status_effects, diff.status_effects.remove || []);
+    _updateCollection(target.status_effects, diff.status_effects.update || []);
+  }
 }
 
 // ── State diff application ─────────────────────────────────────────────────────
@@ -627,12 +645,102 @@ function applyStateDiff(state, diff) {
   }
 
   // Enemy
+  // NOTE: status_effects backfill is deferred until AFTER bestiary hydration
+  // below, so a sparse `enemy: { id: 'eel-2' }` diff can pull effects from
+  // the bestiary entry instead of being clobbered by an empty array.
   if (Object.prototype.hasOwnProperty.call(diff, 'enemy')) {
     const wasEnemy = !!state.enemy;
-    // Merge so slug/name/maxHp/desc survive HP-only update diffs
-    state.enemy = diff.enemy ? { ...(state.enemy || {}), ...diff.enemy } : null;
+    if (diff.enemy === null) {
+      state.enemy = null;
+    } else {
+      // Extract status_effects diff first — it's structured (add/update/remove)
+      // and must NOT just shallow-merge into state.enemy.status_effects.
+      const seDiff = diff.enemy && diff.enemy.status_effects && !Array.isArray(diff.enemy.status_effects)
+        ? diff.enemy.status_effects : null;
+      const flatEnemy = { ...diff.enemy };
+      if (seDiff) delete flatEnemy.status_effects;
+      state.enemy = { ...(state.enemy || {}), ...flatEnemy };
+      if (seDiff) {
+        if (!Array.isArray(state.enemy.status_effects)) state.enemy.status_effects = [];
+        _addCollection   (state.enemy.status_effects, seDiff.add    || []);
+        _removeCollection(state.enemy.status_effects, seDiff.remove || []);
+        _updateCollection(state.enemy.status_effects, seDiff.update || []);
+      }
+    }
     if (state.enemy && !wasEnemy) state.encounterIdx += 1;
   }
+
+  // Bestiary — persistent stat blocks for recurring enemies/NPCs/bosses/summons.
+  // Schema and lifecycle in docs/COMBAT_CALCULATIONS.md → Bestiary section.
+  if (diff.bestiary) {
+    if (!Array.isArray(state.bestiary)) state.bestiary = [];
+    if (diff.bestiary.add) {
+      for (const entry of diff.bestiary.add) {
+        if (!entry || typeof entry !== 'object' || !entry.id) continue;
+        const norm = _normalizeId(entry.id);
+        const exists = state.bestiary.findIndex((b) => _normalizeId(b.id) === norm);
+        const withDefaults = {
+          alive: true,
+          active_in_scene: false,
+          first_seen_turn: state.turnCount + 1,
+          last_seen_turn:  state.turnCount + 1,
+          status_effects: [],
+          ...entry,
+        };
+        if (exists === -1) state.bestiary.push(withDefaults);
+        else               state.bestiary[exists] = { ...state.bestiary[exists], ...withDefaults };
+      }
+    }
+    if (diff.bestiary.remove) _removeCollection(state.bestiary, diff.bestiary.remove);
+    if (diff.bestiary.update) _updateCollection(state.bestiary, diff.bestiary.update);
+    if (state.bestiary.length > BESTIARY_CAP) {
+      // Drop oldest non-active dead entries first; if still over, drop oldest.
+      state.bestiary.sort((a, b) => {
+        const aDeadInactive = (!a.alive && !a.active_in_scene) ? 0 : 1;
+        const bDeadInactive = (!b.alive && !b.active_in_scene) ? 0 : 1;
+        if (aDeadInactive !== bDeadInactive) return aDeadInactive - bDeadInactive;
+        return (a.last_seen_turn || 0) - (b.last_seen_turn || 0);
+      });
+      state.bestiary.splice(0, state.bestiary.length - BESTIARY_CAP);
+    }
+  }
+
+  // Bestiary ↔ state.enemy sync:
+  //   1) HYDRATE: when state.enemy matches a bestiary entry, copy any fields
+  //      state.enemy doesn't already have from the bestiary record. This lets
+  //      the GM emit `enemy: { id: "eel-2" }` and the engine auto-fills stats
+  //      from the persisted entry without re-statting.
+  //   2) MIRROR: HP/maxHp/alive flow back from state.enemy to the bestiary
+  //      so recurring foes remember their wound state across encounters.
+  if (state.enemy && state.enemy.id && Array.isArray(state.bestiary)) {
+    const norm = _normalizeId(state.enemy.id);
+    const entry = state.bestiary.find((b) => _normalizeId(b.id) === norm);
+    if (entry) {
+      const HYDRATE_FIELDS = [
+        'slug', 'name', 'level', 'maxHp', 'ac', 'armor', 'dmg', 'desc', 'tags',
+        'str', 'dex', 'int', 'wis', 'con', 'luck',
+        'abilities', 'spells', 'equipment', 'inventory', 'status_effects',
+      ];
+      for (const k of HYDRATE_FIELDS) {
+        if (state.enemy[k] === undefined && entry[k] !== undefined) {
+          // Deep copy so engine-side mutations don't bleed into the bestiary
+          // record outside the explicit mirror path.
+          state.enemy[k] = JSON.parse(JSON.stringify(entry[k]));
+        }
+      }
+      if (typeof state.enemy.hp !== 'number' && typeof entry.hp === 'number') {
+        state.enemy.hp = entry.hp;
+      }
+      // Mirror back: HP, alive flag, scene activity, last-seen turn.
+      if (typeof state.enemy.hp === 'number')    entry.hp = state.enemy.hp;
+      if (typeof state.enemy.maxHp === 'number') entry.maxHp = state.enemy.maxHp;
+      entry.alive = state.enemy.hp > 0;
+      entry.active_in_scene = true;
+      entry.last_seen_turn = state.turnCount + 1;
+    }
+  }
+  // Now backfill enemy.status_effects to [] if hydration didn't populate it.
+  if (state.enemy && !Array.isArray(state.enemy.status_effects)) state.enemy.status_effects = [];
 
   // Memory diffs
   if (diff.memory && typeof diff.memory === 'object') {
@@ -692,8 +800,55 @@ function applyStateDiff(state, diff) {
 
 // ── Tick + survival check ──────────────────────────────────────────────────────
 
+// Roll a dice expression like "1d4", "2d6+1" — minimal local copy so we don't
+// have to import combat-calc.js from the store. Returns total.
+function _rollDiceLocal(expr) {
+  if (typeof expr === 'number') return expr;
+  if (typeof expr !== 'string' || !expr.trim()) return 0;
+  const m = expr.trim().match(/^(\d+)d(\d+)\s*([+-]\s*\d+)?$/i);
+  if (!m) { const n = parseInt(expr, 10); return Number.isNaN(n) ? 0 : n; }
+  const count = parseInt(m[1], 10), sides = parseInt(m[2], 10);
+  const flat = m[3] ? parseInt(m[3].replace(/\s+/g, ''), 10) : 0;
+  let total = flat;
+  for (let i = 0; i < count; i++) total += 1 + Math.floor(Math.random() * sides);
+  return total;
+}
+
+function _tickStatusEffects(c) {
+  if (!c || !Array.isArray(c.status_effects) || c.status_effects.length === 0) return;
+  const survivors = [];
+  for (const se of c.status_effects) {
+    if (!se) continue;
+    const fx = se.effects || {};
+    // DoT — apply at start of turn, before resolution. Honors Undying Bond? No
+    // — DoT is "your body's own poison/fire" — engine-enforced damage applies
+    // directly here without redirect. (Redirect logic lives in combat-calc.js
+    // and only applies when a calc action mutates HP; status DoT is its own
+    // application path.)
+    if (fx.damage_per_turn) {
+      const dmg = _rollDiceLocal(fx.damage_per_turn);
+      if (dmg > 0) c.hp = Math.max(0, (c.hp || 0) - dmg);
+    }
+    if (fx.heal_per_turn) {
+      const heal = _rollDiceLocal(fx.heal_per_turn);
+      if (heal > 0) c.hp = Math.min(c.maxHp || c.hp + heal, (c.hp || 0) + heal);
+    }
+    // Decrement turns_remaining; null = permanent, keep alive
+    if (typeof se.turns_remaining === 'number') {
+      se.turns_remaining -= 1;
+      if (se.turns_remaining > 0) survivors.push(se);
+      // else dropped
+    } else {
+      survivors.push(se);
+    }
+  }
+  c.status_effects = survivors;
+}
+
 function _tickCharacter(c) {
   if (!c) return;
+  // Status effects tick FIRST so DoT/regen lands before HP clamp.
+  _tickStatusEffects(c);
   c.hp   = Math.max(0, Math.min(c.maxHp, c.hp));
   c.mp   = Math.max(0, Math.min(c.maxMp, c.mp));
   if (typeof c.gold === 'number') c.gold = Math.max(0, c.gold);
@@ -725,8 +880,17 @@ function tickStateAfterDiff(state) {
   _tickCharacter(state.aria);
 
   if (state.enemy) {
+    _tickStatusEffects(state.enemy);
     state.enemy.hp = Math.max(0, state.enemy.hp);
-    if (state.enemy.hp === 0) state.enemy = null;
+    if (state.enemy.hp === 0) {
+      // Mark bestiary entry as dead before clearing the active slot.
+      if (state.enemy.id && Array.isArray(state.bestiary)) {
+        const norm = _normalizeId(state.enemy.id);
+        const entry = state.bestiary.find((b) => _normalizeId(b.id) === norm);
+        if (entry) { entry.alive = false; entry.active_in_scene = false; entry.hp = 0; }
+      }
+      state.enemy = null;
+    }
   }
 
   for (const m of (state.party || [])) {
@@ -734,8 +898,20 @@ function tickStateAfterDiff(state) {
   }
 
   for (const s of (state.summons || [])) {
+    _tickStatusEffects(s);
     if (typeof s.hp === 'number' && typeof s.maxHp === 'number') {
       s.hp = Math.max(0, Math.min(s.maxHp, s.hp));
+    }
+  }
+
+  // Bestiary entries get status-effect ticks too — DoT/regen applies even when
+  // off-page so an escaped poisoned foe keeps bleeding.
+  for (const b of (state.bestiary || [])) {
+    if (!b || !b.alive) continue;
+    _tickStatusEffects(b);
+    if (typeof b.hp === 'number' && typeof b.maxHp === 'number') {
+      b.hp = Math.max(0, Math.min(b.maxHp, b.hp));
+      if (b.hp === 0) { b.alive = false; b.active_in_scene = false; }
     }
   }
 
