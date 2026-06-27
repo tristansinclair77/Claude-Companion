@@ -281,6 +281,94 @@ body.portrait-hidden #portrait-panel { display: none; }
   overflow: hidden;
 }
 
+/* Small clickable label above the portrait. Shows which portrait is currently
+   displayed; click toggles a dropdown that lets the user manually swap to any
+   emotion (basic / combined / special). Manual selection persists visually
+   until the next dialogue/adventure update overwrites it via setEmotion. */
+#portrait-label-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+#portrait-label {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--cyan-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+#portrait-label:hover { opacity: 1; color: var(--cyan); border-color: var(--cyan-dim); }
+#portrait-label .portrait-label-caret { margin-left: 4px; opacity: 0.6; }
+#portrait-picker {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--cyan-dim);
+  box-shadow: 0 0 16px #00ffcc44;
+  padding: 6px;
+  z-index: 250;
+  width: 220px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#portrait-picker-search {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-glow);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  outline: none;
+  flex-shrink: 0;
+}
+#portrait-picker-search:focus { border-color: var(--cyan); }
+#portrait-picker-list {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#portrait-picker-list::-webkit-scrollbar { width: 4px; }
+#portrait-picker-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+.portrait-picker-section {
+  color: var(--cyan-dim);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  padding: 4px 2px 2px;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.portrait-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.portrait-picker-item:hover { border-color: var(--cyan-dim); background: #00ffcc12; }
+.portrait-picker-item.active { border-color: var(--cyan); color: var(--cyan); background: #00ffcc22; }
+.portrait-picker-item .emoji { font-size: 13px; flex-shrink: 0; }
+
 /* Portrait frame is locked to a 1:1 square so the full portrait is always
    visible without cropping. `aspect-ratio` + `max-height: 100%` keeps the
    square inside the panel's available height; if the panel is shorter than

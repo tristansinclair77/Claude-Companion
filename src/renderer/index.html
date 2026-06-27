@@ -101,6 +101,16 @@
 
     <!-- Right: portrait -->
     <div id="portrait-panel">
+      <div id="portrait-label-wrap">
+        <button id="portrait-label" type="button" title="Click to swap portrait manually">
+          <span id="portrait-label-text">NEUTRAL</span>
+          <span class="portrait-label-caret">▾</span>
+        </button>
+        <div id="portrait-picker" class="hidden">
+          <input type="text" id="portrait-picker-search" placeholder="filter…" spellcheck="false" />
+          <div id="portrait-picker-list"></div>
+        </div>
+      </div>
       <div id="portrait-frame">
         <img id="companion-portrait" src="" alt="Companion" />
         <div id="portrait-glow" aria-hidden="true"></div>

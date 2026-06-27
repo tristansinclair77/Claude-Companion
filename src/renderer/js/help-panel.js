@@ -354,11 +354,27 @@ const HelpPanel = (() => {
       content:
         p('The companion\'s <strong>portrait panel</strong> on the right side of the main window shows:') +
         kv([
+          ['Portrait label',    'A small clickable label above the portrait naming the currently displayed portrait. Click it to manually swap to any other portrait.'],
           ['Portrait image',    'Changes to match the current emotion state. Each emotion has a unique PNG image.'],
           ['Portrait glow',     'A colored light bloom behind the portrait that matches the emotional tone.'],
           ['Emotion badge',     'A small text label below the portrait showing the current emotion name.'],
           ['Emotion meters',    'Horizontal bar graphs representing the companion\'s persistent emotional axis values (see AXIS).'],
           ['Sensation readout', 'A persistent text indicator showing the current physical sensation level.'],
+        ])
+    },
+    {
+      catId: 'emotions', id: 'portrait-manual-swap',
+      title: 'Manual Portrait Swap',
+      tags: ['portrait', 'swap', 'manual', 'change', 'override', 'dropdown', 'picker', 'label', 'fun'],
+      content:
+        p('The small label above the portrait names whichever portrait is currently on screen. Click it to open a <strong>dropdown</strong> listing every available portrait — Basic, Combined, and Special — and pick one to swap the companion\'s image manually. Useful when you just want to look at a particular expression for fun.') +
+        kv([
+          ['Where',      'Small uppercase label centered above the portrait panel.'],
+          ['What it shows', 'The label updates automatically every time the portrait changes (dialogue, adventure beat, restore).'],
+          ['Click it',   'Opens a small dropdown with a filter box and a scrollable list of portraits grouped by section.'],
+          ['Filter',     'Type into the search box to narrow the list by emotion name or ID.'],
+          ['Persistence', 'A manually-chosen portrait stays on screen until the next dialogue response or adventure story beat naturally swaps it.'],
+          ['Effect',     'Visual only — does not change emotional state, axis meters, or body state. It just swaps the picture.'],
         ])
     },
     {

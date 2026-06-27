@@ -6,6 +6,11 @@ var CompanionDisplay = (() => {
   const thoughtsEl  = document.getElementById('thoughts-text');
   const emotionEl   = document.getElementById('emotion-badge');
   const portraitEl  = document.getElementById('companion-portrait');
+  const labelBtnEl  = document.getElementById('portrait-label');
+  const labelTxtEl  = document.getElementById('portrait-label-text');
+  const pickerEl    = document.getElementById('portrait-picker');
+  const pickerListEl   = document.getElementById('portrait-picker-list');
+  const pickerSearchEl = document.getElementById('portrait-picker-search');
 
   let typewriterTimer  = null;
   let _pendingDialogue = null;
@@ -607,6 +612,15 @@ var CompanionDisplay = (() => {
     emotionEl.style.color = info.color;
     emotionEl.style.borderColor = info.color + '44';
 
+    // Mirror the badge text into the small label above the portrait, and
+    // highlight the matching row inside the manual-swap dropdown.
+    if (labelTxtEl) labelTxtEl.textContent = label;
+    if (pickerListEl) {
+      pickerListEl.querySelectorAll('.portrait-picker-item.active').forEach(b => b.classList.remove('active'));
+      const active = pickerListEl.querySelector(`.portrait-picker-item[data-id="${emotionId}"]`);
+      if (active) active.classList.add('active');
+    }
+
     // Resolve the actual portrait path based on (emotionId, bodyState).
     const imgPath = resolvePortrait(emotionId, isCombined);
 
@@ -843,6 +857,105 @@ var CompanionDisplay = (() => {
     }
 
     updateMeters(emotionalState || null);
+  }
+
+  // ── Manual portrait swap dropdown ──────────────────────────────────────────
+  // Tiny label above the portrait shows the current emotion ID. Click it →
+  // dropdown lists every available portrait (basic / combined / special). Pick
+  // one → setEmotion fires, swapping the on-screen portrait. The choice is
+  // visual-only — the next AI-driven setEmotion call (dialogue, adventure beat,
+  // restoreLastDisplay) naturally overwrites it.
+
+  function _humanLabel(id, entry) {
+    if (entry && entry.label) return entry.label.toUpperCase();
+    return id.replace(/_/g, ' ').toUpperCase();
+  }
+
+  function _buildPortraitPicker() {
+    if (!pickerListEl) return;
+    pickerListEl.innerHTML = '';
+
+    const sections = [
+      { title: 'Basic',    entries: Object.entries(EMOTIONS).map(([id, v]) => ({ id, ...v })) },
+      { title: 'Combined', entries: Object.entries(COMBINED_EMOTIONS).map(([id, v]) => ({ id, ...v })) },
+      { title: 'Special',  entries: Object.entries(SPECIAL_EMOTIONS).map(([id, v]) => ({ id, ...v })) },
+    ];
+
+    for (const { title, entries } of sections) {
+      const header = document.createElement('div');
+      header.className = 'portrait-picker-section';
+      header.textContent = `// ${title}`;
+      pickerListEl.appendChild(header);
+      for (const e of entries) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'portrait-picker-item';
+        row.dataset.id    = e.id;
+        row.dataset.label = _humanLabel(e.id, e).toLowerCase();
+        row.innerHTML = `<span class="emoji">${e.emoji || '◇'}</span><span>${_humanLabel(e.id, e)}</span>`;
+        row.addEventListener('click', () => {
+          setEmotion(e.id);
+          _hidePicker();
+        });
+        pickerListEl.appendChild(row);
+      }
+    }
+  }
+
+  function _filterPortraitPicker(q) {
+    if (!pickerListEl) return;
+    const needle = q.trim().toLowerCase();
+    let visibleInSection = 0;
+    let currentHeader = null;
+    pickerListEl.childNodes.forEach((node) => {
+      if (node.classList?.contains('portrait-picker-section')) {
+        if (currentHeader) currentHeader.style.display = visibleInSection ? '' : 'none';
+        currentHeader = node;
+        visibleInSection = 0;
+        return;
+      }
+      if (node.classList?.contains('portrait-picker-item')) {
+        const match = !needle || node.dataset.label.includes(needle) || node.dataset.id.includes(needle);
+        node.style.display = match ? '' : 'none';
+        if (match) visibleInSection++;
+      }
+    });
+    if (currentHeader) currentHeader.style.display = visibleInSection ? '' : 'none';
+  }
+
+  function _showPicker() {
+    if (!pickerEl) return;
+    pickerEl.classList.remove('hidden');
+    if (pickerSearchEl) {
+      pickerSearchEl.value = '';
+      _filterPortraitPicker('');
+      pickerSearchEl.focus();
+    }
+    const active = pickerListEl?.querySelector('.portrait-picker-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function _hidePicker() {
+    if (pickerEl) pickerEl.classList.add('hidden');
+  }
+
+  if (labelBtnEl && pickerEl) {
+    _buildPortraitPicker();
+
+    labelBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (pickerEl.classList.contains('hidden')) _showPicker();
+      else _hidePicker();
+    });
+    if (pickerSearchEl) {
+      pickerSearchEl.addEventListener('input', (e) => _filterPortraitPicker(e.target.value));
+      pickerSearchEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') _hidePicker(); });
+    }
+    document.addEventListener('click', (e) => {
+      if (pickerEl.classList.contains('hidden')) return;
+      if (pickerEl.contains(e.target) || labelBtnEl.contains(e.target)) return;
+      _hidePicker();
+    });
   }
 
   return { showResponse, showThinking, showStreamChunk, setEmotion, getCurrentEmotion, setGreeting, restoreLastDisplay, setBodyState, setCharacterDir, updateMeters, showSensationPulse, updateSensationReadout, updateTrackers, updateAffectionHeart };
