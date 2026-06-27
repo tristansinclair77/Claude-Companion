@@ -1076,10 +1076,9 @@ const TextAdventure = (function () {
 
     if (turnResponse) {
       if (turnResponse.narrator) _addEntryAnimated('narrator', turnResponse.narrator);
-      if (turnResponse.aria)     _addEntryAnimated('aria', turnResponse.aria.dialogue);
-      // Portrait reflects Aria's in-story emotional state this turn — driven
-      // by the parser's portraitEmotion which prefers meta-comment (emotion)
-      // over standalone [ARIA_EMOTION] when both are present.
+      // Aria meta-commentary is no longer surfaced — it was just summarizing
+      // what the narrator already said. The portrait emotion still flows
+      // through (see [ARIA_EMOTION] in text-adventure-rules.js).
       const pe = turnResponse.portraitEmotion
               || (turnResponse.aria && turnResponse.aria.emotion);
       if (pe && window.CompanionDisplay && typeof window.CompanionDisplay.setEmotion === 'function') {
@@ -1185,7 +1184,13 @@ const TextAdventure = (function () {
   // ── Log / scroll ─────────────────────────────────────────────────────────
   function _renderLog(log) {
     scrollEl.innerHTML = '';
-    for (const e of log) _appendEntryDom(e.kind, e.text);
+    // Skip legacy aria meta-commentary entries — that channel was removed
+    // because it was just re-summarizing the narrator. Past entries stay in
+    // the file but don't render anymore.
+    for (const e of log) {
+      if (e && e.kind === 'aria') continue;
+      _appendEntryDom(e.kind, e.text);
+    }
     _scrollToBottom();
   }
 

@@ -525,8 +525,11 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
     adventure_mode_directive:
       "You are currently in TEXT-ADVENTURE MODE — PHASE 2 (NARRATOR). The user's message is Trist's in-game action. " +
       "A [COMBAT CALCULATION RESULT] block is included above with the deterministic outcome of any rolls — " +
-      "honor it as truth. Respond as narrator + Aria's in-story actor + (optionally) Aria's meta commentary, " +
-      "per the TEXT ADVENTURE RULES above. Do NOT respond as if this were normal chat. " +
+      "honor it as truth. Respond as narrator + Aria's in-story actor — everything she says or " +
+      "does this turn lives INSIDE the [NARRATOR] block. " +
+      "Do NOT emit [DIALOGUE], [THOUGHTS], or a parenthetical (emotion) — the meta-commentary " +
+      "channel was removed. Her portrait emotion is driven by [ARIA_EMOTION] only. " +
+      "Do NOT respond as if this were normal chat. " +
       "Do NOT reference Aria's normal chat history. Do NOT reference any side-chat — those " +
       "exist in a separate channel you cannot see. Do NOT use [STATE], [SENSATION], [TRACK], " +
       "[REMEMBER], [KNOWLEDGE], [THREAD], [SELF], [MEMORY], [AFFECTION], or [RECALL] in this " +
@@ -813,13 +816,11 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
       if (parsed.narrator) {
         log = store.appendLog(characterDir, { kind: 'narrator', text: parsed.narrator });
       }
-      if (parsed.aria) {
-        log = store.appendLog(characterDir, {
-          kind: 'aria',
-          text: parsed.aria.dialogue,
-          thoughts: parsed.aria.thoughts,
-          emotion:  parsed.aria.emotion,
-        });
+      // The aria meta-commentary channel was removed. If the model slips and
+      // emits a [DIALOGUE] block anyway, we just absorb the portrait emotion
+      // from it (so the (emotion) tag still drives the portrait when present)
+      // and silently drop the rest — no log entry, no render.
+      if (parsed.aria && parsed.aria.emotion) {
         state.player.lastAriaEmotion = parsed.aria.emotion;
       }
 

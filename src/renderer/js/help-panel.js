@@ -772,10 +772,10 @@ const HelpPanel = (() => {
     {
       catId: 'rpg', id: 'ta-aria-as-actor',
       title: 'Aria as a Party Member',
-      tags: ['aria', 'party member', 'companion', 'stats', 'mp', 'mage', 'support', 'autonomous', 'meta commentary', 'commentary'],
+      tags: ['aria', 'party member', 'companion', 'stats', 'mp', 'mage', 'support', 'autonomous'],
       content:
-        p('Aria is not just commentary — she\'s on the adventure with you. She has her own HP, MP, stats, inventory, and starting spells (Firebolt, Mend Wound). Each turn after your action resolves, Claude narrates Aria\'s autonomous action: spells she casts, hits she swings, things she notices.') +
-        p('Her in-story actions and her in-story dialogue appear inside the narrator block. Separately, she may turn to you and meta-comment (pink text in the terminal) — typically on critical hits, rare loot, near-death moments, or quiet beats. She does this roughly 1-in-3 turns, not constantly.') +
+        p('Aria is on the adventure with you. She has her own HP, MP, stats, inventory, and starting spells (Firebolt, Mend Wound). Each turn after your action resolves, Claude narrates Aria\'s autonomous action: spells she casts, hits she swings, things she notices.') +
+        p('Her in-story actions and her dialogue ("Watch out!", "I\'ll cast Mend Wound on you") appear inside the narrator block, in quotes. There is no separate pink meta-commentary line — that channel was removed because it just re-summarized what the narrator had already said. Her portrait still updates each turn to reflect her in-story emotional state.') +
         note('If Aria\'s HP hits zero, the run ends just as surely as if yours did.')
     },
     {
