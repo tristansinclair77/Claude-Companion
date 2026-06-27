@@ -23,11 +23,12 @@ const GMCHAT_MAX_ENTRIES    = 200;
 // expected to prune via [GAME_STATE].memory.*.remove when things go stale,
 // but the engine enforces a ceiling.
 const MEMORY_CAPS = {
-  npcs:      80,
-  locations: 60,
-  quests:    40,
-  events:    120,
-  lore:      80,
+  npcs:              80,
+  locations:         60,
+  quests:            40,
+  events:            120,
+  lore:              80,
+  characterProfiles: 30,
 };
 
 // Every monster sprite the storywriter is allowed to spawn. `slug` MUST
@@ -222,6 +223,13 @@ function _freshMemory() {
     quests:    [],   // [{ id, name, desc, status: 'active'|'done'|'failed', notes }]
     events:    [],   // [{ turn, desc }]
     lore:      [],   // [string]
+    // Per-character behavioral dossiers — surface every scene that character
+    // is in. The GM creates one when a character earns recurrence and refines
+    // it as new scenes reveal more.
+    // Schema: { id, name, role: 'player'|'companion'|'party'|'npc',
+    //           summary, personality, speech, mannerisms, quirks: [string],
+    //           relationships, motivations, current_arc, updated_turn }
+    characterProfiles: [],
     currentSituation: '',  // short-term: where we are, what's happening right now
     immediateGoal:    '',  // short-term: what we're trying to do next
     storySummary:     '',  // rolling prose recap of the campaign — refreshed by Claude after major beats
@@ -269,6 +277,7 @@ function loadState(characterDir) {
     if (!state.party)                      state.party     = [];
     if (!state.summons)                    state.summons   = [];
     if (state.positions === undefined)     state.positions = null;
+    if (!Array.isArray(state.memory.characterProfiles)) state.memory.characterProfiles = [];
     return state;
   } catch (e) {
     console.warn('[TextAdventure] loadState failed:', e.message);
@@ -563,6 +572,21 @@ function applyStateDiff(state, diff) {
       _addCollection   (mem[collKey], d.add    || [], collKey);
       _removeCollection(mem[collKey], d.remove || []);
       _updateCollection(mem[collKey], d.update || []);
+    }
+    if (diff.memory.characterProfiles) {
+      const d = diff.memory.characterProfiles;
+      const stamp = state.turnCount + 1; // tick increments after this; stamp the turn this profile reflects
+      const normalizeIncoming = (it) => {
+        if (!it || typeof it !== 'object') return it;
+        return { ...it, updated_turn: stamp };
+      };
+      _addCollection(
+        mem.characterProfiles,
+        (d.add || []).map(normalizeIncoming),
+        'characterProfiles',
+      );
+      _removeCollection(mem.characterProfiles, d.remove || []);
+      _updateCollection(mem.characterProfiles, (d.update || []).map(normalizeIncoming));
     }
     if (diff.memory.events) {
       _addCollection   (mem.events, diff.memory.events.add    || [], 'events');

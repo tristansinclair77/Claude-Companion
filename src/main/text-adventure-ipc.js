@@ -139,6 +139,82 @@ function _resolveMusicDirective(value, { timeOfDay } = {}) {
   return { kind: 'play', cue };
 }
 
+// ── Active character profiles (for the prompt) ───────────────────────────────
+//
+// Pulls every characterProfile whose id matches an entity present in the
+// current scene (positions.entities) — plus "player" and "aria" always. This
+// is what the GM sees alongside the scene each turn so they can write each
+// character faithfully without having to dig through the full memory dump.
+
+function _formatProfile(p) {
+  const lines = [];
+  lines.push(`### ${p.name || p.id}${p.role ? `  (${p.role})` : ''}  [id: ${p.id}]`);
+  if (p.summary)       lines.push(`Summary: ${p.summary}`);
+  if (p.personality)   lines.push(`Personality: ${p.personality}`);
+  if (p.speech)        lines.push(`Speech: ${p.speech}`);
+  if (p.mannerisms)    lines.push(`Mannerisms: ${p.mannerisms}`);
+  if (Array.isArray(p.quirks) && p.quirks.length) {
+    lines.push('Quirks:');
+    for (const q of p.quirks) lines.push(`  - ${q}`);
+  }
+  if (p.relationships) lines.push(`Relationships: ${p.relationships}`);
+  if (p.motivations)   lines.push(`Motivations: ${p.motivations}`);
+  if (p.current_arc)   lines.push(`Current arc: ${p.current_arc}`);
+  if (typeof p.updated_turn === 'number') lines.push(`(profile last refined on turn ${p.updated_turn})`);
+  return lines.join('\n');
+}
+
+function _buildActiveProfilesBlock(state) {
+  const profiles = (state.memory && Array.isArray(state.memory.characterProfiles))
+    ? state.memory.characterProfiles : [];
+  if (profiles.length === 0) {
+    return '=== ACTIVE CHARACTER PROFILES (in scene now) ===\n' +
+      "(none yet — this is your cue to create one for any character who's appearing in the scene. " +
+      "Trist (id 'player') and the companion (id 'aria') should always have profiles. " +
+      "Emit them in this turn's [GAME_STATE] memory.characterProfiles.add.)\n" +
+      '=== END ACTIVE CHARACTER PROFILES ===';
+  }
+
+  // Build the set of ids currently in the scene.
+  const presentIds = new Set(['player', 'aria']);
+  const entities = state.positions && Array.isArray(state.positions.entities)
+    ? state.positions.entities : [];
+  const enemyId = state.enemy && state.enemy.id ? String(state.enemy.id).toLowerCase() : null;
+  for (const e of entities) {
+    if (!e || !e.id) continue;
+    let id = String(e.id).toLowerCase();
+    // The positions block uses the literal id "enemy" as a placeholder for
+    // whoever's currently in the enemy slot. Normalize to the real enemy id
+    // so profile lookup hits a single canonical entry.
+    if (id === 'enemy' && enemyId) id = enemyId;
+    presentIds.add(id);
+  }
+  if (enemyId) presentIds.add(enemyId);
+
+  const active = profiles.filter((p) => p && p.id && presentIds.has(String(p.id).toLowerCase()));
+
+  const missingFor = [...presentIds].filter((id) => !active.some((p) => String(p.id).toLowerCase() === id));
+
+  const sections = [];
+  sections.push('=== ACTIVE CHARACTER PROFILES (in scene now) ===');
+  sections.push('Read these BEFORE writing each character. Voice, quirks, current arc — match them.');
+  sections.push('Refine any profile this turn that revealed something new via memory.characterProfiles.update.');
+  sections.push('');
+  if (active.length === 0) {
+    sections.push('(No matching profiles for entities currently in scene. Create them this turn.)');
+  } else {
+    for (const p of active) {
+      sections.push(_formatProfile(p));
+      sections.push('');
+    }
+  }
+  if (missingFor.length > 0) {
+    sections.push(`Entities in scene with NO profile yet (create them this turn if they matter recurrently): ${missingFor.join(', ')}`);
+  }
+  sections.push('=== END ACTIVE CHARACTER PROFILES ===');
+  return sections.join('\n');
+}
+
 // ── Log formatting (for the prompt) ──────────────────────────────────────────
 
 function formatLogForPrompt(log, limit = 30) {
@@ -166,6 +242,7 @@ async function runAdventureTurn({
   const adventureContext = {
     rules: buildRules(state.aria?.name || 'Aria'),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
+    active_character_profiles: _buildActiveProfilesBlock(state),
     game_state_now: '=== CURRENT GAME STATE (the truth right now) ===\n' +
       JSON.stringify(state, null, 2) +
       '\n=== END CURRENT GAME STATE ===',

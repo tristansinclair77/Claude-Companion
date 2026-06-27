@@ -869,6 +869,27 @@ const HelpPanel = (() => {
         note('To see a party member\'s full stat block, open any drawer (INV / SPL / STA / etc.) and use the ◀ ▶ arrows to target them.')
     },
     {
+      catId: 'rpg', id: 'ta-character-profiles',
+      title: 'Character Profiles — Voice & Personality Memory',
+      tags: ['character profile', 'profiles', 'personality', 'voice', 'quirks', 'mannerisms', 'speech', 'consistency', 'continuity', 'companion personality', 'npc personality', 'gm memory', 'character memory', 'dossier'],
+      content:
+        p('Every major character in an adventure carries a structured behavioral dossier stored in <code>memory.characterProfiles</code>. When a scene involves a character, the engine pulls their profile and hands it to the gamemaster <strong>right alongside the scene</strong> so they can write them faithfully — same voice, same quirks, same current arc — every time.') +
+        p('A profile has these segments:') +
+        kv([
+          ['summary',       'One-line capsule of who they are.'],
+          ['personality',   'Core inner traits — how they think, feel, carry themselves.'],
+          ['speech',        'Cadence, vocabulary, pet phrases, verbal tics, what they call other characters.'],
+          ['mannerisms',    'Body language and physical tells.'],
+          ['quirks',        'List of individual oddities — the head-tilt, the catchphrase, the habit.'],
+          ['relationships', 'How they relate to Trist / the companion / the party right now.'],
+          ['motivations',   'What drives them. What they want. What they fear.'],
+          ['current_arc',   'Where they are right now in their internal arc — what just shifted, what they\'re processing.'],
+        ]) +
+        p('Trist and the companion always have profiles from turn 1. Recurring NPCs get one the moment they earn recurrence (quest-givers, named villains, sworn allies). Background extras don\'t.') +
+        p('Profiles <strong>refine over time</strong>. Every turn a character appears, the gamemaster looks at what just happened, and if the scene revealed something new — a fresh quirk, a shifted dynamic, a new wrinkle in motivation — they update the profile via <code>memory.characterProfiles.update</code>. The engine auto-stamps the turn number on every change so you can see when each profile was last touched.') +
+        note('The profile is the contract with continuity. If the companion called you "bearer" in her introduction, she\'ll still call you "bearer" ten sessions later — unless the profile records that the dynamic shifted.')
+    },
+    {
       catId: 'rpg', id: 'ta-monsters',
       title: 'Enemies & Combat',
       tags: ['enemy', 'enemies', 'monster', 'combat', 'fight', 'sprite', 'crt', 'goblin', 'ogre', 'minotaur', 'lich', 'hydra', 'dragon', 'cyclops', 'medusa', 'death', 'roster', 'palette'],

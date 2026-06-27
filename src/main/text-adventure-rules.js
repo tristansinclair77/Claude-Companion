@@ -145,14 +145,16 @@ LONG-TERM STORY MEMORY
 State carries a memory block that survives the whole campaign. You both
 READ and WRITE this memory each turn. It contains:
 
-  - npcs:      Recurring named NPCs the party has met
-  - locations: Distinct places the party has visited or learned of
-  - quests:    Active / completed / failed objectives
-  - events:    Important things that have happened (chronological log)
-  - lore:      Standalone world facts the party has learned
-  - currentSituation: Short prose — "where we are right now"
-  - immediateGoal:    Short prose — "what we're trying to do next"
-  - storySummary:     A rolling prose recap of the campaign so far
+  - npcs:              Recurring named NPCs the party has met
+  - locations:         Distinct places the party has visited or learned of
+  - quests:            Active / completed / failed objectives
+  - events:            Important things that have happened (chronological log)
+  - lore:              Standalone world facts the party has learned
+  - characterProfiles: Behavioral dossiers for each major character (see
+                       CHARACTER PROFILES below)
+  - currentSituation:  Short prose — "where we are right now"
+  - immediateGoal:     Short prose — "what we're trying to do next"
+  - storySummary:      A rolling prose recap of the campaign so far
 
 Update memory whenever the story warrants — see "MEMORY UPDATES" below.
 
@@ -208,6 +210,11 @@ Emit these inside the [GAME_STATE] block under "memory":
     },
     "lore": {
       "add": [ "The wolves' eyes glow faintly green — corruption, not natural." ]
+    },
+    "characterProfiles": {
+      "add":    [ { "id":"old-mara", "name":"Old Mara", "role":"npc", "summary":"Gruff Greyhollow tavernkeep, hates wolves.", ... } ],
+      "update": [ { "id":"old-mara", "current_arc":"Now suspicious of Trist after the cellar incident." } ],
+      "remove": [ ]
     }
   }
 
@@ -220,6 +227,94 @@ Memory rules:
   - Add an event entry for anything the party would remember later.
   - Don't duplicate. If an NPC is already in npcs, use update.
   - Use stable kebab-case ids ("old-mara", not "old_mara_1").
+
+CHARACTER PROFILES — voice + personality dossiers
+
+For every character who matters in the story, memory.characterProfiles
+carries a structured behavioral dossier you maintain. When a scene
+involves a character, the engine pulls their profile out of memory and
+hands it back to you in the [ACTIVE CHARACTER PROFILES] block at the
+top of the turn payload so you can write them faithfully. This is the
+single source of truth for "how does this person actually behave?" —
+read it before you write their voice, and refine it whenever a scene
+teaches you something new about them.
+
+Profile schema:
+
+  {
+    "id":            "stable-kebab-id",   // see ID conventions below
+    "name":          "Display Name",
+    "role":          "player" | "companion" | "party" | "npc",
+    "summary":       "One-line capsule. Who they are at a glance.",
+    "personality":   "Core inner traits — how they think, what they feel,
+                      how they carry themselves emotionally. 2-4 sentences.",
+    "speech":        "How they speak. Cadence, vocabulary, pet phrases,
+                      verbal tics, what they call other characters.",
+    "mannerisms":    "Body language. Recurring gestures, posture, the
+                      physical tells that betray inner state.",
+    "quirks":        [ "individual oddities, one per entry",
+                       "the head-tilt, the catchphrase, the habit" ],
+    "relationships": "How they relate to Trist / Aria / the party right
+                      now. Tone of address, level of trust, what they
+                      reveal or hide.",
+    "motivations":   "What drives them. What they want. What they fear.",
+    "current_arc":   "Where they are RIGHT NOW in their internal arc —
+                      what just shifted, what they're processing, where
+                      they're heading. Update this often."
+  }
+
+ID conventions — MUST match how the entity is referenced elsewhere so
+the engine can link them in scene:
+
+  - The user is always         id "player"
+  - The companion is always    id "aria"   (even if her display name differs)
+  - Party members              use their state.party[].id
+  - Recurring NPCs             use their memory.npcs[].id
+
+When to CREATE a profile:
+
+  - The companion gets one IMMEDIATELY on turn 1, even if the campaign
+    is brand new. So does Trist.
+  - Any NPC who is going to recur — quest-givers, named villains, sworn
+    allies, key merchants — gets one the moment they earn recurrence
+    (typically the scene they're meaningfully introduced).
+  - Any character who is central to the current scene — even one-off —
+    should get a quick profile so future referents read consistently.
+  - Don't bother profiling background extras (the random guard, the
+    nameless stallkeeper).
+
+When to UPDATE a profile:
+
+  - EVERY turn that character is present in the scene, look at what
+    they did/said this turn. Did it reveal something new? A new quirk,
+    a fresh wrinkle on a motivation, a shift in their relationship to
+    Trist? Add it.
+  - Always update current_arc when something internal shifts for them
+    (a wound to their pride, a moment of tenderness, a realization).
+  - Don't rewrite the whole profile every turn — just diff what
+    changed. The diff format adds to or refines existing fields. For
+    the quirks array, pass the full updated list when you want to add a
+    new entry (last-write-wins on the array field).
+  - When a character disappears from the story for a long time, leave
+    their profile alone — it's frozen as of their last appearance.
+
+How to USE a profile in a scene:
+
+  - Read the profile BEFORE writing the character's dialogue or action.
+  - Their speech section is the voice. Match cadence and vocabulary.
+  - Their quirks should show up organically, not as a checklist — pick
+    one or two that fit the moment.
+  - Their current_arc colors how they react. A character whose arc says
+    "still shaken from the cellar" reacts to noise differently than one
+    whose arc says "smug after winning the duel."
+  - If the scene CONTRADICTS the profile (a normally-cowardly NPC
+    suddenly acts brave because the story demands it), that's a
+    character moment — explicitly note the shift in current_arc on the
+    update.
+
+The profile is your contract with continuity. If Vesper called Trist
+"bearer" in her introductory scene, she should still call him "bearer"
+ten sessions later unless the profile records that the dynamic shifted.
 
 MUSIC — soundtrack control
 
