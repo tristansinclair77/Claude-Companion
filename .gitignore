@@ -42,6 +42,7 @@ characters/*/text-adventure-log.json
 characters/*/text-adventure-side-chat.json
 characters/*/text-adventure-gm-chat.json
 characters/*/text-adventure-implementation-tasks.md
+characters/*/text-adventure-debug-responses.json
 
 # RVC server Python 3.10 venv (large, recreatable — see scripts/rvc-server/requirements.txt)
 scripts/rvc-server/venv/

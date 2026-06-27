@@ -15,6 +15,8 @@ const LOG_FILENAME         = 'text-adventure-log.json';
 const SIDECHAT_FILENAME    = 'text-adventure-side-chat.json';
 const GMCHAT_FILENAME      = 'text-adventure-gm-chat.json';
 const IMPL_TASKS_FILENAME  = 'text-adventure-implementation-tasks.md';
+const DEBUG_RESPONSES_FILENAME = 'text-adventure-debug-responses.json';
+const DEBUG_RESPONSES_CAP  = 50;
 
 const LOG_MAX_ENTRIES       = 200;
 const SIDECHAT_MAX_ENTRIES  = 80;
@@ -449,6 +451,57 @@ function loadImplementationTasks(characterDir) {
     if (!fs.existsSync(p)) return '';
     return fs.readFileSync(p, 'utf8');
   } catch { return ''; }
+}
+
+// ── Raw-response debug log (per-character, rolling) ──────────────────────────
+//
+// Captures every GM/Claude raw response we receive so a silent failure
+// (e.g. Phase 2 emitting no [NARRATOR] block) can be inspected after the
+// fact without having to reproduce. Rolling cap at DEBUG_RESPONSES_CAP
+// entries so the file doesn't grow forever. Stored as a JSON array — easy
+// to open in any editor.
+//
+// Entry shape: {
+//   t:            ISO timestamp
+//   phase:        'phase1' | 'phase2' | 'side-chat' | 'ask-gm' | 'gm-state-agent'
+//   userMessage:  what triggered this call (truncated to ~500 chars)
+//   raw:          full raw model response (no truncation)
+//   meta:         { narratorPresent, sceneEmitted, emotionEmitted, error?, ... }
+// }
+
+function _debugResponsesPath(characterDir) { return path.join(characterDir, DEBUG_RESPONSES_FILENAME); }
+
+function loadDebugResponses(characterDir) {
+  try {
+    const p = _debugResponsesPath(characterDir);
+    if (!fs.existsSync(p)) return [];
+    const arr = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function appendDebugResponse(characterDir, entry) {
+  try {
+    const arr = loadDebugResponses(characterDir);
+    const safe = {
+      t:           new Date().toISOString(),
+      phase:       String(entry.phase || 'unknown'),
+      userMessage: typeof entry.userMessage === 'string'
+        ? entry.userMessage.slice(0, 500)
+        : '',
+      raw:  typeof entry.raw === 'string' ? entry.raw : String(entry.raw || ''),
+      meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : {},
+    };
+    arr.push(safe);
+    while (arr.length > DEBUG_RESPONSES_CAP) arr.shift();
+    fs.writeFileSync(_debugResponsesPath(characterDir), JSON.stringify(arr, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[TextAdventure] appendDebugResponse failed:', e.message);
+  }
+}
+
+function clearDebugResponses(characterDir) {
+  try { fs.unlinkSync(_debugResponsesPath(characterDir)); } catch {}
 }
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
@@ -1046,6 +1099,9 @@ module.exports = {
   clearGmChat,
   appendImplementationTask,
   loadImplementationTasks,
+  appendDebugResponse,
+  loadDebugResponses,
+  clearDebugResponses,
   newGame,
   resetGame,
   applyStateDiff,

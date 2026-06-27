@@ -504,6 +504,17 @@ async function runCalcRequestPhase({ characterDir, action, state, log, character
   });
   const raw = response.raw || '';
   const decision = parseCalcRequestResponse(raw);
+  // Debug capture — every Phase 1 response is dumped to a rolling per-character
+  // file so silent failures can be inspected after the fact. See
+  // text-adventure-store.js → appendDebugResponse.
+  try {
+    store.appendDebugResponse(characterDir, {
+      phase: 'phase1',
+      userMessage: action,
+      raw,
+      meta: { decision: decision.kind, reason: decision.reason || null },
+    });
+  } catch {}
   return { decision, raw };
 }
 
@@ -577,6 +588,26 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
   const parsed = parseAdventureResponse(raw, {
     previousEmotion: response.emotion || 'neutral',
   });
+  // Debug capture — see runCalcRequestPhase for rationale.
+  try {
+    store.appendDebugResponse(characterDir, {
+      phase: 'phase2',
+      userMessage: action,
+      raw,
+      meta: {
+        sceneEmitted:     !!parsed.scene,
+        narratorPresent:  !!parsed.narrator,
+        narratorLength:   (parsed.narrator || '').length,
+        emotionEmitted:   !!parsed.portraitEmotion,
+        enemyTag:         parsed.enemySlug || null,
+        deathCause:       parsed.deathCause || null,
+        musicCue:         parsed.music || null,
+        gameStateDiff:    !!parsed.gameStateDiff,
+        levelUpBlockCount:      (parsed.levelUpBlocks || []).length,
+        implementationTaskCount:(parsed.implementationTasks || []).length,
+      },
+    });
+  } catch {}
   return { parsed, raw };
 }
 
@@ -699,11 +730,23 @@ async function runSideChatTurn({
     workingLongMemories:  [],
   });
 
+  const raw = response.raw || '';
+  try {
+    store.appendDebugResponse(characterDir, {
+      phase: 'side-chat',
+      userMessage: message,
+      raw,
+      meta: {
+        dialogueLength: (response.dialogue || '').length,
+        emotion:        response.emotion || null,
+      },
+    });
+  } catch {}
   return {
     dialogue: response.dialogue || '',
     thoughts: response.thoughts || '',
     emotion:  response.emotion  || 'neutral',
-    raw:      response.raw      || '',
+    raw,
   };
 }
 
@@ -1132,11 +1175,28 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
       const thoughts = response.thoughts || '';
       const emotion  = response.emotion  || 'neutral';
 
+      try {
+        store.appendDebugResponse(characterDir, {
+          phase: 'ask-gm',
+          userMessage: text,
+          raw: response.raw || '',
+          meta: { dialogueLength: dialogue.length, emotion },
+        });
+      } catch {}
+
       // State agent: dedicated mechanical pass — reads player request + Aria's response,
       // decides if a game state diff is needed, and applies it if so.
       let stateChanged = false;
       try {
         const agentRaw = await runGmStateAgent({ playerMessage: text, gmDialogue: dialogue, state });
+        try {
+          store.appendDebugResponse(characterDir, {
+            phase: 'gm-state-agent',
+            userMessage: text,
+            raw: agentRaw || '',
+            meta: { triggeredBy: 'ask-gm' },
+          });
+        } catch {}
         if (agentRaw) {
           const gsDiff = _extractBlock(agentRaw, 'GAME_STATE', 'GAME_STATE');
           if (gsDiff.value) {
