@@ -693,6 +693,13 @@ ipcMain.handle('msgs:delete-one', (_event, id) => {
   if (msg && msg.role === 'companion' && msg.content) {
     db.db.prepare('DELETE FROM learned_responses WHERE response_dialogue = ?').run(msg.content);
   }
+  // Re-sync the in-memory conversation window from the DB so the deleted
+  // message is also dropped from the context injected into the next Claude
+  // call. Without this, the row is gone from disk but the runtime window
+  // (sessionManager.messageWindow) still feeds the deleted text into the prompt.
+  if (sessionManager) {
+    sessionManager.messageWindow = db.getRecentMessages(30);
+  }
   return true;
 });
 
