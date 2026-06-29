@@ -143,6 +143,9 @@ contextBridge.exposeInMainWorld('adventureAPI', {
   clearSessionChats:  ()        => ipcRenderer.invoke('adventure:clear-session-chats'),
   exportGame:      ()           => ipcRenderer.invoke('adventure:export-game'),
   importGame:      ()           => ipcRenderer.invoke('adventure:import-game'),
+  confirm:     (message, detail, confirmLabel, cancelLabel) =>
+    ipcRenderer.invoke('dialog:confirm', { message, detail, confirmLabel, cancelLabel }),
+  retryAction: () => ipcRenderer.invoke('adventure:retry-action'),
   onUpdate:    (cb) => {
     const listener = (_evt, payload) => cb(payload);
     ipcRenderer.on('adventure:update', listener);

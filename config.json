@@ -1,5 +1,5 @@
 {
-  "activeCharacter": "vesper",
+  "activeCharacter": "nataltieri",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
     "pitchShift": 6,
@@ -490,5 +490,5 @@
     "typeCps": 25,
     "combatFrequency": 3
   },
-  "portraitVisible": true
+  "portraitVisible": false
 }

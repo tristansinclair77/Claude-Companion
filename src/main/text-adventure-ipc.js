@@ -18,6 +18,7 @@ const { parseResponse }   = require('../shared/response-parser');
 const { sendToClaude, runGmStateAgent } = require('./claude-bridge');
 const musicEngine         = require('./music-engine');
 const combatCalc          = require('./combat-calc');
+const { validatePhase1, validatePhase2 } = require('./text-adventure-validator');
 
 const ADVENTURE_EXPORT_VERSION = 1;
 
@@ -441,6 +442,55 @@ function _buildActiveProfilesBlock(state) {
   return sections.join('\n');
 }
 
+// ── Companion character reference block ──────────────────────────────────────
+// Gives the GM enough info to write the companion character accurately without
+// confusing itself for being that character. Passed as adventureContext data,
+// not as the `character` identity param, so it's reference — not identity.
+
+function _buildCompanionReferenceBlock(characterContext) {
+  const ch = characterContext && characterContext.character;
+  if (!ch) return null;
+
+  const lines = [
+    `=== COMPANION CHARACTER REFERENCE (${ch.name} — for narration only) ===`,
+    `You are writing ${ch.name} as a character in the story. You control her actions,`,
+    `speech, and reactions. She is not you — you are the Game Master.`,
+    '',
+    `Name: ${ch.name}${ch.full_name && ch.full_name !== ch.name ? ` (${ch.full_name})` : ''}`,
+  ];
+
+  if (ch.personality_summary) lines.push(`Personality: ${ch.personality_summary}`);
+  if (ch.speech_style)        lines.push(`Speech style: ${ch.speech_style}`);
+  if (ch.backstory)           lines.push(`Backstory: ${ch.backstory}`);
+
+  // Appearance summary from the loaded appearance block
+  const a = ch._appearance;
+  if (a) {
+    const appParts = [];
+    if (a.hair)  appParts.push(`hair: ${a.hair}`);
+    if (a.eyes)  appParts.push(`eyes: ${a.eyes}`);
+    if (a.build) appParts.push(`build: ${a.build}`);
+    if (appParts.length) lines.push(`Appearance: ${appParts.join(', ')}`);
+  }
+
+  // Current emotional hint from axis state
+  const em = characterContext.emotionalState;
+  if (em) {
+    const v = Math.round(em.valence);
+    const mood = v >= 65 ? 'generally upbeat' : v <= 35 ? 'subdued / guarded' : 'neutral';
+    lines.push(`Current mood hint: ${mood} (V=${v}/100) — let this color how you write her reactions this turn.`);
+  }
+
+  lines.push('');
+  lines.push(`NARRATION RULES for ${ch.name}:`);
+  lines.push(`- Her spoken dialogue goes as quoted prose INSIDE [NARRATOR]: e.g. "Let's keep moving," she says.`);
+  lines.push(`- Her portrait emotion is controlled by [ARIA_EMOTION] <id> — pick the emotion that fits the scene.`);
+  lines.push(`- Do NOT use [DIALOGUE] or [THOUGHTS] tags — those are companion-chat format only.`);
+  lines.push(`=== END COMPANION CHARACTER REFERENCE ===`);
+
+  return lines.join('\n');
+}
+
 // ── Log formatting (for the prompt) ──────────────────────────────────────────
 
 function formatLogForPrompt(log, limit = 30) {
@@ -501,9 +551,12 @@ async function runCalcRequestPhase({ characterDir, action, state, log, character
     bodyState:           null,
     workingShortMemories: [],
     workingLongMemories:  [],
+    gmMode:    true,   // prevent Aria identity from causing companion-chat output
+    gmPhase1:  true,   // Phase 1 format reminder: one tag only, no narrative
   });
   const raw = response.raw || '';
   const decision = parseCalcRequestResponse(raw);
+  const validation = validatePhase1(raw, decision);
   // Debug capture — every Phase 1 response is dumped to a rolling per-character
   // file so silent failures can be inspected after the fact. See
   // text-adventure-store.js → appendDebugResponse.
@@ -512,16 +565,31 @@ async function runCalcRequestPhase({ characterDir, action, state, log, character
       phase: 'phase1',
       userMessage: action,
       raw,
-      meta: { decision: decision.kind, reason: decision.reason || null },
+      meta: {
+        decision: decision.kind,
+        reason:   decision.reason || null,
+        valid:    validation.valid,
+        degraded: validation.degraded || false,
+        warnings: validation.warnings,
+        fatal:    validation.fatal,
+      },
     });
   } catch {}
-  return { decision, raw };
+  return { decision, raw, validation };
 }
 
 // Phase 2 (full): the normal GM call, plus the resolved calc result.
-async function runNarratorPhase({ characterDir, action, state, log, characterContext, combatFrequency, calcResult }) {
+// `nudge` is an optional extra instruction injected when retrying after a
+// specific failure mode (e.g. model used chat format instead of GM format).
+async function runNarratorPhase({ characterDir, action, state, log, characterContext, combatFrequency, calcResult, nudge = '' }) {
   const freqDirective = COMBAT_FREQ_DIRECTIVES[Math.max(0, Math.min(4, combatFrequency))];
+
+  // Build a reference block describing the companion character so the GM can
+  // write them accurately without confusing itself for being them.
+  const companionRef = _buildCompanionReferenceBlock(characterContext);
+
   const adventureContext = {
+    companion_character_reference: companionRef,
     rules: buildRules(state.aria?.name || 'Aria'),
     music_catalog: '=== ' + musicEngine.formatBibleForPrompt() + '\n=== END MUSIC CUE CATALOG ===',
     active_character_profiles: _buildActiveProfilesBlock(state),
@@ -536,58 +604,64 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
     adventure_mode_directive:
       "You are currently in TEXT-ADVENTURE MODE — PHASE 2 (the narrator phase). The user's message is Trist's in-game action. " +
       "A [COMBAT CALCULATION RESULT] block is included above with the deterministic outcome of any rolls — " +
-      "honor it as truth. " +
+      "honor it as truth.\n\n" +
       "REQUIRED OUTPUT: every response MUST contain a [NARRATOR]...[/NARRATOR] block with 2-6 paragraphs " +
-      "of prose. This is the story this turn — if you omit it the player sees nothing. Aria's in-story " +
-      "actions and her in-story dialogue (in quotes) live INSIDE that block. " +
-      "Do NOT emit [DIALOGUE], [THOUGHTS], or a parenthetical (emotion) — the meta-commentary " +
-      "channel was removed. Her portrait emotion is driven by [ARIA_EMOTION] only. " +
-      "Do NOT respond as if this were normal chat. " +
-      "Do NOT reference Aria's normal chat history. Do NOT reference any side-chat — those " +
-      "exist in a separate channel you cannot see. Do NOT use [STATE], [SENSATION], [TRACK], " +
+      "of prose narrated in second person ('you'). This is the story this turn. If you omit it the engine " +
+      "rejects your response and the player sees nothing. " +
+      "Her portrait emotion is driven by [ARIA_EMOTION] only — include it every turn. " +
+      "If the player's action contains dialogue directed at the companion, her reply goes INSIDE [NARRATOR] as quoted prose — " +
+      "\"Yeah, I'm coming,\" she says — not as a separate tag. " +
+      "Do NOT use [STATE], [SENSATION], [TRACK], " +
       "[REMEMBER], [KNOWLEDGE], [THREAD], [SELF], [MEMORY], [AFFECTION], or [RECALL] in this " +
-      "mode — they don't apply. Use [GAME_STATE] for adventure state EXCEPT do NOT re-apply HP " +
+      "mode — they don't apply here. Use [GAME_STATE] for adventure state EXCEPT do NOT re-apply HP " +
       "or MP changes already shown in the calc result — the engine already applied them. " +
       "Use [MUSIC] to drive the soundtrack (see MUSIC section + catalog).\n\n" +
-      freqDirective,
+      freqDirective +
+      (nudge ? '\n\n' + nudge : ''),
   };
 
+  // gmMode: do NOT pass Aria's character identity to the narrator call.
+  // The companion character is included as a REFERENCE in adventureContext above.
+  // Passing Aria's character/rules/memories here caused the model to think it
+  // WAS Aria and respond in companion-chat format instead of GM narrator format.
   const mergedAddonContexts = [
     ...(characterContext.addonContexts || []),
     adventureContext,
   ];
 
   const response = await sendToClaude({
-    userMessage: action,
-    character:        characterContext.character,
-    characterRules:   characterContext.characterRules,
-    masterSummary:    characterContext.masterSummary,
-    permanentMemories: characterContext.permanentMemories,
-    userProfile:      characterContext.userProfile,
+    userMessage:      action,
+    character:        characterContext.character,  // still needed for buildSystemPrompt field access
+    characterRules:   null,                        // suppress Aria's [DIALOGUE]/[THOUGHTS] format rules
+    masterSummary:    '',
+    permanentMemories: [],
+    userProfile:      characterContext.userProfile, // keep — GM benefits from knowing the player
     conversationWindow: [],
     detectedEmotion:  '',
     attachments:      [],
     relatedContext:   [],
-    emotionalState:   characterContext.emotionalState,
+    emotionalState:   null,
     fastMode:         false,
     addonContexts:    mergedAddonContexts,
-    trackers:         characterContext.trackers,
-    activeThreads:    characterContext.activeThreads,
+    trackers:         {},
+    activeThreads:    [],
     characterDir,
     conversationDynamic: '',
-    personalityForce:    characterContext.personalityForce,
-    featureRequests:     characterContext.featureRequests,
+    personalityForce:    '',
+    featureRequests:     [],
     pendingDeletionNotifications: [],
     previousEmotion:     (state.player && state.player.lastAriaEmotion) || 'neutral',
-    bodyState:           characterContext.bodyState,
+    bodyState:           null,
     workingShortMemories: [],
     workingLongMemories:  [],
+    gmMode:           true,
   });
 
   const raw = response.raw || '';
   const parsed = parseAdventureResponse(raw, {
     previousEmotion: response.emotion || 'neutral',
   });
+  const validation = validatePhase2(raw, parsed);
   // Debug capture — see runCalcRequestPhase for rationale.
   try {
     store.appendDebugResponse(characterDir, {
@@ -595,10 +669,13 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
       userMessage: action,
       raw,
       meta: {
+        valid:            validation.valid,
+        fatal:            validation.fatal,
+        warnings:         validation.warnings,
         sceneEmitted:     !!parsed.scene,
         narratorPresent:  !!parsed.narrator,
         narratorLength:   (parsed.narrator || '').length,
-        emotionEmitted:   !!parsed.portraitEmotion,
+        ariaEmotionTag:   /\[ARIA_EMOTION\]/i.test(raw),
         enemyTag:         parsed.enemySlug || null,
         deathCause:       parsed.deathCause || null,
         musicCue:         parsed.music || null,
@@ -608,7 +685,7 @@ async function runNarratorPhase({ characterDir, action, state, log, characterCon
       },
     });
   } catch {}
-  return { parsed, raw };
+  return { parsed, raw, validation };
 }
 
 // Orchestrator: Phase 1 → engine resolve → Phase 2.
@@ -624,8 +701,10 @@ async function runAdventureTurn({
   let calcResult = { actions: [], note: 'No calculations requested.', engine_notes: [] };
   let calcRequest = null;
   let phase1RawNotes = [];
+  let phase1Validation = { valid: true, degraded: false, fatal: [], warnings: [] };
   try {
     const phase1 = await runCalcRequestPhase({ characterDir, action, state, log, characterContext });
+    phase1Validation = phase1.validation;
     if (phase1.decision.kind === 'request') {
       calcRequest = phase1.decision.request;
       // Resolve immediately — state is mutated by the resolver.
@@ -636,6 +715,7 @@ async function runAdventureTurn({
   } catch (err) {
     console.warn('[Adventure] Phase 1 (calc parser) failed:', err.message);
     phase1RawNotes.push('Phase 1 call failed: ' + err.message);
+    phase1Validation = { valid: false, degraded: false, fatal: ['Phase 1 threw: ' + err.message], warnings: [] };
   }
   if (phase1RawNotes.length > 0) {
     if (!Array.isArray(calcResult.engine_notes)) calcResult.engine_notes = [];
@@ -648,9 +728,11 @@ async function runAdventureTurn({
   });
 
   return {
-    parsed: phase2.parsed,
-    raw:    phase2.raw,
-    calc:   { request: calcRequest, result: calcResult },
+    parsed:          phase2.parsed,
+    raw:             phase2.raw,
+    calc:            { request: calcRequest, result: calcResult },
+    phase1Validation,
+    phase2Validation: phase2.validation,
   };
 }
 
@@ -805,6 +887,13 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
     return { ok: true };
   });
 
+  ipcMain.handle('adventure:retry-action', () => {
+    const result = store.popLastNarratorError(characterDir);
+    if (!result) return { ok: false, error: 'No action to retry.' };
+    const state = store.loadState(characterDir);
+    return { ok: true, actionText: result.actionText, log: result.log, state };
+  });
+
   // ── Take action — the main adventure loop ─────────────────────────────────
   ipcMain.handle('adventure:take-action', async (_event, { action } = {}) => {
     const cleanAction = String(action || '').trim();
@@ -832,7 +921,7 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         characterContext: ctx,
         combatFrequency: typeof advSettings.combatFrequency === 'number' ? advSettings.combatFrequency : 2,
       });
-      const parsed = result.parsed;
+      let parsed = result.parsed;
       raw = result.raw;
 
       // Snapshot levels BEFORE the diff applies so we can detect level-ups
@@ -858,22 +947,63 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
         store.applyStateDiff(state, parsed.gameStateDiff);
       }
 
-      // Track whether the model returned a usable narrator block so the
-      // renderer can surface a visible error rather than just rendering
-      // nothing (and leaving the user staring at an unchanged terminal).
+      // Validate Phase 2. Auto-retry once if it failed but Phase 1 was sound.
+      // Phase 1 validity is the key gate: if Phase 1 was also degraded we still
+      // retry Phase 2 (we can't redo Phase 1 safely after state mutation), but
+      // we note it in the error so the debug file can be cross-referenced.
+      let phase2Validation = result.phase2Validation;
+      const phase1Validation = result.phase1Validation;
+
+      if (!phase2Validation.valid) {
+        const p1Note = (!phase1Validation.valid && !phase1Validation.degraded)
+          ? ' Phase 1 also reported issues.'
+          : (phase1Validation.degraded ? ' Phase 1 was degraded (no tag, fell back).' : '');
+
+        // Build a targeted nudge for the retry based on WHY it failed.
+        let retryNudge = '';
+        if (phase2Validation.wrongFormat) {
+          retryNudge =
+            '⚠ RETRY CORRECTION — YOUR PREVIOUS RESPONSE USED THE WRONG FORMAT. ' +
+            'You responded with [DIALOGUE]/[THOUGHTS]/(emotion) — that is companion-chat format. ' +
+            'It was REJECTED. You are the GAME MASTER narrator, not Aria responding to Trist. ' +
+            'Aria\'s reply to anything Trist said goes INSIDE the [NARRATOR] block as third-person ' +
+            'prose with her dialogue in quotes: e.g. "Yeah, I\'m coming," she says, her ears flat. ' +
+            'Start your response with [SCENE] immediately. Do NOT write [DIALOGUE].';
+        }
+
+        console.warn(
+          '[Adventure] Phase 2 validation failed' + p1Note,
+          phase2Validation.wrongFormat ? '(wrong format — chat mode bleed)' : '',
+          'Fatal:', phase2Validation.fatal,
+          '— retrying with nudge.'
+        );
+        try {
+          const combatFreq = typeof advSettings.combatFrequency === 'number' ? advSettings.combatFrequency : 2;
+          const retryPhase = await runNarratorPhase({
+            characterDir, action: cleanAction, state, log, characterContext: ctx,
+            combatFrequency: combatFreq, calcResult: result.calc.result,
+            nudge: retryNudge,
+          });
+          phase2Validation = retryPhase.validation;
+          if (phase2Validation.valid) {
+            parsed = retryPhase.parsed;
+            raw    = retryPhase.raw;
+          }
+        } catch (retryErr) {
+          console.warn('[Adventure] Narrator retry failed:', retryErr.message);
+        }
+      }
+
       let narratorWarning = null;
-      if (parsed.narrator) {
+      if (phase2Validation.valid) {
         log = store.appendLog(characterDir, { kind: 'narrator', text: parsed.narrator });
       } else {
-        const sceneEmitted = !!parsed.scene;
-        const emotionEmitted = !!parsed.portraitEmotion;
+        const issues = phase2Validation.fatal.concat(phase2Validation.warnings);
         narratorWarning =
-          'ERROR — The gamemaster returned no [NARRATOR] block this turn.' +
-          (sceneEmitted ? ' [SCENE] was present.' : '') +
-          (emotionEmitted ? ' [ARIA_EMOTION] was present.' : '') +
-          ' The model likely skipped the narration. Try sending your action again, or open ASK to nudge the GM.';
-        console.warn('[Adventure] Phase 2 had no narrator block. Raw (first 600 chars):',
-          (raw || '').slice(0, 600));
+          'ERROR — The gamemaster response failed validation after two attempts. ' +
+          issues.join('; ') + '. ' +
+          'Hit RETRY to resend, or open ASK to nudge the GM.';
+        console.warn('[Adventure] Phase 2 validation still failing after retry. Fatal:', phase2Validation.fatal);
         log = store.appendLog(characterDir, { kind: 'system', text: narratorWarning });
       }
       // The aria meta-commentary channel was removed. If the model slips and

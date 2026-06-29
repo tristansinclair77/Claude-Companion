@@ -1080,6 +1080,21 @@ function formatStateSummary(state) {
   return parts.join('\n');
 }
 
+// ── Retry support ──────────────────────────────────────────────────────────────
+// Remove the last 'action' entry and everything after it (the error system
+// entry). Returns { actionText, log } so the renderer can re-submit the action.
+function popLastNarratorError(characterDir) {
+  const log = loadLog(characterDir);
+  let actionIdx = -1;
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].kind === 'action') { actionIdx = i; break; }
+  }
+  if (actionIdx === -1) return null;
+  const actionText = log[actionIdx].text;
+  saveLog(characterDir, log.slice(0, actionIdx));
+  return { actionText, log: loadLog(characterDir) };
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1102,6 +1117,7 @@ module.exports = {
   appendDebugResponse,
   loadDebugResponses,
   clearDebugResponses,
+  popLastNarratorError,
   newGame,
   resetGame,
   applyStateDiff,

@@ -39,6 +39,7 @@ const TextAdventure = (function () {
   let scrollEl;
   let inputEl;
   let sendBtn;
+  let retryBtn;
   let hudSceneEl, hudTimeEl;
   let pHpBar, pHpText, pMpBar, pMpText, pXpBar, pLvlText;
   let aHpBar, aHpText, aMpBar, aMpText, aLvlText;
@@ -52,6 +53,8 @@ const TextAdventure = (function () {
   let overlayGmChat, gmScrollEl, gmInputEl, gmSendBtn, gmCloseBtn;
   let overlayLevelUp, luTitleEl, luNarrativeEl, luGainsEl, luContinueBtn;
   let overlayImplTask, itTitleEl, itMetaEl, itBodyEl, itContinueBtn;
+  let overlayConfirm, confirmTitleEl, confirmMsgEl, confirmOkBtn, confirmCancelBtn;
+  let _confirmResolve = null;
   let _levelUpQueue = [];
   let _implTaskQueue = [];
   let unsubscribeUpdate = null;
@@ -233,6 +236,7 @@ const TextAdventure = (function () {
         <span class="ta-prompt">&gt;</span>
         <input class="ta-input" id="ta-input" type="text" maxlength="500" spellcheck="false"
                placeholder="What do you do?" />
+        <button class="ta-retry" id="ta-retry" title="Undo last turn and resend">RETRY</button>
         <button class="ta-send" id="ta-send">SEND</button>
       </div>
 
@@ -314,6 +318,17 @@ const TextAdventure = (function () {
         </div>
       </div>
 
+      <!-- Retry confirm overlay -->
+      <div class="ta-overlay confirm hidden" id="ta-overlay-confirm">
+        <div class="ta-confirm-badge">!! WARNING</div>
+        <h2 id="ta-confirm-title">RETRY LAST TURN?</h2>
+        <p id="ta-confirm-msg">This will undo the last gamemaster response and resend your action.</p>
+        <div class="ta-overlay-actions">
+          <button class="ta-overlay-btn" id="ta-confirm-ok">RETRY</button>
+          <button class="ta-overlay-btn danger" id="ta-confirm-cancel">CANCEL</button>
+        </div>
+      </div>
+
       <!-- Drawer -->
       <div class="ta-drawer" id="ta-drawer">
         <div class="ta-drawer-tabs" id="ta-drawer-tabs"></div>
@@ -331,6 +346,7 @@ const TextAdventure = (function () {
     scrollEl     = root.querySelector('#ta-scroll');
     inputEl      = root.querySelector('#ta-input');
     sendBtn      = root.querySelector('#ta-send');
+    retryBtn     = root.querySelector('#ta-retry');
     hudSceneEl   = root.querySelector('#ta-scene-name');
     hudTimeEl    = root.querySelector('#ta-time-label');
 
@@ -386,6 +402,13 @@ const TextAdventure = (function () {
     itBodyEl     = root.querySelector('#ta-it-body');
     itContinueBtn = root.querySelector('#ta-it-continue');
     itContinueBtn.addEventListener('click', _showNextImplTask);
+    overlayConfirm  = root.querySelector('#ta-overlay-confirm');
+    confirmTitleEl  = root.querySelector('#ta-confirm-title');
+    confirmMsgEl    = root.querySelector('#ta-confirm-msg');
+    confirmOkBtn    = root.querySelector('#ta-confirm-ok');
+    confirmCancelBtn = root.querySelector('#ta-confirm-cancel');
+    confirmOkBtn.addEventListener('click',     () => _resolveConfirm(true));
+    confirmCancelBtn.addEventListener('click', () => _resolveConfirm(false));
 
     _renderToneGrid();
     _renderDrawerTabs();
@@ -843,6 +866,16 @@ const TextAdventure = (function () {
   // ── Events ───────────────────────────────────────────────────────────────
   function _wireEvents() {
     sendBtn.addEventListener('click', _submitAction);
+    retryBtn.addEventListener('click', async () => {
+      if (_busy) return;
+      const confirmed = await _showConfirm(
+        'RETRY LAST TURN?',
+        'This will undo the last gamemaster response and resend your action.',
+        'RETRY',
+        'CANCEL'
+      );
+      if (confirmed) _retryLastAction();
+    });
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -961,7 +994,7 @@ const TextAdventure = (function () {
       _renderLog([]);
       _addEntry('system', 'GAME START — ' + tone.toUpperCase());
       _busy = true;
-      sendBtn.disabled = true;
+      sendBtn.disabled = true; retryBtn.disabled = true;
       _addThinkingEntry();
       await window.adventureAPI.takeAction(
         '(BEGIN ADVENTURE — set the opening scene, introduce Aria as my party member, and describe where we are)'
@@ -969,13 +1002,18 @@ const TextAdventure = (function () {
     } catch (e) {
       console.error('[TextAdventure] start failed:', e);
       _busy = false;
-      sendBtn.disabled = false;
+      sendBtn.disabled = false; retryBtn.disabled = false;
       _removeThinkingEntry();
     }
   }
 
   async function _confirmReset() {
-    if (!confirm('Reset the current adventure?\nAll progress, memory, and side-chat will be wiped.')) return;
+    const ok = await window.adventureAPI.confirm(
+      'Reset Adventure?',
+      'All progress, memory, and side-chat will be wiped.',
+      'Reset', 'Cancel'
+    );
+    if (!ok) return;
     await window.adventureAPI.resetGame();
     _activeState = null;
     _renderLog([]);
@@ -1041,7 +1079,7 @@ const TextAdventure = (function () {
       _removeThinkingEntry();
       _addEntry('system', 'ERROR — No response after 150 s. The turn may have timed out — try again.');
       _busy = false;
-      sendBtn.disabled = false;
+      sendBtn.disabled = false; retryBtn.disabled = false;
       _focusInput();
     }, _ACTION_TIMEOUT_MS);
   }
@@ -1058,7 +1096,7 @@ const TextAdventure = (function () {
     inputEl.value = '';
     _addEntry('action', text);
     _busy = true;
-    sendBtn.disabled = true;
+    sendBtn.disabled = true; retryBtn.disabled = true;
     _addThinkingEntry();
     _armActionTimeout();
     try {
@@ -1069,7 +1107,7 @@ const TextAdventure = (function () {
       _removeThinkingEntry();
       _addEntry('system', 'ERROR — ' + (e.message || 'unknown'));
       _busy = false;
-      sendBtn.disabled = false;
+      sendBtn.disabled = false; retryBtn.disabled = false;
       _focusInput();
     }
   }
@@ -1079,7 +1117,7 @@ const TextAdventure = (function () {
     _clearActionTimeout();
     _removeThinkingEntry();
     _busy = false;
-    sendBtn.disabled = false;
+    sendBtn.disabled = false; retryBtn.disabled = false;
     if (!payload) return;
     const { state, turnResponse } = payload;
     _activeState = state;
@@ -1111,7 +1149,7 @@ const TextAdventure = (function () {
     // so surface it visibly. Without this the user just sees the portrait
     // swap with no story and assumes the app froze.
     if (payload.warning) {
-      _addEntry('system', payload.warning);
+      _addNarratorErrorEntry(payload.warning);
     }
 
     _renderHud(state);
@@ -1232,9 +1270,38 @@ const TextAdventure = (function () {
     div.className = 'ta-entry ' + (kind || 'narrator');
     if (kind === 'aria') div.dataset.label = _activeState?.aria?.name || 'Aria';
     div.textContent = text;
-    const copyBtn = _makeCopyBtn(text);
-    div.appendChild(copyBtn);
+    if (kind === 'system' && text.startsWith('ERROR — The gamemaster returned no [NARRATOR]')) {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'ta-retry-btn';
+      retryBtn.textContent = '↺ RETRY';
+      retryBtn.title = 'Re-send your last action';
+      retryBtn.addEventListener('click', (e) => { e.stopPropagation(); _retryLastAction(); });
+      div.appendChild(retryBtn);
+    }
+    div.appendChild(_makeCopyBtn(text));
     scrollEl.appendChild(div);
+  }
+
+  function _addNarratorErrorEntry(text) {
+    _appendEntryDom('system', text);
+    _scrollToBottom();
+  }
+
+  async function _retryLastAction() {
+    if (_busy) return;
+    const result = await window.adventureAPI.retryAction();
+    if (!result.ok) {
+      _addEntry('system', 'RETRY failed — ' + (result.error || 'unknown'));
+      return;
+    }
+    _renderLog(result.log || []);
+    if (result.state) {
+      _activeState = result.state;
+      _renderHud(result.state);
+      _renderEnemy(result.state.enemy);
+    }
+    inputEl.value = result.actionText;
+    _submitAction();
   }
 
   // Typewriter-animated entry. Appends an empty div first then types into it
@@ -1363,6 +1430,27 @@ const TextAdventure = (function () {
     for (const t of tasks) _implTaskQueue.push(t);
     if (overlayImplTask && overlayImplTask.classList.contains('hidden')) {
       _showNextImplTask();
+    }
+  }
+
+  // ── In-game confirm dialog ────────────────────────────────────────────────
+  function _showConfirm(title, msg, okLabel = 'OK', cancelLabel = 'CANCEL') {
+    return new Promise((resolve) => {
+      _confirmResolve = resolve;
+      confirmTitleEl.textContent   = title;
+      confirmMsgEl.textContent     = msg;
+      confirmOkBtn.textContent     = okLabel;
+      confirmCancelBtn.textContent = cancelLabel;
+      overlayConfirm.classList.remove('hidden');
+    });
+  }
+
+  function _resolveConfirm(result) {
+    overlayConfirm.classList.add('hidden');
+    if (_confirmResolve) {
+      const cb = _confirmResolve;
+      _confirmResolve = null;
+      cb(result);
     }
   }
 

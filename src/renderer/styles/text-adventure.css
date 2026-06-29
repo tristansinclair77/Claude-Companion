@@ -382,6 +382,25 @@ body:not(.adventure-mode) #text-adventure {
 .ta-input::placeholder {
   color: rgba(255, 247, 194, 0.35);
 }
+.ta-retry {
+  background: transparent;
+  color: rgba(255, 200, 100, 0.8);
+  border: 1px solid rgba(255, 200, 100, 0.4);
+  font-family: inherit;
+  font-size: 9px;
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.ta-retry:hover {
+  background: rgba(255, 200, 100, 0.1);
+  box-shadow: 0 0 6px rgba(255, 200, 100, 0.45);
+  color: #fff7c2;
+}
+.ta-retry:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .ta-send {
   background: transparent;
   color: #b3ffce;
@@ -702,6 +721,39 @@ body:not(.adventure-mode) #text-adventure {
   font-family: inherit;
 }
 
+/* ── Confirm dialog overlay ──────────────────────────────────────── */
+.ta-overlay.confirm {
+  background: rgba(0, 0, 0, 0.94);
+  z-index: 20;
+}
+.ta-confirm-badge {
+  font-size: 9px;
+  letter-spacing: 6px;
+  color: #ffc864;
+  background: rgba(255, 200, 100, 0.08);
+  border: 1px solid rgba(255, 200, 100, 0.5);
+  padding: 4px 14px;
+  margin-bottom: 18px;
+  text-shadow: 0 0 8px rgba(255, 200, 100, 0.7);
+  animation: ta-confirm-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ta-confirm-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 200, 100, 0.3); }
+  50%      { box-shadow: 0 0 16px rgba(255, 200, 100, 0.75); }
+}
+.ta-overlay.confirm h2 {
+  color: #ffc864;
+  text-shadow: 0 0 10px rgba(255, 200, 100, 0.6);
+  letter-spacing: 4px;
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+.ta-overlay.confirm p {
+  color: #f5e0b8;
+  max-width: 380px;
+  margin: 0 0 22px;
+}
+
 /* ── Side-chat overlay ───────────────────────────────────────────── */
 .ta-overlay.side-chat {
   background: rgba(0, 0, 0, 0.94);
@@ -853,6 +905,27 @@ body:not(.adventure-mode) #text-adventure {
 }
 
 /* ── Copy button — appears on story entries, side-chat & GM messages ── */
+.ta-retry-btn {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid rgba(255, 200, 100, 0.45);
+  color: rgba(255, 200, 100, 0.8);
+  font-family: inherit;
+  font-size: 8px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin-left: 10px;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.ta-retry-btn:hover {
+  background: rgba(255, 200, 100, 0.12);
+  color: #fff7c2;
+  border-color: rgba(255, 200, 100, 0.8);
+}
+
 .ta-copy-btn {
   display: inline-block;
   background: transparent;

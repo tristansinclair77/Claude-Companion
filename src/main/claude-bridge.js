@@ -105,6 +105,8 @@ async function sendToClaude({
   bodyState = null,
   workingShortMemories = [],
   workingLongMemories = [],
+  gmMode = false,
+  gmPhase1 = false,
 }) {
   const systemPrompt = buildSystemPrompt({
     character,
@@ -124,6 +126,8 @@ async function sendToClaude({
     bodyState,
     workingShortMemories,
     workingLongMemories,
+    gmMode,
+    gmPhase1,
   });
 
   // Build the full user prompt: conversation window + current message
@@ -189,7 +193,10 @@ async function sendToClaude({
   // The system prompt is long; this tiny tail in the user prompt sits at peak
   // recency and prevents drift into pure-prose replies that drop [DIALOGUE] /
   // [THOUGHTS] / (emotion) entirely.
-  fullPrompt += `\n\n[Reply now. Required structure: a [DIALOGUE] line, a [THOUGHTS] line, and a final (emotion_id) on its own line. Action narration like *she smiles* goes INSIDE [DIALOGUE].]`;
+  // gmMode skips this — the GM uses adventure format, not companion chat format.
+  if (!gmMode) {
+    fullPrompt += `\n\n[Reply now. Required structure: a [DIALOGUE] line, a [THOUGHTS] line, and a final (emotion_id) on its own line. Action narration like *she smiles* goes INSIDE [DIALOGUE].]`;
+  }
 
   logger.log('claude_call', {
     systemPrompt,

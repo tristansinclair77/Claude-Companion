@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -546,6 +546,19 @@ ipcMain.handle('brain:check-visual-trigger', async (event, message) => {
   } catch {
     return { needsCapture: false };
   }
+});
+
+ipcMain.handle('dialog:confirm', async (_evt, { message, detail, confirmLabel = 'Yes', cancelLabel = 'No' } = {}) => {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: [confirmLabel, cancelLabel],
+    defaultId: 0,
+    cancelId: 1,
+    message: message || 'Are you sure?',
+    detail,
+    noLink: true,
+  });
+  return response === 0;
 });
 
 ipcMain.handle('dialog:open-file', async () => {

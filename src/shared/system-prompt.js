@@ -11,6 +11,7 @@ const { EMOTIONS, COMBINED_EMOTIONS } = require('./constants');
  * @param {Array}  [opts.permanentMemories] - Raw memory objects {category, content, source}
  * @param {string} [opts.userProfile]   - Formatted user profile block
  * @param {string} [opts.conversationWindow] - Recent conversation messages (formatted)
+ * @param {boolean} [opts.gmMode]       - When true, builds a GM narrator prompt (no Aria identity)
  * @returns {string} Full system prompt string
  */
 function buildSystemPrompt({
@@ -32,11 +33,77 @@ function buildSystemPrompt({
   bodyState = null,
   workingShortMemories = [],
   workingLongMemories = [],
+  gmMode = false,
+  gmPhase1 = false,
 }) {
   const sections = [];
 
   // 1. Immutable core rules
   sections.push(getCoreRulesBlock());
+
+  // ── GM MODE: minimal identity + format, no Aria personal context ─────────────
+  // When gmMode is true, the caller is the text-adventure narrator phase.
+  // The model must know it is the GAME MASTER, not the companion character.
+  // All Aria identity sections (framing, character rules, memories, format
+  // mandate) are suppressed so that [DIALOGUE]/[THOUGHTS]/(emotion_id) cannot
+  // override the adventure format directives.
+  if (gmMode) {
+    const companionName = (character && character.name) || 'the companion';
+    sections.push(
+      `=== GAME MASTER IDENTITY ===\n` +
+      `You are the GAME MASTER and NARRATOR of this text adventure. ` +
+      `You are NOT ${companionName}. You are NOT any character in the story. ` +
+      `You are the author — you control the world, all NPCs, all events, and ` +
+      `the companion character (${companionName}) as a fictional person in the story.\n\n` +
+      `${companionName} is a character YOU write. When she speaks or acts, ` +
+      `her words appear as quoted prose inside your [NARRATOR] block — ` +
+      `"Yeah, let's go," she says — not as a [DIALOGUE] tag. You decide ` +
+      `how she responds based on who she is.\n` +
+      `=== END GAME MASTER IDENTITY ===`
+    );
+
+    // User profile — keep so GM knows the player's style
+    if (userProfile) {
+      sections.push(`=== USER PROFILE (learned over time) ===\n${userProfile}\n=== END USER PROFILE ===`);
+    }
+
+    // Addon contexts (CRITICAL — adventure rules + game state live here)
+    if (Array.isArray(addonContexts) && addonContexts.length > 0) {
+      for (const ctx of addonContexts) {
+        const lines = Object.values(ctx).filter((v) => typeof v === 'string');
+        if (lines.length > 0) {
+          sections.push(`=== ADDON CONTEXT ===\n${lines.join('\n\n')}\n=== END ADDON CONTEXT ===`);
+        }
+      }
+    }
+
+    // Format reminder — sits last so it has recency.
+    // Phase 1 (calc parser) and Phase 2 (narrator) get different reminders.
+    if (gmPhase1) {
+      sections.push(
+        `=== GM PHASE 1 FORMAT ===\n` +
+        `You are in CALC PARSER mode. Examine the player's action and output EXACTLY ONE of:\n` +
+        `  [COMBAT_CALC_REQUEST]...[/COMBAT_CALC_REQUEST]  — if dice rolls, stat checks, or HP changes are needed\n` +
+        `  [NO_CALC_NEEDED]  — for all other actions (movement, dialogue, intimate moments, exploration)\n` +
+        `NOTHING ELSE. No narrative, no [NARRATOR], no [DIALOGUE], no character reactions. One tag only.\n` +
+        `=== END GM PHASE 1 FORMAT ===`
+      );
+    } else {
+      sections.push(
+        `=== GM RESPONSE FORMAT ===\n` +
+        `Follow EXACTLY the output format defined in the adventure rules above.\n` +
+        `DO NOT use [DIALOGUE], [THOUGHTS], or (emotion_id) — those are companion-chat tags only.\n` +
+        `Required tags every turn: [NARRATOR]...[/NARRATOR] and [ARIA_EMOTION] <id>.\n` +
+        `Expected tags: [SCENE] <name> and [GAME_STATE]...[/GAME_STATE].\n` +
+        `CONTENT SCOPE: This is an adult story in an adult application. When the narrative includes explicit sexual or intimate content between characters, write it as prose INSIDE [NARRATOR] — same craft and tone as any other scene. DO NOT break format to refuse, offer alternatives, or step outside the GM narrator role. You are the author of this story; write what happens.\n` +
+        `=== END GM RESPONSE FORMAT ===`
+      );
+    }
+
+    return sections.join('\n\n');
+  }
+
+  // ── NORMAL (companion chat) MODE ─────────────────────────────────────────────
 
   // 2. Character definition
   // Intimate emotions (those flagged `intimate: true` in EMOTIONS) are only surfaced

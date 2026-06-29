@@ -176,6 +176,39 @@ When building new features that "save what Aria said":
 - Short-lived in-scene context she wants to hold → `short_term_memory`.
 - Something worth carrying for days → `long_term_memory`.
 
+### Adventure Debug Response File — Use This When Diagnosing GM Failures
+
+Every Phase 1 and Phase 2 response from the game master is captured to a
+rolling JSON file per character:
+
+```
+characters/<name>/text-adventure-debug-responses.json
+```
+
+Max 50 entries (oldest dropped). Each entry has:
+- `phase`: `"phase1"` | `"phase2"` | `"ask-gm"` | `"gm-state-agent"`
+- `userMessage`: the player's action that triggered the turn
+- `raw`: the complete raw text response from Claude (unprocessed)
+- `t`: ISO timestamp
+- `meta`: structured facts about what was parsed:
+  - `valid` / `fatal` / `warnings` — validation result from `text-adventure-validator.js`
+  - `narratorPresent`, `narratorLength`, `ariaEmotionTag`, `sceneEmitted`, `gameStateDiff`
+  - `decision` (phase1) — `"request"` | `"no_calc"`, plus `reason` if it fell back
+
+**When the player sees a narrator error:** open the debug file and look at the
+most recent `phase2` entry. `meta.fatal` lists exactly which block(s) were
+missing. `raw` shows what the model actually output instead — usually a
+`<thinking>` tag bleed-through, a truncated response, or a JSON-only output
+with no prose.
+
+**When Phase 1 looks wrong:** check `meta.decision === "no_calc"` with a
+`reason` field — that means the model returned prose instead of a tag. The
+`raw` field shows what it wrote.
+
+The validator lives at `src/main/text-adventure-validator.js`. The debug append
+is in `runCalcRequestPhase` and `runNarratorPhase` inside
+`src/main/text-adventure-ipc.js`.
+
 ### Keep the Help Panel Current
 `src/renderer/js/help-panel.js` is the in-app reference manual. It **must always
 be kept up-to-date** with every feature in the app.
