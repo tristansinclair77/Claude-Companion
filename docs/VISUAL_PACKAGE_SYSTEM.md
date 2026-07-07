@@ -196,6 +196,15 @@ logic are needed for a new package that uses only existing effect modules.
   scrolling "INSERT COIN / PLAYER 1 READY / …" marquee in the bottom strip,
   pixel-bracket corner decorations, occasional spark bursts at the corners
 
+### STORY (`story_terminal`)
+- **Vibe**: cybernetic-baseline palette, deliberately effect-free
+- **Effects**: none — `effectModules: []`. Every applicator drops into its `.stop()`
+  branch because no module name matches
+- **Applied automatically** by `TextStory._enter()` via `switchPackageTemporary`;
+  restored on exit. Cannot be selected manually
+- **Why it exists**: story mode is for reading; ambient effects (Wraith lightning,
+  arcade ambient, grid animation, film grain, etc.) distract from long-form text
+
 ---
 
 ## Event Effect Rules

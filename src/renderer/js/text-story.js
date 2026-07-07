@@ -598,6 +598,12 @@
 
   async function _enter() {
     document.body.classList.add('story-mode');
+    // Swap the whole app to the Story visual package so ambient Companion
+    // effects (Wraith lightning, arcade ambient, grid animation, film grain,
+    // etc.) don't play behind the reading pane.
+    if (window.BackgroundSettings?.switchPackageTemporary) {
+      window.BackgroundSettings.switchPackageTemporary('story_terminal');
+    }
     if (!_catalogs) {
       try { _catalogs = await window.storyAPI.catalogs(); }
       catch (e) { console.warn('[TextStory] catalogs load failed:', e); }
@@ -612,6 +618,10 @@
 
   function _exit() {
     document.body.classList.remove('story-mode');
+    // Restore the user's normal visual package.
+    if (window.BackgroundSettings?.restorePackageAfterTemporary) {
+      window.BackgroundSettings.restorePackageAfterTemporary();
+    }
     if (_updateOff) { try { _updateOff(); } catch {} _updateOff = null; }
     // Close any open overlays
     document.querySelectorAll('#text-story .story-overlay').forEach((el) => el.classList.add('hidden'));

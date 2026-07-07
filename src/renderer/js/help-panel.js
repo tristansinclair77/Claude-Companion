@@ -390,7 +390,7 @@ const HelpPanel = (() => {
     {
       catId: 'display', id: 'visual-packages',
       title: 'Visual Packages',
-      tags: ['visual package', 'package', 'theme', 'cybernetic', 'fantasy', 'rpg', 'arcade', 'cabinet', 'adventure', 'terminal', 'crt', 'green', 'phosphor', 'appearance', 'skin'],
+      tags: ['visual package', 'package', 'theme', 'cybernetic', 'fantasy', 'rpg', 'arcade', 'cabinet', 'adventure', 'terminal', 'crt', 'green', 'phosphor', 'appearance', 'skin', 'story', 'reading', 'quiet'],
       content:
         p('A <strong>Visual Package</strong> is a complete UI theme that controls background effects, ambient animations, and which settings sections are available. Select one from the top of the settings panel.') +
         kv([
@@ -398,9 +398,10 @@ const HelpPanel = (() => {
           ['Fantasy RPG',         'Warm parchment-and-ink medieval aesthetic. Features: seasonal weather effects (snow, rain, sun, leaves), parchment overlay.'],
           ['Arcade Cabinet',      'Retro gaming cabinet look. Features: TV glass surface, pixel-art arcade bezel, five random mini-game events (Space Invaders, Asteroids, Pong, Side Scroller, Pac-Man), ambient pixel effects.'],
           ['Adventure Terminal',  'Green phosphor CRT terminal aesthetic. Applied automatically when Adventure Mode is active — the full app switches to this package and restores your normal package on exit. Features: heavy CRT scanlines, static film grain.'],
+          ['Story',               'Quiet reading mode. Applied automatically when Story Mode is active — the full app switches to this package and restores your normal package on exit. All ambient effects (Wraith lightning, arcade ambient, grid animation, film grain, etc.) are turned off so nothing plays behind the reading pane.'],
         ]) +
         note('Settings sections that belong to a package are hidden automatically when that package is not active.') +
-        note('The Adventure Terminal package is applied automatically — it cannot be selected manually. Your chosen package is always restored when you exit Adventure Mode.')
+        note('The Adventure Terminal and Story packages are applied automatically — they cannot be selected manually. Your chosen package is always restored when you exit Adventure or Story mode.')
     },
     {
       catId: 'display', id: 'ui-scale',
