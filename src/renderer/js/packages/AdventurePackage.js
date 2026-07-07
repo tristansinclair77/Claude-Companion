@@ -54,8 +54,69 @@ class AdventurePackage extends VisualPackage {
       '--thoughts-color':'#1a6b33',
     };
 
+    // ── Settings menu theme ─────────────────────────────────────────────────
+    // Adventure Terminal: CRT phosphor look — hard 90° corners, faint
+    // scanline pattern, dashed pixel borders, pixel-terminal header font.
+    // Every super-section reads like a different terminal window.
+    this.settingsTheme = {
+      panelBg:              '#000000',
+      // Faint horizontal scanlines — one line every 3px, CRT feel.
+      patternSvg:           `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='3'><rect width='4' height='1' fill='%2366ff8b' opacity='0.35'/></svg>`,
+      patternOpacity:       0.08,
+      patternSize:          '4px 3px',
+      borderStyle:          'dashed',
+      borderWidth:          '1px',
+      cornerRadius:         '0',
+      headerFont:           "'Press Start 2P', 'Courier New', monospace",
+      headerTransform:      'uppercase',
+      headerLetterSpacing:  '2px',
+      headerWeight:         'normal',
+      headerFontSize:       '9px',
+      headerPadding:        '10px 14px',
+      headerDividerHeight:  '1px',
+      sections: {
+        baseGame: {
+          headerBg:    'color-mix(in srgb, #66ff8b 15%, #000000)',
+          bodyBg:      'color-mix(in srgb, #66ff8b 4%, #000000)',
+          headerColor: '#66ff8b',
+          borderColor: 'color-mix(in srgb, #66ff8b 55%, transparent)',
+          accent:      '#66ff8b',
+        },
+        visualPackage: {
+          headerBg:    'color-mix(in srgb, #ffdd44 15%, #000000)',
+          bodyBg:      'color-mix(in srgb, #ffdd44 4%, #000000)',
+          headerColor: '#ffdd44',
+          borderColor: 'color-mix(in srgb, #ffdd44 55%, transparent)',
+          accent:      '#ffdd44',
+        },
+        companion: {
+          headerBg:    'color-mix(in srgb, #ff6b9d 15%, #000000)',
+          bodyBg:      'color-mix(in srgb, #ff6b9d 4%, #000000)',
+          headerColor: '#ff6b9d',
+          borderColor: 'color-mix(in srgb, #ff6b9d 55%, transparent)',
+          accent:      '#ff6b9d',
+        },
+        adventure: {
+          headerBg:    'color-mix(in srgb, #ff8844 15%, #000000)',
+          bodyBg:      'color-mix(in srgb, #ff8844 4%, #000000)',
+          headerColor: '#ff8844',
+          borderColor: 'color-mix(in srgb, #ff8844 55%, transparent)',
+          accent:      '#ff8844',
+        },
+        story: {
+          headerBg:    'color-mix(in srgb, #44ddff 15%, #000000)',
+          bodyBg:      'color-mix(in srgb, #44ddff 4%, #000000)',
+          headerColor: '#44ddff',
+          borderColor: 'color-mix(in srgb, #44ddff 55%, transparent)',
+          accent:      '#44ddff',
+        },
+      },
+    };
+
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['scanlines', 'filmGrain'];
+    // Adventure's heavy CRT scanlines still render (see scanlinesIntensity
+    // below), but the settings panel for scanlines belongs to Arcade only.
+    this.effectModules = ['filmGrain'];
 
     this.defaultEffects = {
       grid:                'off',
@@ -75,7 +136,6 @@ class AdventurePackage extends VisualPackage {
       vuAmp:               5,
       vuSpeed:             22,
       moduleEnabled: {
-        scanlines: true,
         filmGrain: true,
       },
     };

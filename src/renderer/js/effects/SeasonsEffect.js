@@ -105,17 +105,21 @@ class SeasonsEffect extends VisualEffect {
         }));
 
       case 'sunbeams': {
-        const sx = W * 0.64, sy = -H * 0.06;
-        const rays = Array.from({ length: 8 }, (_, i) => ({
-          type:  'ray',
-          sx, sy,
-          angle: -0.55 + (i / 7) * 1.35 + (Math.random() - 0.5) * 0.12,
-          len:   H * (1.2 + Math.random() * 0.5),
-          w:     18 + Math.random() * 55,
-          a:     0.022 + Math.random() * 0.026,
+        // ONE broad diagonal shaft of light cutting across the room, roughly
+        // twice as wide as the old individual rays. Anchored above the top-
+        // right corner and sweeping down-left. Slow lateral drift + a soft
+        // breathing pulse make it feel alive without dominating the scene.
+        const beam = {
+          type:  'beam',
+          sx:    W * 0.78,
+          sy:    -H * 0.10,
+          angle: 0.62,                        // radians; positive = down-left of source
+          len:   Math.hypot(W, H) * 1.35,     // long enough to fully cross the frame
+          w:     Math.max(W, H) * 0.32,       // beam half-width (≈ 2× the old max ray)
           phase: Math.random() * Math.PI * 2,
-          speed: 0.003  + Math.random() * 0.003,
-        }));
+          speed: 0.0022,                      // pulse speed
+          drift: 0.0006,                      // slow lateral angle drift
+        };
         const motes = Array.from({ length: 45 }, () => ({
           type:  'mote',
           x:     Math.random() * W,
@@ -126,7 +130,7 @@ class SeasonsEffect extends VisualEffect {
           vx:    (Math.random() - 0.5) * 0.05,
           phase: Math.random() * Math.PI * 2,
         }));
-        return [...rays, ...motes];
+        return [beam, ...motes];
       }
 
       case 'leaves': {
@@ -196,28 +200,58 @@ class SeasonsEffect extends VisualEffect {
     const W = this._canvas.width, H = this._canvas.height;
     this._ctx.clearRect(0, 0, W, H);
 
+    // ── Diagonal sun shaft ────────────────────────────────────────────────
+    // Three stacked quads along the beam axis (each with its own length
+    // gradient) give the shaft a soft feathered edge without needing an
+    // offscreen buffer:
+    //   halo  — 1.55× width, low alpha            → soft outer glow
+    //   body  — 1.00× width, main length gradient → the shaft itself
+    //   core  — 0.35× width, hot bright ridge     → sun-hit center line
+    // A single global blur pass softens the seam between the three layers.
     this._ctx.save();
-    this._ctx.filter = 'blur(14px)';
+    this._ctx.filter = 'blur(12px)';
     for (const p of this._parts) {
-      if (p.type !== 'ray') continue;
+      if (p.type !== 'beam') continue;
+
       p.phase += p.speed;
-      const a  = (p.a + Math.sin(p.phase) * 0.01) * this._alpha;
-      const ex = p.sx + Math.sin(p.angle) * p.len;
-      const ey = p.sy + Math.cos(p.angle) * p.len;
-      const px = Math.cos(p.angle) * p.w / 2;
-      const py = -Math.sin(p.angle) * p.w / 2;
-      const grad = this._ctx.createLinearGradient(p.sx, p.sy, ex, ey);
-      grad.addColorStop(0,    `rgba(255,225,140,${Math.min(1, a * 4).toFixed(3)})`);
-      grad.addColorStop(0.15, `rgba(255,205,90,${a.toFixed(3)})`);
-      grad.addColorStop(1,    'rgba(255,185,65,0)');
-      this._ctx.beginPath();
-      this._ctx.moveTo(p.sx, p.sy);
-      this._ctx.lineTo(ex + px, ey + py);
-      this._ctx.lineTo(ex - px, ey - py);
-      this._ctx.closePath();
-      this._ctx.fillStyle = grad;
-      this._ctx.fill();
+      const breath = 0.85 + Math.sin(p.phase) * 0.15;   // ±15% brightness pulse
+      const angle  = p.angle + Math.sin(p.phase * 0.4) * p.drift;
+
+      const fx = Math.sin(angle), fy = Math.cos(angle);  // forward
+      const sx = -fy,             sy = fx;                // side (90° rotate)
+
+      const ax = p.sx,                ay = p.sy;
+      const bx = p.sx + fx * p.len,   by = p.sy + fy * p.len;
+
+      const A = breath * this._alpha;
+
+      // Length gradient factory: bright at source, gone at tip.
+      const mkGrad = (r, g, b, aScale) => {
+        const grad = this._ctx.createLinearGradient(ax, ay, bx, by);
+        grad.addColorStop(0.00, `rgba(${r},${g},${b},${(A * aScale * 1.15).toFixed(3)})`);
+        grad.addColorStop(0.25, `rgba(${r},${g},${b},${(A * aScale * 0.85).toFixed(3)})`);
+        grad.addColorStop(0.60, `rgba(${r},${g},${b},${(A * aScale * 0.40).toFixed(3)})`);
+        grad.addColorStop(1.00, `rgba(${r},${g},${b},0)`);
+        return grad;
+      };
+
+      const drawQuad = (widthMul, grad) => {
+        const half = p.w * 0.5 * widthMul;
+        this._ctx.fillStyle = grad;
+        this._ctx.beginPath();
+        this._ctx.moveTo(ax + sx * half, ay + sy * half);
+        this._ctx.lineTo(ax - sx * half, ay - sy * half);
+        this._ctx.lineTo(bx - sx * half, by - sy * half);
+        this._ctx.lineTo(bx + sx * half, by + sy * half);
+        this._ctx.closePath();
+        this._ctx.fill();
+      };
+
+      drawQuad(1.55, mkGrad(255, 190,  75, 0.18));   // outer halo
+      drawQuad(1.00, mkGrad(255, 215, 115, 0.35));   // main body
+      drawQuad(0.35, mkGrad(255, 240, 180, 0.55));   // hot core
     }
+    this._ctx.filter = 'none';
     this._ctx.restore();
 
     this._ctx.save();

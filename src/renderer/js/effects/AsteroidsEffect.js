@@ -17,6 +17,7 @@
 class AsteroidsEffect extends VisualEffect {
 
   // ── Tuning ────────────────────────────────────────────────────────────────
+  static PIX               = 3;     // display grid unit — same as Space Invaders
   static ACTIVE_DURATION   = 60;    // seconds of active gameplay
   static SHIP_ROT_SPEED    = 3.8;   // rad/s rotation speed (AI turns toward target)
   static SHIP_THRUST       = 195;   // px/s² acceleration when thrusting
@@ -29,6 +30,34 @@ class AsteroidsEffect extends VisualEffect {
   static THRUST_ON_TIME    = 0.65;  // seconds of thrust per burst
   static THRUST_OFF_TIME   = 1.6;   // seconds between thrust bursts
   static MIN_ASTEROID_CT   = 4;     // trigger replacement when alive count < this
+
+  // Ship sprite — 7×7 game-pixel arrowhead pointing +x, centered on (0,0).
+  // Each entry is one filled pixel in local game-pixel coords. When rotated,
+  // each pixel is snapped to the nearest global-grid cell so the ship always
+  // reads as pure pixel art regardless of heading.
+  static SHIP_PIXELS = [
+    // top tail
+    { x: -3, y: -3 },
+    // upper wing
+    { x: -3, y: -2 }, { x: -2, y: -2 }, { x: -1, y: -2 },
+    // upper mid
+    { x: -3, y: -1 }, { x: -2, y: -1 }, { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+    // nose row (widest — nose at x=+3)
+    { x: -3, y: 0 }, { x: -2, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 },
+    // lower mid (mirror of upper mid)
+    { x: -3, y: 1 }, { x: -2, y: 1 }, { x: -1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: 1 },
+    // lower wing
+    { x: -3, y: 2 }, { x: -2, y: 2 }, { x: -1, y: 2 },
+    // bottom tail
+    { x: -3, y: 3 },
+  ];
+
+  // Thrust flame — smaller pixel block behind the ship, drawn only while thrusting
+  static SHIP_THRUST_PIXELS = [
+    { x: -4, y: 0 },
+    { x: -5, y: 0 },
+    { x: -4, y: -1 }, { x: -4, y: 1 },
+  ];
 
   constructor() {
     super('asteroids');
@@ -409,6 +438,7 @@ class AsteroidsEffect extends VisualEffect {
       }
     }
     if (this._ship.alive) {
+      const shipColor = this._cssVar('--cyan', '#ffee00');
       for (let i = 0; i < 16; i++) {
         this._particles.push({
           x:       this._ship.x + (Math.random() - 0.5) * 26,
@@ -416,7 +446,7 @@ class AsteroidsEffect extends VisualEffect {
           vx:      (Math.random() - 0.5) * 130,
           vy:      -90 - Math.random() * 70,
           size:    Math.random() < 0.4 ? 4 : 2,
-          color:   '#ffee00',
+          color:   shipColor,
           life:    1.4 + Math.random() * 1.2,
           maxLife: 2.6,
         });
@@ -584,7 +614,7 @@ class AsteroidsEffect extends VisualEffect {
     // Safety guard — an invincible (blinking) ship cannot be destroyed
     if (this._ship.invincible > 0) return;
 
-    this._spawnExplosion(this._ship.x, this._ship.y, '#ffee00');
+    this._spawnExplosion(this._ship.x, this._ship.y, this._cssVar('--cyan', '#ffee00'));
     // Respawn in center, fully invincible (no lives limit)
     this._ship.x          = ga.x + ga.w * 0.5;
     this._ship.y          = ga.y + ga.h * 0.5;
@@ -595,7 +625,7 @@ class AsteroidsEffect extends VisualEffect {
   }
 
   _spawnExplosion(cx, cy, baseColor) {
-    const palette = [baseColor, '#ffffff', '#ffee00'];
+    const palette = [baseColor, '#ffffff', this._cssVar('--cyan', '#ffee00')];
     const count   = 10 + Math.floor(Math.random() * 6);
     const sparks  = [];
     for (let i = 0; i < count; i++) {
@@ -652,39 +682,57 @@ class AsteroidsEffect extends VisualEffect {
     ctx.restore();
   }
 
+  /**
+   * Draw the ship as a pixel-block sprite that stays snapped to the global
+   * grid regardless of rotation. Each local pixel is rotated mathematically,
+   * then each result is rounded to the nearest global grid cell — no per-angle
+   * pre-rendered sprites, no fractional-pixel drawing. Multiple local pixels
+   * may collapse into the same grid cell at diagonal angles; a Set dedupes.
+   */
   _drawShip(ga) {
     const ship = this._ship;
     const ctx  = this._ctx;
-    const S    = 14;  // half-size px
-    const positions = this._wrapPositions(ship.x, ship.y, S * 1.5, ga);
+    const PIX  = AsteroidsEffect.PIX;
+    const cos  = Math.cos(ship.angle);
+    const sin  = Math.sin(ship.angle);
+
+    const shipColor   = this._cssVar('--cyan', '#ffee00');
+    const thrustColor = '#ff6600';
+
+    // Bounding half-extent for wrap ghosts — 5 game-pixels covers the ship
+    // plus thrust flame plus one pixel of safety.
+    const positions = this._wrapPositions(ship.x, ship.y, PIX * 6, ga);
+
     for (const [px, py] of positions) {
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(ship.angle);
+      const drawn = new Set();
+      const plot  = (lp) => {
+        const lx = lp.x * PIX, ly = lp.y * PIX;
+        const rx = lx * cos - ly * sin;
+        const ry = lx * sin + ly * cos;
+        // Snap the rotated pixel to the global PIX grid so the ship pixels
+        // always land on the same lattice the asteroids/bullets sit on.
+        const gx = Math.round((px + rx) / PIX) * PIX;
+        const gy = Math.round((py + ry) / PIX) * PIX;
+        const key = gx + ',' + gy;
+        if (drawn.has(key)) return;
+        drawn.add(key);
+        ctx.fillRect(gx, gy, PIX, PIX);
+      };
 
-      // Body — filled yellow triangle
-      ctx.fillStyle = '#ffee00';
-      ctx.beginPath();
-      ctx.moveTo( S * 1.45,  0);
-      ctx.lineTo(-S * 0.55, -S * 0.78);
-      ctx.lineTo(-S * 0.18,  0);
-      ctx.lineTo(-S * 0.55,  S * 0.78);
-      ctx.closePath();
-      ctx.fill();
-
-      // Thrust flame — visible only while thrusting (and not in invincibility window)
+      // Thrust flame first — behind the ship, only while thrusting and not invincible
       if (this._thrusting && ship.invincible <= 0) {
-        const fl = S * (0.6 + Math.random() * 0.5);  // flicker
-        ctx.fillStyle = '#ff6600';
-        ctx.globalAlpha *= 0.85;
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.18, -3);
-        ctx.lineTo(-S * 0.18 - fl, 0);
-        ctx.lineTo(-S * 0.18,  3);
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillStyle = thrustColor;
+        // Flicker: skip the tail-most pixel randomly to give the flame a
+        // pulsing, gridded appearance rather than a smooth wobble.
+        const flicker = Math.random() < 0.55;
+        for (const p of AsteroidsEffect.SHIP_THRUST_PIXELS) {
+          if (!flicker && p.x < -4) continue;
+          plot(p);
+        }
       }
-      ctx.restore();
+
+      ctx.fillStyle = shipColor;
+      for (const p of AsteroidsEffect.SHIP_PIXELS) plot(p);
     }
   }
 
@@ -714,11 +762,17 @@ class AsteroidsEffect extends VisualEffect {
 
   _drawBullets(ga) {
     const ctx = this._ctx;
-    ctx.fillStyle = '#ffee00';
+    const PIX = AsteroidsEffect.PIX;
+    ctx.fillStyle = this._cssVar('--cyan', '#ffee00');
+    // Bullet = 2×2 game-pixel block centered on the grid cell nearest the
+    // bullet's world position. Always PIX-aligned like the ship.
     for (const b of this._bullets) {
-      const positions = this._wrapPositions(b.x, b.y, 4, ga);
-      for (const [px, py] of positions)
-        ctx.fillRect(Math.round(px) - 2, Math.round(py) - 2, 4, 4);
+      const positions = this._wrapPositions(b.x, b.y, PIX * 2, ga);
+      for (const [px, py] of positions) {
+        const gx = Math.round(px / PIX) * PIX;
+        const gy = Math.round(py / PIX) * PIX;
+        ctx.fillRect(gx - PIX, gy - PIX, PIX * 2, PIX * 2);
+      }
     }
   }
 

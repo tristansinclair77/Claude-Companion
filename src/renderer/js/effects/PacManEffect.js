@@ -891,7 +891,9 @@ class PacManEffect extends VisualEffect {
     this._dotWinkList = allDots;
     this._dotWinkAcc  = 0;
 
-    // Wall particles — one burst per wall tile
+    // Wall particles — one burst per wall tile. Colored to match the current
+    // maze wall color (primary color from the arcade settings).
+    const wallColor = this._cssVar('--cyan', '#ffee00');
     for (let r = 0; r < PM_ROWS; r++) {
       for (let c = 0; c < PM_COLS; c++) {
         if (PM_WALKABLE[r][c]) continue;
@@ -905,7 +907,7 @@ class PacManEffect extends VisualEffect {
             vx:      (Math.random() - 0.5) * 80,
             vy:      -30 - Math.random() * 80,
             size:    Math.random() < 0.35 ? 4 : 2,
-            color:   '#2233dd',
+            color:   wallColor,
             life:    1.0 + Math.random() * 1.6,
             maxLife: 2.6,
             gravity: PacManEffect.OUTRO_GRAVITY,
@@ -953,10 +955,13 @@ class PacManEffect extends VisualEffect {
     const ctx = this._ctx;
     const TW  = this._tileW, TH = this._tileH;
 
+    // Maze walls follow the primary color — the classic Pac-Man blue is now
+    // whatever the player has picked as their arcade primary.
+    const wall = this._cssVar('--cyan', '#ffee00');
     ctx.save();
-    ctx.shadowColor = '#2233dd';
+    ctx.shadowColor = wall;
     ctx.shadowBlur  = 7;
-    ctx.fillStyle   = '#2233dd';
+    ctx.fillStyle   = wall;
 
     for (let r = 0; r < PM_ROWS; r++) {
       for (let c = 0; c < PM_COLS; c++) {

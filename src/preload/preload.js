@@ -75,21 +75,9 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   getZoom: ()      => ipcRenderer.invoke('settings:get-zoom'),
   setZoom: (pct)   => ipcRenderer.invoke('settings:set-zoom', pct),
 
-  // ARCHIVED: RVC voice conversion settings — voice feature disabled
-  // getRvcConfig: ()      => ipcRenderer.invoke('rvc:get-config'),
-  // setRvcConfig: (cfg)   => ipcRenderer.invoke('rvc:set-config', cfg),
-
-  // ARCHIVED: TTS controls — voice feature disabled
-  // ttsGetSettings: ()          => ipcRenderer.invoke('tts:get-settings'),
-  // ttsGetVoices:   ()          => ipcRenderer.invoke('tts:get-voices'),
-  // ttsSetEnabled:  (val)       => ipcRenderer.invoke('tts:set-enabled', val),
-  // ttsSetVoice:    (voiceName) => ipcRenderer.invoke('tts:set-voice', voiceName),
-  // ttsSetRate:     (rate)      => ipcRenderer.invoke('tts:set-rate', rate),
-
   // Event listeners (renderer ← receives from main)
   on: (channel, callback) => {
     const allowed = [
-      'hotkey:mic-toggle',
       'app:init',
       // ARCHIVED: TTS channels — voice feature disabled
       // 'tts:audio', 'tts:stop', 'tts:loading', 'tts:loading-done',
@@ -121,6 +109,63 @@ contextBridge.exposeInMainWorld('musicAPI', {
     const listener = (_evt, payload) => cb(payload);
     ipcRenderer.on('music:cue', listener);
     return () => ipcRenderer.removeListener('music:cue', listener);
+  },
+});
+
+// ── Text Story API ─────────────────────────────────────────────────────────────
+contextBridge.exposeInMainWorld('storyAPI', {
+  catalogs:      ()               => ipcRenderer.invoke('story:catalogs'),
+  list:          ()               => ipcRenderer.invoke('story:list'),
+  get:           (slug)           => ipcRenderer.invoke('story:get', { slug }),
+  create:        (opts)           => ipcRenderer.invoke('story:create', opts),
+  generateBlueprint: (slug)       => ipcRenderer.invoke('story:generate-blueprint', { slug }),
+  generateDetails:   (slug, force) => ipcRenderer.invoke('story:generate-details',   { slug, force }),
+  onDetailsProgress: (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('story:details-progress', listener);
+    return () => ipcRenderer.removeListener('story:details-progress', listener);
+  },
+  delete:        (slug)           => ipcRenderer.invoke('story:delete', { slug }),
+  rename:        (slug, title)    => ipcRenderer.invoke('story:rename', { slug, title }),
+  updateSettings: (slug, settings) => ipcRenderer.invoke('story:update-settings', { slug, settings }),
+  takeTurn:      (opts)           => ipcRenderer.invoke('story:take-turn', opts),
+  retryTurn:     (slug)           => ipcRenderer.invoke('story:retry-turn', { slug }),
+  setNudge:      (slug, nudge)    => ipcRenderer.invoke('story:set-nudge', { slug, nudge }),
+  ask:           (slug, message)  => ipcRenderer.invoke('story:ask', { slug, message }),
+  askHistory:    (slug)           => ipcRenderer.invoke('story:ask-history', { slug }),
+  askClear:      (slug)           => ipcRenderer.invoke('story:ask-clear', { slug }),
+  companionChat:        (slug, message) => ipcRenderer.invoke('story:companion-chat', { slug, message }),
+  companionChatHistory: (slug)          => ipcRenderer.invoke('story:companion-chat-history', { slug }),
+  companionChatClear:   (slug)          => ipcRenderer.invoke('story:companion-chat-clear', { slug }),
+  getDebugSnapshot:     (slug)          => ipcRenderer.invoke('story:get-debug-snapshot', { slug }),
+  react:                (slug)          => ipcRenderer.invoke('story:react',                { slug }),
+  reactions:            (slug)          => ipcRenderer.invoke('story:reactions',            { slug }),
+  suggestChoice:        (slug)          => ipcRenderer.invoke('story:suggest-choice',       { slug }),
+  stats:                (slug)          => ipcRenderer.invoke('story:stats',                { slug }),
+  bookmarks:            (slug)          => ipcRenderer.invoke('story:bookmarks',            { slug }),
+  toggleBookmark:       (slug, logIdx, label) => ipcRenderer.invoke('story:toggle-bookmark', { slug, logIdx, label }),
+  exportStory:          (slug, format)  => ipcRenderer.invoke('story:export',               { slug, format }),
+  uploadPortrait:       (slug, characterId) => ipcRenderer.invoke('story:upload-portrait',  { slug, characterId }),
+  clearPortrait:        (slug, characterId) => ipcRenderer.invoke('story:clear-portrait',   { slug, characterId }),
+  listPortraits:        (slug)          => ipcRenderer.invoke('story:list-portraits',       { slug }),
+  summarizeOldLog:      (slug, chunkSize) => ipcRenderer.invoke('story:summarize-old-log',  { slug, chunkSize }),
+  // Pacing / planning setup chain (STORY_GUIDELINES_PATCH §4)
+  generateStoryOverview:    (slug)                  => ipcRenderer.invoke('story:generate-story-overview',    { slug }),
+  generateChapterSkeleton:  (slug)                  => ipcRenderer.invoke('story:generate-chapter-skeleton',  { slug }),
+  generateEventSkeleton:    (slug, chapterNumber)   => ipcRenderer.invoke('story:generate-event-skeleton',    { slug, chapterNumber }),
+  generateEventSummaries:   (slug, eventIds)        => ipcRenderer.invoke('story:generate-event-summaries',   { slug, eventIds }),
+  reports:                  (slug)                  => ipcRenderer.invoke('story:reports',                    { slug }),
+  onReport: (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('story:report', listener);
+    return () => ipcRenderer.removeListener('story:report', listener);
+  },
+  confirm:       (message, detail, confirmLabel, cancelLabel) =>
+    ipcRenderer.invoke('dialog:confirm', { message, detail, confirmLabel, cancelLabel }),
+  onUpdate:      (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('story:update', listener);
+    return () => ipcRenderer.removeListener('story:update', listener);
   },
 });
 

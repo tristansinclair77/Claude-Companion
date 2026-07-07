@@ -541,7 +541,9 @@ class SpaceInvadersEffect extends VisualEffect {
         });
       }
     };
-    mkPts(this._ship.x, this._ship.y, this._ship.w, this._ship.h, '#ffee00');
+    // Player-ship crumble follows the primary color; enemies keep their
+    // per-type palette so the wave still reads by row color.
+    mkPts(this._ship.x, this._ship.y, this._ship.w, this._ship.h, this._cssVar('--cyan', '#ffee00'));
     const ec = { squid: '#ffee00', crab: '#00dd44', octopus: '#ff4400' };
     for (const e of this._enemies) {
       if (e.alive) mkPts(e.x, e.y, e.w, e.h, ec[e.type]);
@@ -588,7 +590,7 @@ class SpaceInvadersEffect extends VisualEffect {
       if (Math.floor(this._shipHitTimer / 0.07) % 2 === 0) return; // invisible frame
       ctx.fillStyle = '#ffffff';
     } else {
-      ctx.fillStyle = '#ffee00';
+      ctx.fillStyle = this._cssVar('--cyan', '#ffee00');
     }
     for (let r = 0; r < SI_SHIP.length; r++)
       for (let c = 0; c < SI_SHIP[r].length; c++)

@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const logger = require('./debug-logger');
-const HotkeyManager = require('./hotkey-manager');
+const { BUILD_MODE, IS_DEBUG_BUILD, IS_PUBLIC_BUILD } = require('../shared/build-mode');
 const KnowledgeDB = require('./knowledge-db');
 const SessionManager = require('./session-manager');
 const LocalBrain = require('./local-brain');
@@ -13,11 +13,10 @@ const { fetchUrl } = require('./web-fetcher');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
 const { register: registerTextAdventureIPC } = require('./text-adventure-ipc');
+const { register: registerTextStoryIPC }     = require('./text-story-ipc');
 const musicEngine = require('./music-engine');
 const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
-// ARCHIVED: TTS engine — voice feature disabled. const ttsEngine = require('./tts-engine');
-const ttsEngine = { startVitsServer: ()=>{}, startRvcServer: ()=>{}, setRvcConfig: ()=>{}, setVoice: ()=>{}, setEnabled: ()=>{}, setRate: ()=>{}, getSettings: ()=>({ enabled: false }), getVoices: ()=>[], synthesize: ()=>Promise.resolve(null) };
 const featureRequestsStore = require('./feature-requests');
 const { spawn } = require('child_process');
 
@@ -41,6 +40,7 @@ function _kickAriaClaudeSync() {
 
 const CHARACTERS_BASE = path.join(__dirname, '../../characters');
 const ADDONS_BASE     = path.join(__dirname, '../../addons');
+const STORIES_ROOT    = path.join(__dirname, '../../stories');
 const CONFIG_PATH     = path.join(__dirname, '../../config.json');
 
 function readConfig() {
@@ -61,7 +61,6 @@ const CHARACTER_DIR    = path.join(CHARACTERS_BASE, ACTIVE_CHARACTER);
 const DB_PATH          = path.join(CHARACTER_DIR, 'knowledge.db');
 
 let mainWindow;
-let hotkeyManager;
 let db;
 let _mainWindowClosing = false; // set true only when mainWindow itself closes
 let sessionManager;
@@ -206,7 +205,6 @@ function createWindow() {
     _mainWindowClosing = true;
     try { saveSessionOnExit(); } catch {}
     if (db) { try { db.close(); } catch {} db = null; }
-    if (hotkeyManager) { hotkeyManager.unregisterAll(); hotkeyManager = null; }
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -237,14 +235,8 @@ app.whenReady().then(() => {
   initBrain();
   loadAddons();
   try { musicEngine.load(); } catch (e) { console.warn('[App] music engine load failed:', e.message); }
-  // ARCHIVED: TTS startup — voice feature disabled
-  // ttsEngine.startVitsServer();
-  // ttsEngine.setRvcConfig(readConfig().rvc || {});
-  // ttsEngine.startRvcServer();
-  // const savedTts = readConfig().tts || {};
-  // if (savedTts.voice) ttsEngine.setVoice(savedTts.voice);
-  // if (savedTts.enabled !== undefined) ttsEngine.setEnabled(savedTts.enabled);
-  // if (savedTts.speed !== undefined) ttsEngine.setRate(savedTts.speed);
+
+  console.log('[App] Build mode:', BUILD_MODE.toUpperCase());
 
   // Restore fast mode
   _fastMode = readConfig().fastMode || false;
@@ -254,9 +246,6 @@ app.whenReady().then(() => {
   _responseLength = readConfig().responseLength || null;
 
   const win = createWindow();
-
-  hotkeyManager = new HotkeyManager(win);
-  hotkeyManager.register('F2');
 
   registerDebugViewerIPC(win, db);
   registerCharacterBuilderIPC(win);
@@ -286,6 +275,31 @@ app.whenReady().then(() => {
     }),
   });
 
+  // Text-Story IPC — the story itself is entirely independent of Aria (no
+  // character context in the Storyteller's prompt), but the Companion Chat
+  // pathway inside Story mode DOES route Aria's full context so she can
+  // discuss the story alongside Trist. That's why we pass getCharacterContext.
+  registerTextStoryIPC({
+    ipcMain,
+    mainWindow: win,
+    storiesRoot: STORIES_ROOT,
+    characterDir: CHARACTER_DIR,
+    getCharacterContext: () => ({
+      character,
+      characterRules,
+      masterSummary:     sessionManager.masterSummary,
+      permanentMemories: sessionManager.permanentMemories,
+      userProfile:       sessionManager.userProfile || '',
+      emotionalState:    db.getEmotionalState ? db.getEmotionalState() : null,
+      bodyState:         db.getBodyState ? db.getBodyState() : null,
+      trackers:          _trackers,
+      activeThreads:     db.getActiveThreads ? db.getActiveThreads(6) : [],
+      personalityForce:  _personalityForce,
+      featureRequests:   featureRequestsStore.loadRequests(CHARACTER_DIR),
+      addonContexts:     _addonContexts,
+    }),
+  });
+
   // Refresh .claude/aria-context.md at boot — picks up any DB changes made
   // outside the companion (e.g. recovery scripts, manual edits) so Claude Code
   // sessions see the latest Aria state.
@@ -298,6 +312,7 @@ app.whenReady().then(() => {
 
     _trackers = db.getProfileValue('trackers') || {};
     win.webContents.send('app:init', {
+      buildMode: BUILD_MODE,   // 'debug' | 'public' — drives dev-only UI visibility
       character,
       characterId: ACTIVE_CHARACTER,
       masterSummary: sessionManager.masterSummary,
@@ -353,8 +368,6 @@ ipcMain.on('window:close', (e) => {
 
 ipcMain.handle('claude:send-message', async (event, payload) => {
   const { message, userEmotion, attachments } = payload;
-  // ARCHIVED: TTS stop — voice feature disabled
-  // mainWindow?.webContents.send('tts:stop');
   try {
     // Snapshot Aria's body state BEFORE the response so the user message row
     // carries the state that was true while the user was typing. Then insert
@@ -508,8 +521,6 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       db.setProfileValue('trackers', _trackers);
       mainWindow?.webContents.send('companion:trackers', { trackers: _trackers });
     }
-
-    // ARCHIVED: TTS synthesis — voice feature disabled
 
     // Notify renderer if Aria added feature requests this turn
     if (response.featureRequests && response.featureRequests.length > 0) {
@@ -778,13 +789,6 @@ ipcMain.handle('emotional-state:reset', () => {
   return { state: defaultState };
 });
 
-// ── ARCHIVED: TTS IPC — voice feature disabled ────────────────────────────────
-// ipcMain.handle('tts:get-settings', ...)
-// ipcMain.handle('tts:get-voices', ...)
-// ipcMain.handle('tts:set-enabled', ...)
-// ipcMain.handle('tts:set-voice', ...)
-// ipcMain.handle('tts:set-rate', ...)
-
 // ── Fast mode IPC ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('settings:get-fast-mode', () => _fastMode);
@@ -874,10 +878,6 @@ ipcMain.handle('settings:set-bg', (_event, bg) => {
   return bg;
 });
 
-// ── ARCHIVED: RVC voice conversion settings — voice feature disabled ──────────
-// ipcMain.handle('rvc:get-config', ...)
-// ipcMain.handle('rvc:set-config', ...)
-
 // ── Character management ──────────────────────────────────────────────────────
 
 ipcMain.handle('character:list', () => {
@@ -919,9 +919,20 @@ ipcMain.handle('character:switch', (_event, charId) => {
 
 ipcMain.handle('music:get-settings', () => {
   const c = readConfig().music || {};
+  // Backwards compat: older configs stored a single `volume`; new configs use
+  // `volumes: { companion, adventure, story }`. If we only have the legacy
+  // field, seed the companion slot with it so users don't lose their setting.
+  const legacyVol = typeof c.volume === 'number' ? c.volume : null;
+  const v = c.volumes || {};
   return {
     enabled:     c.enabled  === undefined ? true : !!c.enabled,
-    volume:      typeof c.volume   === 'number' ? c.volume   : 0.55,
+    volumes: {
+      companion: typeof v.companion === 'number' ? v.companion : (legacyVol != null ? legacyVol : 0.50),
+      adventure: typeof v.adventure === 'number' ? v.adventure : (legacyVol != null ? legacyVol : 0.50),
+      story:     typeof v.story     === 'number' ? v.story     : (legacyVol != null ? legacyVol : 0.50),
+    },
+    // Retained for any renderer still reading the legacy field
+    volume:      legacyVol != null ? legacyVol : 0.50,
     loopMode:    c.loopMode === 'finish_restart' ? 'finish_restart' : 'crossfade',
     crossfadeMs: typeof c.crossfadeMs === 'number' ? c.crossfadeMs : 2000,
   };
@@ -930,8 +941,22 @@ ipcMain.handle('music:get-settings', () => {
 ipcMain.handle('music:set-settings', (_event, partial = {}) => {
   const cur = (readConfig().music) || {};
   const next = { ...cur };
+  if (!next.volumes) next.volumes = {};
   if (typeof partial.enabled  === 'boolean') next.enabled  = partial.enabled;
-  if (typeof partial.volume   === 'number')  next.volume   = Math.max(0, Math.min(1, partial.volume));
+  // Per-mode volumes: accept `volumes: { companion?, adventure?, story? }`
+  if (partial.volumes && typeof partial.volumes === 'object') {
+    for (const k of ['companion', 'adventure', 'story']) {
+      if (typeof partial.volumes[k] === 'number') {
+        next.volumes[k] = Math.max(0, Math.min(1, partial.volumes[k]));
+      }
+    }
+  }
+  // Legacy single-volume — writes ALL slots for consistency
+  if (typeof partial.volume === 'number') {
+    const v = Math.max(0, Math.min(1, partial.volume));
+    next.volume = v;
+    next.volumes.companion = v;
+  }
   if (typeof partial.loopMode === 'string')  next.loopMode = partial.loopMode === 'finish_restart' ? 'finish_restart' : 'crossfade';
   if (typeof partial.crossfadeMs === 'number') next.crossfadeMs = Math.max(200, Math.min(8000, partial.crossfadeMs));
   writeConfig({ music: next });

@@ -115,6 +115,9 @@ class ArcadeAmbientEffect extends VisualEffect {
     if (this._ctx && this._canvas)
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
     document.getElementById('main-content') && (document.getElementById('main-content').style.transform = '');
+    // Don't leave the panel faded when the ambient effect stops mid-event.
+    document.body.classList.remove('event-active');
+    this._wasEventBusy = false;
   }
 
   _onUpdate(key, value) {
@@ -169,8 +172,9 @@ class ArcadeAmbientEffect extends VisualEffect {
     if (this._attractT >= period) this._attractT -= period;
     this._attractVis = this._attractT < period * 0.55;
 
-    // Detect event start → trigger "1 QUARTER!" animation
-    const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn'];
+    // Detect event start → trigger "1 QUARTER!" animation.
+    // sideScroller is intentionally omitted — event permanently disabled.
+    const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'pacman', 'datingVn'];
     const anyBusy    = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
     this._anyBusy    = anyBusy;
     if (anyBusy && !this._wasEventBusy && this._quarterT < 0) {
@@ -178,6 +182,12 @@ class ArcadeAmbientEffect extends VisualEffect {
       const r     = panel?.getBoundingClientRect();
       this._quarterStartY = r ? r.top + r.height * 0.80 : this._canvas.height * 0.72;
       this._quarterT      = 0;
+    }
+    // Toggle body.event-active so the CSS in main.css can fade the companion
+    // UI (output/state/portrait) while any event plays. Toggle-if-changed to
+    // avoid pointless classList writes every frame.
+    if (anyBusy !== this._wasEventBusy) {
+      document.body.classList.toggle('event-active', anyBusy);
     }
     this._wasEventBusy = anyBusy;
     if (this._quarterT >= 0) {
@@ -224,7 +234,7 @@ class ArcadeAmbientEffect extends VisualEffect {
   _spawnDust() {
     if (!this._canvas) return;
     const W = this._canvas.width, H = this._canvas.height;
-    const PALETTE = ['#ffee00', '#ffffff', '#ffaa00', '#00dd44', '#ff4400'];
+    const PALETTE = [this._cssVar('--cyan', '#ffee00'), '#ffffff', '#ffaa00', '#00dd44', '#ff4400'];
     const life = ArcadeAmbientEffect.DUST_LIFE_BASE * (0.5 + Math.random());
     this._dust.push({
       x:     Math.random() * W,
@@ -295,6 +305,7 @@ class ArcadeAmbientEffect extends VisualEffect {
         y     = this._quarterStartY + 380 * st * st;
       }
       if (alpha > 0) {
+        const primary = this._cssVar('--cyan', '#ffee00');
         ctx.save();
         ctx.beginPath();
         ctx.rect(r.left, r.top, r.width, r.height);
@@ -303,8 +314,8 @@ class ArcadeAmbientEffect extends VisualEffect {
         ctx.textAlign     = 'center';
         ctx.letterSpacing = '3px';
         ctx.globalAlpha   = alpha;
-        ctx.fillStyle     = '#ffee00';
-        ctx.shadowColor   = '#ffee00';
+        ctx.fillStyle     = primary;
+        ctx.shadowColor   = primary;
         ctx.shadowBlur    = 14;
         ctx.fillText('1 QUARTER!', r.left + r.width / 2, y);
         ctx.restore();
@@ -315,13 +326,14 @@ class ArcadeAmbientEffect extends VisualEffect {
     if (this._anyBusy || this._quarterT >= 0) return;
     if (!this._attractVis) return;
 
+    const primary = this._cssVar('--cyan', '#ffee00');
     ctx.save();
     ctx.font          = 'bold 14px "Courier New", monospace';
     ctx.textAlign     = 'center';
     ctx.letterSpacing = '3px';
     ctx.globalAlpha   = 0.20;
-    ctx.fillStyle     = '#ffee00';
-    ctx.shadowColor   = '#ffee00';
+    ctx.fillStyle     = primary;
+    ctx.shadowColor   = primary;
     ctx.shadowBlur    = 10;
     ctx.fillText('INSERT COIN', r.left + r.width / 2, r.top + r.height * 0.80);
     ctx.restore();
@@ -666,14 +678,15 @@ class ArcadeAmbientEffect extends VisualEffect {
     top.style.cssText = 'position:absolute;top:0;left:0;right:0;height:50%;background:#080808';
 
     const line = document.createElement('div');
+    const primary = this._cssVar('--cyan', '#ffee00');
     line.style.cssText = [
       'position:absolute',
       'top:calc(50% - 1px)',
       'left:0',
       'right:0',
       'height:2px',
-      'background:#ffee00',
-      'box-shadow:0 0 8px 2px #ffee00',
+      `background:${primary}`,
+      `box-shadow:0 0 8px 2px ${primary}`,
       'transition:opacity 0.12s ease-out',
     ].join(';');
 

@@ -32,6 +32,7 @@ const HelpPanel = (() => {
     { id: 'memory',     icon: '◉',  label: 'Memory & Brain'      },
     { id: 'characters', icon: '◈',  label: 'Characters'          },
     { id: 'rpg',        icon: '⚔',  label: 'Text Adventure'      },
+    { id: 'story',      icon: '📖', label: 'Story Mode'          },
     { id: 'shortcuts',  icon: '⌨',  label: 'Keyboard Shortcuts'  },
   ];
 
@@ -137,21 +138,6 @@ const HelpPanel = (() => {
     },
 
     /* ── ACTION BUTTONS ─────────────────────────────────────────── */
-    {
-      catId: 'actions', id: 'btn-mic',
-      title: '🎤 MIC — Voice Input',
-      tags: ['mic', 'microphone', 'voice', 'input', 'whisper', 'transcription', 'speech', 'f2', 'record'],
-      content:
-        p('The <em>MIC</em> button activates your microphone for voice input. Speech is transcribed using <strong>Whisper</strong> and the result is placed directly into the text input field — ready to send or edit.') +
-        kv([
-          ['Shortcut',      'F2 — toggle mic from anywhere in the app'],
-          ['Engine',        'Whisper (local speech recognition)'],
-          ['Output',        'Transcribed text is auto-inserted into the message input'],
-          ['Editing',       'You can edit the transcription before sending'],
-          ['Indicator',     'Button highlights when mic is active'],
-        ]) +
-        note('Whisper runs locally — your voice audio does not leave your machine.')
-    },
     {
       catId: 'actions', id: 'btn-folder',
       title: '📁 FOLDER — Attach Files',
@@ -1065,16 +1051,387 @@ const HelpPanel = (() => {
         p('The <em>RESET</em> button in the HUD lets you manually wipe and start fresh at any time (asks for confirmation). All three files — state, scrolling log, side-chat — are removed.')
     },
 
+    /* ── STORY MODE ─────────────────────────────────────────────── */
+    {
+      catId: 'story', id: 'story-overview',
+      title: 'Story Mode — Overview',
+      tags: ['story', 'storyteller', 'narrative', 'book', 'prose', 'novella', 'writing', 'choose your own adventure', 'cyoa', 'branching'],
+      content:
+        p('Story mode is a third game mode alongside Companion Chat and Adventure. It\'s a collaboration with a dedicated <strong>Storyteller</strong> — a narrator persona that writes prose fiction while you steer the main character\'s decisions.') +
+        p('Unlike Adventure, Story has <strong>no gameplay mechanics</strong>. No HP, no dice, no combat. The story is a piece of interactive fiction: the Storyteller narrates, and periodically offers you choices your character will make. Between choices you can also type freeform actions or press CONTINUE to let the story flow.') +
+        p('<strong>Story mode does not involve Aria at all.</strong> The Storyteller does not know Aria, does not have her memories or personality, and the story is entirely separate from your companion relationship.') +
+        p('Each story is saved to its own folder under <code>stories/&lt;slug&gt;/</code> — with its own world memory, characters, locations, items, events, and lore.')
+    },
+    {
+      catId: 'story', id: 'story-creating',
+      title: 'Creating a Story',
+      tags: ['new story', 'create', 'main character', 'story type', 'wizard', 'genre'],
+      content:
+        p('Open Story mode with the <em>📖 STORY</em> button. The library shows any existing stories; press <em>+ NEW STORY</em> to make a new one.') +
+        p('The wizard asks for:') +
+        kv([
+          ['Title',              'Required. What to call your story.'],
+          ['Story type',         '12 preset genres (fantasy, sci-fi, horror, romance, etc.) or "Let the Storyteller choose".'],
+          ['Main character name','Optional. Leave blank and the Storyteller picks one.'],
+          ['Gender',             'Optional. Same — leave blank if you don\'t care.'],
+          ['Starting context',   'Optional freeform text — a paragraph seeding the opening scene, or blank to let the Storyteller freewheel.'],
+        ]) +
+        p('You also pick the initial <em>Settings</em> (all changeable later): segment length, descriptiveness, prose style, NSFW level, and choice frequency. See the "Story Settings" article for what each does.') +
+        p('When you press <em>BEGIN STORY</em>, the Storyteller writes the opening scene automatically — you don\'t have to send a first message.')
+    },
+    {
+      catId: 'story', id: 'story-settings',
+      title: 'Story Settings',
+      tags: ['settings', 'segment length', 'descriptiveness', 'prose style', 'nsfw', 'choice frequency', 'flowery', 'raw', 'safe', 'hardcore'],
+      content:
+        p('Every story has its own settings, editable at any time via the <em>⚙ SETTINGS</em> button. Changes take effect on the next turn.') +
+        kv([
+          ['Segment length',   'Short (150–250 words), Medium (300–500), Long (600–900), Epic (1000–1500). Longer = fewer interactions, more immersion.'],
+          ['Descriptiveness',  '1 = minimal facts. 5 = lavish sensory detail. Controls how much time the Storyteller spends on setting/atmosphere.'],
+          ['Prose style',      '1 = raw & unadorned. 5 = flowery/literary. Metaphor and cadence scale with this.'],
+          ['NSFW level',       'Safe · Adult Themes · NSFW Allowed · Hardcore Integrated. Determines what content can appear on the page.'],
+          ['Choice frequency', 'Rare · Normal · Frequent. How often the Storyteller ends a segment with a decision prompt.'],
+        ]) +
+        note('These settings are burned into the Storyteller\'s prompt every turn — they shape both what happens and how it\'s written.')
+    },
+    {
+      catId: 'story', id: 'story-sections',
+      title: 'Sections, Chapters, and Choices',
+      tags: ['section', 'segment', 'chapter', 'turn', 'choice', 'freeform', 'continue', 'input', 'action', 'send'],
+      content:
+        p('Story mode counts your progress in <strong>sections</strong> (one Storyteller segment + one player response = one section) and organizes the whole story into <strong>chapters</strong> (bigger narrative units, planned in the blueprint). The header shows both: <em>"Section 5 · Chapter 2/12 · The Waking City"</em>.') +
+        p('After each Storyteller segment, you have three ways to respond:') +
+        kv([
+          ['Click a choice',   'If the Storyteller ended with a [CHOICES] block, those appear as compact chips. Hover any chip to see the full choice text in a popup. Click one to have your character take that action.'],
+          ['Type freeform',    'Type any action or dialogue in the input box and press SEND (or Enter). Overrides the presented choices.'],
+          ['CONTINUE',         'Let the story flow naturally with no specific input from you. The Storyteller carries the scene forward.'],
+        ]) +
+        p('Every action is written into the log so you can scroll back and see the whole story unfold like a book. The right sidebar has quick-access buttons for STORY SO FAR, CHARACTERS, PLACES, and RECENT EVENTS — click any to see a summary popup without spoiling anything ahead.')
+    },
+    {
+      catId: 'story', id: 'story-reading-tools',
+      title: 'Reading Tools — Zoom, Search, Chapter Jump, Bookmarks',
+      tags: ['zoom', 'search', 'ctrl f', 'ctrl +', 'ctrl -', 'chapter jump', 'bookmark', 'jump', 'find', 'read', 'reader'],
+      content:
+        p('While in Story mode:') +
+        kv([
+          ['Ctrl + / Ctrl -',  'Zoom the prose font up or down (0.7×–1.8×). Persists across sessions.'],
+          ['Ctrl 0',           'Reset zoom to 100%.'],
+          ['Ctrl F',           'Open the search bar. Type to filter; Enter or ▼ jumps to next match; ▲ goes back; Esc closes.'],
+          ['📖 CHAPTER JUMP',  'Sidebar button — shows the full chapter list with the current chapter highlighted. Click JUMP on any chapter to scroll the log to where it began.'],
+          ['🔖 icon on each segment', 'Click to bookmark; click again to remove. Bookmarks are shown in the sidebar via the BOOKMARKS button. Each bookmark shows a preview and a JUMP button.'],
+        ]) +
+        p('Bookmarks and chapter jumps use log indices tagged at write time, so they always land on the exact section they marked.')
+    },
+    {
+      catId: 'story', id: 'story-reactions',
+      title: 'Live Companion Reactions',
+      tags: ['reaction', 'aria', 'companion', 'react', 'live', 'sidebar'],
+      content:
+        p('After every Storyteller segment, your active companion (Aria by default, or whichever character pack you\'ve switched to) reads it alongside you and drops a short reaction into the sidebar panel.') +
+        p('The reaction fires in the background using a <strong>light context</strong> pipeline — just the companion\'s character identity + emotional axes + the segment they just read, no memory dump. That keeps it fast (1–2 seconds) and doesn\'t slow the story turn itself.') +
+        p('Reactions accumulate — the panel shows the last 6, newest at the top. The full history is stored in <code>stories/&lt;slug&gt;/story-reactions.json</code>. Click the × to hide the panel; reactions continue to save even when hidden.')
+    },
+    {
+      catId: 'story', id: 'story-suggest-choice',
+      title: 'Ask Your Companion Which Choice to Pick',
+      tags: ['suggest', 'choice', 'companion', 'help', 'pick', '?'],
+      content:
+        p('When the Storyteller presents choices, a small <em>?</em> button appears next to the "YOUR CHOICES" header in the sidebar. Click it to ask your active companion which option they\'d pick and why.') +
+        p('Uses the same light-context pipeline as reactions. Response is shown right under the choices — companion name, emotion, and their brief take. Doesn\'t auto-pick; you still choose.')
+    },
+    {
+      catId: 'story', id: 'story-portraits',
+      title: 'Character Portraits (Upload Your Own)',
+      tags: ['portrait', 'image', 'upload', 'character', 'picture', 'photo'],
+      content:
+        p('Every character in the CHARACTERS tab of <em>🔍 INSPECT</em> shows a 120×120 portrait tile at the top of their bible. Default is a blank tile labeled "no portrait" — upload an image and it displays there.') +
+        p('Click <em>📁 UPLOAD</em> to pick a PNG, JPG, or WebP file. The image is copied into <code>stories/&lt;slug&gt;/portraits/&lt;character_id&gt;.&lt;ext&gt;</code>. Click the small ✕ next to an uploaded portrait to remove it.') +
+        p('Suggested workflow: use the 1:1 SQUARE ICON AI prompt (also in the character bible) to generate a portrait externally in Midjourney / SD / etc, then upload the result here.')
+    },
+    {
+      catId: 'story', id: 'story-stats-export',
+      title: 'Story Stats & Prose Export',
+      tags: ['stats', 'statistics', 'word count', 'export', 'markdown', 'txt', 'save', 'download'],
+      content:
+        p('The sidebar\'s <em>📊 STORY STATS</em> button shows a stats card: sections written, story segments, word count, chapter progress, characters met, places established, fixed events done vs pending, reactions logged, bookmarks.') +
+        p('<em>💾 EXPORT PROSE</em> exports the entire story\'s prose as either Markdown (with chapter and scene headers) or plain text. Player actions can be included as inline bylines. Saves via a native file dialog.')
+    },
+    {
+      catId: 'story', id: 'story-music',
+      title: 'Scene Music (Adaptive Ambient)',
+      tags: ['music', 'ambient', 'soundtrack', 'audio', 'cue'],
+      content:
+        p('Every turn prompt now includes the app\'s full music-cue catalog. When the Storyteller feels the scene\'s mood or energy has shifted enough to warrant new music, they emit a <code>[MUSIC]</code> line — either a specific cue id, a mood phrase ("tense ambient", "romantic strings"), or the words "pause" / "resume" / "stop".') +
+        p('The engine resolves the request against the 167-cue catalog and the music player fades to the new cue. Not every turn changes music; the Storyteller decides when a shift is warranted (usually chapter transitions, big beats, tone shifts).')
+    },
+    {
+      catId: 'story', id: 'story-voice-fingerprint',
+      title: 'Character Voice Fingerprints',
+      tags: ['voice', 'dialogue', 'consistency', 'character voice', 'fingerprint'],
+      content:
+        p('Every character bible now includes a <strong>voice fingerprint</strong>: register, vocabulary, sentence rhythm, verbal tells, and a sample line only they would say. Visible in the CHARACTERS inspector tab.') +
+        p('The fingerprint is baked into every turn prompt alongside the key character list, so the Storyteller has explicit dialogue guidance every time a character speaks. Keeps voices distinct as the story runs long.')
+    },
+    {
+      catId: 'story', id: 'story-foreshadowing',
+      title: 'Foreshadowing Tracker (Planted Hints)',
+      tags: ['foreshadowing', 'hint', 'planted', 'pays off', 'setup', 'payoff'],
+      content:
+        p('The blueprint now has a <code>plantedHints[]</code> array — small details the Storyteller intends to plant early and pay off later. Each hint tracks: description, plantedInChapter, paysOffAtEvent, and a status of "planted" or "paid_off".') +
+        p('Visible in <em>🔍 INSPECT → BLUEPRINT</em>. The Storyteller updates status via state diffs as hints get paid off. Useful for reader-facing surprises that feel earned rather than random.')
+    },
+    {
+      catId: 'story', id: 'story-summarize-old',
+      title: 'Auto-Summarize Old Sections (Rolled Log)',
+      tags: ['summarize', 'rolled log', 'archive', 'long story', 'compress'],
+      content:
+        p('As the log grows past ~50 sections, you can trigger the summarizer to compress the oldest 30 into a dense prose recap. The full raw log stays on disk (uncapped) — the recap gets added to <code>state.memory.rolledLog[]</code> which rides in every turn prompt so the Storyteller keeps context for the long haul without blowing the prompt budget.') +
+        note('Fires via the story:summarize-old-log IPC. Currently manual (via developer console); a UI button can be wired in later.')
+    },
+    {
+      catId: 'story', id: 'story-ai-prompts',
+      title: 'AI Image Prompts (Character Bible)',
+      tags: ['ai prompt', 'midjourney', 'stable diffusion', 'character art', 'reference sheet', 'portrait', 'icon', 'glamour', 'art style'],
+      content:
+        p('Every character in your story gets a FULL character bible under <em>🔍 INSPECT → CHARACTERS</em>. This includes four ready-to-paste AI image prompts:') +
+        kv([
+          ['1:1 SQUARE ICON',           'Headshot / avatar composition for use as a chat portrait, character list icon, etc.'],
+          ['2:3 PORTRAIT PHOTO',        'Standing or environmental portrait — like a magazine photograph.'],
+          ['CHARACTER REFERENCE SHEET', 'Multi-angle model sheet an artist would use as a drawing reference — front, three-quarter, side, back views + expressions + hand studies.'],
+          ['GLAMOUR / EDITORIAL',       'Styled photo-shoot look. Dramatic lighting, hero pose, professional retouching — magazine cover energy.'],
+        ]) +
+        p('Every prompt starts with the story\'s <strong>art style</strong> (chosen by the Storyteller during blueprint generation and baked into all four prompts). This ensures your generated images stay visually consistent across characters.') +
+        p('Each prompt has a <em>📋 COPY</em> button — copies the exact prompt text to your clipboard, ready to paste into Midjourney, Stable Diffusion, DALL·E, or any other image generator.') +
+        p('If your existing story has no CHARACTERS or CHAPTERS data yet, the app auto-fires a details-generation call the first time you open it after the upgrade. Takes 30–90 seconds. Existing plot is preserved. You can re-run it any time via <em>↻ REGEN DETAILS</em> in the inspector toolbar.')
+    },
+    {
+      catId: 'story', id: 'story-inspect',
+      title: 'Debug Inspector (🔍 INSPECT)',
+      tags: ['debug', 'inspect', 'inspector', 'spoiler', 'plan', 'view prompt', 'raw', 'blueprint viewer', 'prompt inspector'],
+      content:
+        p('The <em>🔍 INSPECT</em> button in the story header opens a debug viewer that reveals EVERYTHING the Storyteller sees and receives. Use it to verify your story is set up the way you expect, or to inspect a failed turn. It <strong>spoils the story</strong> — the blueprint tab shows the full plot plan including the ending.') +
+        p('Tabs:') +
+        kv([
+          ['NEXT PROMPT',     'The exact system + user prompt that WOULD be sent to Claude if you pressed CONTINUE right now. Rebuilt live from current state.'],
+          ['CHARACTERS',      'Full character bible — visual description, outfits, quirks, health, relationships, and 4 ready-to-paste AI image prompts per character (icon, portrait, sheet, glamour).'],
+          ['CHAPTERS',        'Chapter deep-dives — expanded summary, characters involved, leads-from / leads-to, key events, chapter importance. Highlights the chapter you\'re currently reading.'],
+          ['BLUEPRINT',       'The full canonical plot plan — plot summary, key characters with plot_immunity, side characters, three-act arc, fixed events, chapter list, and deep details JSON.'],
+          ['STATE',           'Pretty-printed contents of story.json — scene, memory, characters/locations/items/goals/events/lore, settings, all internal counters.'],
+          ['LAST TURN',       'The most recent turn call — user message, system prompt sent, raw response received, validation metadata.'],
+          ['LAST BLUEPRINT',  'The blueprint-generation call — same shape as LAST TURN but for the one-shot blueprint creation.'],
+          ['LAST DETAILS',    'The details-generation call — prompts + raw response that produced the CHARACTERS + CHAPTERS deep data.'],
+          ['LOG',             'Full narrative log as JSON — every entry with its kind (story, choice-offered, choice-taken, freeform, continue, nudge, correction).'],
+        ]) +
+        p('<em>↻ REGEN DETAILS</em> in the toolbar regenerates the CHARACTERS + CHAPTERS tabs from scratch — useful if you want a different art style or don\'t like the first output.') +
+        p('<em>📋 COPY</em> copies the current tab\'s content to your clipboard. Handy for pasting the raw prompt into external tools.') +
+        p('<em>↻ REFRESH</em> re-fetches the snapshot — click after a turn completes to see the latest state.') +
+        p('Debug entries are also persisted in <code>stories/&lt;slug&gt;/story-debug-responses.json</code> (capped at 50 entries) if you want to grep them outside the app.')
+    },
+    {
+      catId: 'story', id: 'story-blueprint',
+      title: 'The Story Blueprint (Plot Immunity)',
+      tags: ['blueprint', 'plot', 'plan', 'arc', 'characters', 'plot immunity', 'graceful redirect', 'story spine', 'derail', 'break the story'],
+      content:
+        p('When you create a story, the Storyteller does something before writing a single word of prose: they design the ENTIRE story as a canonical blueprint. Plot, key characters, side characters, three-act structure, fixed events, resolution — all planned in advance.') +
+        p('The blueprint rides in every turn\'s prompt after that. The Storyteller knows the plan at all times and steers every scene toward it.') +
+        p('<strong>Key characters get plot_immunity:</strong>') +
+        kv([
+          ['HIGH',    'Must survive with their arc intact — the story literally cannot resolve without them. The Storyteller will REDIRECT any attempt to kill or permanently remove them.'],
+          ['MEDIUM',  'Important to the plot but their exact fate has some flexibility. May survive or die depending on how things unfold.'],
+          ['LOW',     'They exist to color the story. Can die, betray, disappear — the plot survives their loss.'],
+        ]) +
+        p('<strong>What "graceful redirect" means:</strong> if you try something during a choice that would break the plot spine — like murdering a HIGH plot-immunity love interest, or preventing a fixed event from happening — the Storyteller doesn\'t ignore your action. They narrate it AND its consequence, but bend the outcome. Redirect toolkit:') +
+        kv([
+          ['Attempt fails',  '"The knife jams. The blade rings against something hidden under her cloak — she was wearing a plate. Her eyes go wide."'],
+          ['Motive dissolves', '"Halfway across the room your hand starts shaking. You look at her and realize you don\'t know why you thought you had to do this."'],
+          ['Outcome redirected', '"You succeed. Blood everywhere. Only when the body cools and doesn\'t stiffen do you realize it was never her — she\'d sent a decoy."'],
+          ['Meaning altered', '"She catches your wrist mid-swing and smiles. \'Finally,\' she says. \'I was hoping you\'d be the one.\' You realize this was her plan too."'],
+        ]) +
+        p('You still have real agency — surface details, minor character fates, mood, subplots, pacing all respond to your actions. What you can\'t do is unilaterally break the story you and the Storyteller are telling together.') +
+        p('If you WANT to change the plot itself (retcon a character, alter the ending, change a fixed event), open <em>📖 ASK</em> and tell the Storyteller directly. They can update the blueprint via a [STATE] correction.') +
+        p('Blueprint is stored in <code>stories/&lt;slug&gt;/story.json</code> under <code>storyBlueprint</code>. Not exposed in the UI by design — spoilers.')
+    },
+    {
+      catId: 'story', id: 'story-length',
+      title: 'Story Length — Poem to Epic',
+      tags: ['length', 'size', 'sections', 'pages', 'poem', 'short story', 'novelette', 'light novel', 'novel', 'story book', 'epic', 'odyssey', 'target', 'budget'],
+      content:
+        p('When you create a new story, you pick a <strong>Story Length</strong> — how much book you\'re signing up for. This tells the Storyteller how many sections (~1–2 book pages each) to plan for.') +
+        kv([
+          ['Poem',                       'A single lyric arc; a fable. 4–10 sections. 1 chapter.'],
+          ['Short Story',                'Roughly a short-story-collection entry. 12–30 sections. 1–4 chapters.'],
+          ['Novelette / Light Novel',    'A JP light novel or novelette. 40–80 sections. 5–10 chapters.'],
+          ['Novel',                      'A standard novel. 120–250 sections. 10–25 chapters.'],
+          ['Story Book',                 'A long novel — thick book, 600+ printed pages. 300–500 sections. 25–40 chapters.'],
+          ['Epic',                       'Odyssey-scale; multi-book epic. 600–1500 sections. 40+ chapters.'],
+        ]) +
+        p('The target isn\'t a hard cap — it\'s the planning anchor. The Storyteller sizes chapters and events against it during setup so the whole story shape fits the length you asked for.') +
+        p('A section corresponds to roughly one to two pages of a printed book. It\'s the pacing unit. When the Storyteller writes a chapter with a budget of 8 sections, it will feel like an 8- to 16-page chapter of the target book size.') +
+        p('You can\'t change the length preset later, but the <em>REGEN PLAN</em> button in the inspector will let the Storyteller re-scale the plan against a new target if you really need it.')
+    },
+    {
+      catId: 'story', id: 'story-pacing-contract',
+      title: 'The Pacing Contract',
+      tags: ['pacing', 'budget', 'section budget', 'chapter budget', 'event budget', 'pace', 'drag', 'stalling', 'wrap-up'],
+      content:
+        p('Every turn the Storyteller sees a <strong>PACING CONTRACT</strong> block near the top of its prompt. It lists the current chapter, its section budget, the currently-active event, and how many sections are left before the event must resolve.') +
+        p('This exists because without it, the Storyteller drifts. It gets caught in a scene, decides "let\'s stay here a little longer," and the story stalls. With the pacing contract in view, the Storyteller can plan wrap-up beats in advance and land them when the budget runs out.') +
+        p('The tone of the contract escalates as the budget shrinks:') +
+        kv([
+          ['ON TRACK',    'Two or more sections remaining. Story flows normally.'],
+          ['FIRM',        'One section left. Storyteller drives toward the event\'s aftermath.'],
+          ['MANDATORY',   'Zero sections left. Event MUST resolve this turn.'],
+          ['OVERRUN',     'Past budget. Storyteller must resolve immediately or file a [REPORT] asking for more sections.'],
+        ]) +
+        p('You won\'t <em>feel</em> the pressure in the prose — that\'s intentional. Wrap-ups should read as naturally as any other section, earned rather than rushed. The Storyteller plans the resolution beat in advance so it lands smoothly.') +
+        p('The <strong>PACING sidebar card</strong> shows the same numbers to you in real time. It goes amber when a budget is one section away, red when overrunning.')
+    },
+    {
+      catId: 'story', id: 'story-events',
+      title: 'Events — The Pacing Atoms',
+      tags: ['events', 'event', 'pacing atom', 'chapter', 'active', 'pending', 'resolved', 'abandoned', 'section budget'],
+      content:
+        p('Chapters are for you (the reader) to orient by. <strong>Events</strong> are for the pacing machinery.') +
+        p('A chapter is broken into 2–5 events. Each event is a discrete narrative unit with a defined start, middle, and resolution. Rule of thumb: an event is 1–4 sections long, and the sum of the events\' budgets equals the chapter\'s section budget.') +
+        p('At any moment, exactly ONE event is <strong>active</strong>. When the Storyteller narrates its aftermath and marks it <strong>resolved</strong>, the next pending event in the chapter takes over. If the story advances to the next chapter with events still pending, those become <strong>abandoned</strong> (logged but not narrated).') +
+        p('Examples for a Chapter 1 called "The Ledger and the Sealed Letter":') +
+        kv([
+          ['Event: receiving_the_ledger', 'Wren meets Mr. Fenn and receives the ledger. 2 sections.'],
+          ['Event: returns_to_shop',       'Wren returns to the shop for the first time. 2 sections.'],
+          ['Event: finds_letter',          'Wren finds the sealed letter and sets it aside. 1 section.'],
+        ]) +
+        p('The EVENT SUMMARIES tab in the INSPECT panel shows all events across the story, grouped by chapter, with their budgets, status, and per-event summaries (kickoff / who / experience / why it matters / aftermath).')
+    },
+    {
+      catId: 'story', id: 'story-reports',
+      title: 'Storyteller Reports — [REPORT] Overrun Log',
+      tags: ['report', 'overrun', 'over budget', 'more sections', 'expand budget', 'debug', 'banner', 'reports tab'],
+      content:
+        p('When the Storyteller genuinely cannot resolve an event or chapter in the remaining budget, it can emit a <strong>[REPORT]</strong> block asking for more sections. This is the ONE legitimate way to overrun; silent overruns are a defect.') +
+        p('When a report fires, three things happen at once:') +
+        kv([
+          ['Loud banner',   'A bright warning banner appears at the top of the story panel with the scope, the request, and the reason. Sticky until you dismiss it or open the REPORTS tab.'],
+          ['Budget grows',  'The target event or chapter\'s sectionBudget is expanded to the requested new value on the next turn.'],
+          ['REPORTS tab',   'The full history is available in INSPECT → REPORTS with aggregate metrics (overrun rate, average request delta) so you can see if the Storyteller is systematically underestimating budgets.'],
+        ]) +
+        p('Reports are a <strong>debug mechanism</strong> for the current phase — they will be removed entirely once the pacing machinery is proven stable. Their existence tells you the Storyteller is being honest about needing more time rather than fudging silently.') +
+        p('Each report lives in <code>stories/&lt;slug&gt;/story-reports.json</code>, append-only and uncapped.')
+    },
+    {
+      catId: 'story', id: 'story-anti-derailment',
+      title: 'The Anti-Derailment Rule (Rule 14)',
+      tags: ['anti-derailment', 'derail', 'rule 14', 'plot spine', 'plan', 'reader agency', 'flow', 'redirect', 'ignore', 'graceful redirect'],
+      content:
+        p('One super-rule governs how the Storyteller responds when your action would break the story: <strong>The plan wins. The reader steers within it.</strong>') +
+        p('The plan is the story overview + chapter summaries + event summaries + the pacing contract. When your chosen action would remove a required character, skip a fixed event, sidestep a planted hint, open a scene the plan doesn\'t want, OR demand more time than the event budget can hold, the Storyteller has three permitted responses:') +
+        kv([
+          ['(a) FLOW',      'Reshape the outcome so your action lands INSIDE the planned result. Your gesture is honored; its consequence is what the plan needed. Best whenever plausible.'],
+          ['(b) REDIRECT',  'Let the action fail, dissolve mid-motion, or land differently. Uses the graceful-redirect toolkit — attempt fails, motive dissolves, outcome redirects, meaning alters. The reader gets attention; the plan holds.'],
+          ['(c) IGNORE',    'Extreme cases only — where honoring the action would create a paradox, kill a required character, permanently break a fixed event, or blow the pacing past recovery. Treat the action as not-taken. Used sparingly.'],
+        ]) +
+        p('This unifies the old "graceful redirect" (plot spine) with the new "pacing contract" (event budgets) into one rule — because they share the same trigger (reader tried something the plan can\'t absorb) and the same toolkit.') +
+        p('You still have real agency over surface details, mood, side-character reactions, minor subplots. What you can\'t do is unilaterally derail the story. If you WANT to change the plan itself, use ASK THE STORYTELLER to correct the state directly.')
+    },
+    {
+      catId: 'story', id: 'story-nudge',
+      title: 'Nudge — Currently Disabled',
+      tags: ['nudge', 'steer', 'direct', 'guide', 'push', 'influence', 'authorial', 'reader directive', 'disabled'],
+      content:
+        p('<strong>The NUDGE button is currently hidden.</strong> The underlying feature still exists in the code so it can be turned back on later, but the button is not visible in the header and the READER DIRECTIVE block is not sent to the Storyteller.') +
+        p('This was disabled as part of the pacing patch (STORY_GUIDELINES_PATCH). If you want to steer the story mid-play, use <em>📖 ASK</em> to talk to the Storyteller directly — they can update the plan through a state correction.') +
+        p('Historical description of what the feature did:') +
+        p('The <em>🎯 NUDGE</em> button lets you drop a one-shot steering note to the Storyteller. Type a direction and press <em>APPLY NUDGE</em> — the note is queued and fires on your next turn.') +
+        p('Examples of good nudges:') +
+        kv([
+          ['Character focus',   '"Focus more on the barkeep — I think he\'s the real villain."'],
+          ['Setting shift',     '"Make the next scene take place at night, in the rain."'],
+          ['Pacing',            '"The story is dragging — pick up the pace and get to the confrontation."'],
+          ['Tone',              '"Make this next scene darker and more unsettling."'],
+          ['Genre pivot',       '"Push more toward romance from here — Vera and the fence should have real chemistry."'],
+        ]) +
+        p('The Storyteller MUST reflect the nudge in the next segment, either landing it fully or beginning to steer toward it (with the change fully realized within 1–2 turns).') +
+        p('Nudges are <strong>one-shot</strong> — after the next turn fires, the nudge clears. Want a longer arc? Nudge again.') +
+        p('When a nudge is queued, the button glows and its tooltip shows the queued text. Press <em>CLEAR QUEUED</em> in the overlay if you change your mind before the turn fires.') +
+        p('Nudges are logged into the story scroll so you can see exactly what you steered.')
+    },
+    {
+      catId: 'story', id: 'story-companion',
+      title: 'Companion Chat — Talk About the Story',
+      tags: ['companion', 'aria', 'chat', 'reader', 'reading together', 'reaction', 'discuss'],
+      content:
+        p('The <em>💬 COMPANION</em> button opens a chat with your active companion (Aria by default) ABOUT the story you\'re reading.') +
+        p('Your companion is <strong>not in the story</strong> and does not affect it. She\'s a reader alongside you — she has been given the story\'s current state, summary, characters, and recent narrative so she can react as though she\'s been reading right beside you.') +
+        p('Use it to:') +
+        kv([
+          ['Share reactions',     '"Holy cow, they killed him off?!" — she reacts with genuine surprise.'],
+          ['Guess plot twists',   '"I think the fence is working for the smugglers." — she\'ll agree, push back, or offer her own theory.'],
+          ['Cheer or worry',      '"I don\'t want Vera to trust that guy!" — she cares because you care.'],
+          ['Discuss craft',       '"The pacing felt slow this chapter, right?" — she talks about the writing itself.'],
+        ]) +
+        p('Aria uses her full personality, memories, and emotional state — this is her, not a generic assistant. If you ask her something intimate about a hardcore-tier scene, she responds with the same content-level opt-in the story is running at.') +
+        p('Transcript lives at <code>stories/&lt;slug&gt;/story-companion-chat.json</code> — separate from her main chat memory, so discussing the story doesn\'t pollute her long-term memory.')
+    },
+    {
+      catId: 'story', id: 'story-ask',
+      title: 'Ask the Storyteller',
+      tags: ['ask', 'storyteller', 'meta', 'chat', 'correction', 'fix', 'retcon', 'question'],
+      content:
+        p('The <em>📖 ASK</em> button opens a private meta-chat with the Storyteller — outside the story itself.') +
+        p('Use it to:') +
+        kv([
+          ['Ask about anything',       '"What was that guy\'s name?" "What year is it?" "Why did the merchant lie to me?" — the Storyteller knows everything.'],
+          ['Discuss events',           '"That felt too fast. Was that intentional?" or "Where do you think this is going?"'],
+          ['Fix Storyteller mistakes', '"You said the innkeeper was named John but he was James." — the Storyteller will apply a correction to the story state directly.'],
+        ]) +
+        p('When a correction is applied, the message shows a <em>✎ CORRECTION APPLIED</em> badge and a note is added to the story log.')
+    },
+    {
+      catId: 'story', id: 'story-library',
+      title: 'Story Library & Multi-Story',
+      tags: ['library', 'multiple stories', 'switch', 'delete', 'list', 'load'],
+      content:
+        p('Story mode supports as many stories as you want. Each lives in its own folder under <code>stories/&lt;slug&gt;/</code> with its own database of world data.') +
+        p('The library appears when you first enter Story mode and can be re-opened at any time via the <em>📚 LIBRARY</em> button in the header. Each row shows title, type, turn count, main character name, and last-updated timestamp.') +
+        p('<em>DEL</em> deletes a story permanently (with a confirmation prompt). This wipes everything — state, log, ask-chat, debug responses. Cannot be undone.')
+    },
+    {
+      catId: 'story', id: 'story-retry',
+      title: 'Retry (Undo Last Turn)',
+      tags: ['retry', 'undo', 'rewind', 'try again', 'mistake'],
+      content:
+        p('The <em>↺ RETRY</em> button undoes the last exchange. It removes the last Storyteller segment plus your last action from the log so you can try something different.') +
+        p('Story state (turn count, characters, world) is rewound one step. Nothing is permanently lost — the raw responses are still in <code>story-debug-responses.json</code> if you need to inspect them.') +
+        p('Retry is useful when the Storyteller went off the rails, took the story somewhere you didn\'t like, or produced a broken output.')
+    },
+    {
+      catId: 'story', id: 'story-debug',
+      title: 'Story Debug Responses',
+      tags: ['debug', 'error', 'silent failure', 'response', 'raw', 'log', 'crash'],
+      content:
+        p('Every Storyteller call is captured to <code>stories/&lt;slug&gt;/story-debug-responses.json</code> — a rolling log capped at 50 entries.') +
+        p('Each entry records:') +
+        kv([
+          ['phase',       '"turn" or "ask" — which pathway ran'],
+          ['userMessage', 'Whatever you typed / chose'],
+          ['raw',         'The complete raw response from Claude'],
+          ['meta',        'Structured summary: valid?, fatal errors, warnings, story length, has state diff, choice count'],
+        ]) +
+        p('When Story mode produces an error banner in the scroll, this file has the raw output that failed to parse. Useful for diagnosing what the Storyteller actually wrote when the parser rejected it.')
+    },
+
     /* ── KEYBOARD SHORTCUTS ─────────────────────────────────────── */
     {
       catId: 'shortcuts', id: 'shortcuts-list',
       title: 'All Keyboard Shortcuts',
-      tags: ['keyboard', 'shortcuts', 'hotkeys', 'keys', 'f2', 'enter', 'shift enter', 'keybinding'],
+      tags: ['keyboard', 'shortcuts', 'hotkeys', 'keys', 'enter', 'shift enter', 'ctrl f', 'ctrl plus', 'keybinding'],
       content:
         p('All keyboard shortcuts available in Claude Companion:') +
-        sc('F2',          'Toggle microphone on/off — works from anywhere in the app.') +
         sc('Enter',       'Send the current message (when the text input is focused).') +
         sc('Shift+Enter', 'Insert a newline in the text input without sending.') +
+        sc('Ctrl+F',      'Story mode only: open the search bar.') +
+        sc('Ctrl + / -',  'Story mode only: zoom prose font up or down.') +
+        sc('Ctrl+0',      'Story mode only: reset prose zoom.') +
         note('Additional shortcuts may be configured via Claude Code keybindings settings.')
     },
   ];

@@ -52,9 +52,73 @@ class WraithPackage extends VisualPackage {
       '--thoughts-color':'#6644aa',   // muted purple — Vesper's inner voice
     };
 
+    // ── Settings menu theme ─────────────────────────────────────────────────
+    // Wraith: hair-thin single-line borders, generous corner radius for a
+    // soft ethereal shape, faint diagonal mist-gradient pattern in the body,
+    // wispy sans-serif header font. Nothing feels solid — everything drifts.
+    this.settingsTheme = {
+      panelBg:              '#0a0714',
+      // Diagonal mist streaks — a faint spectral texture without loud lines.
+      patternSvg:           `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><defs><linearGradient id='m' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23b388ff' stop-opacity='0.4'/><stop offset='100%' stop-color='%23b388ff' stop-opacity='0'/></linearGradient></defs><rect width='60' height='60' fill='url(%23m)'/></svg>`,
+      patternOpacity:       0.10,
+      patternSize:          '60px',
+      borderStyle:          'solid',
+      borderWidth:          '1px',
+      cornerRadius:         '10px',
+      headerFont:           "'Trebuchet MS', 'Segoe UI', sans-serif",
+      headerTransform:      'uppercase',
+      headerLetterSpacing:  '5px',
+      headerWeight:         '300',       // thin — wispy
+      headerFontSize:       '11px',
+      headerPadding:        '12px 18px',
+      headerDividerHeight:  '1px',
+      sections: {
+        baseGame: {
+          headerBg:    'linear-gradient(135deg, color-mix(in srgb, #b388ff 18%, #0a0714), #0a0714 70%)',
+          bodyBg:      'color-mix(in srgb, #b388ff 4%, #0a0714)',
+          headerColor: '#d0b8ff',
+          borderColor: 'color-mix(in srgb, #b388ff 35%, transparent)',
+          accent:      '#b388ff',
+        },
+        visualPackage: {
+          headerBg:    'linear-gradient(135deg, color-mix(in srgb, #9c6fff 18%, #0a0714), #0a0714 70%)',
+          bodyBg:      'color-mix(in srgb, #9c6fff 4%, #0a0714)',
+          headerColor: '#c9b0ff',
+          borderColor: 'color-mix(in srgb, #9c6fff 35%, transparent)',
+          accent:      '#9c6fff',
+        },
+        companion: {
+          headerBg:    'linear-gradient(135deg, color-mix(in srgb, #e040d0 18%, #0a0714), #0a0714 70%)',
+          bodyBg:      'color-mix(in srgb, #e040d0 4%, #0a0714)',
+          headerColor: '#ff9ce8',
+          borderColor: 'color-mix(in srgb, #e040d0 35%, transparent)',
+          accent:      '#e040d0',
+        },
+        adventure: {
+          headerBg:    'linear-gradient(135deg, color-mix(in srgb, #7a5cff 18%, #0a0714), #0a0714 70%)',
+          bodyBg:      'color-mix(in srgb, #7a5cff 4%, #0a0714)',
+          headerColor: '#b0a0ff',
+          borderColor: 'color-mix(in srgb, #7a5cff 35%, transparent)',
+          accent:      '#7a5cff',
+        },
+        story: {
+          headerBg:    'linear-gradient(135deg, color-mix(in srgb, #d8a0ff 20%, #0a0714), #0a0714 70%)',
+          bodyBg:      'color-mix(in srgb, #d8a0ff 4%, #0a0714)',
+          headerColor: '#ecd0ff',
+          borderColor: 'color-mix(in srgb, #d8a0ff 35%, transparent)',
+          accent:      '#d8a0ff',
+        },
+      },
+    };
+
     // ── Effects ──────────────────────────────────────────────────────────────
+    // Wraith's edge-glow / chromatic-aberration / light-scanlines still run as
+    // part of its "spectral emanation" aesthetic (see defaultEffects below),
+    // but their settings panels ('overlayEffects', 'scanlines') are owned by
+    // the packages they belong to — Cybernetic and Arcade respectively — and
+    // are intentionally NOT exposed here.
     this.effectModules = [
-      'filmGrain', 'overlayEffects', 'scanlines',
+      'filmGrain',
       'wraithCobwebs', 'wraithSpirits', 'wraithLightning',
     ];
 
@@ -87,8 +151,6 @@ class WraithPackage extends VisualPackage {
       wraithLightningInterval: 'normal',
       moduleEnabled: {
         filmGrain:       true,
-        overlayEffects:  true,
-        scanlines:       true,
         wraithCobwebs:   true,
         wraithSpirits:   true,
         wraithLightning: true,

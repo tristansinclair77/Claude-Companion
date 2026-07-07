@@ -24,6 +24,7 @@ const BackgroundSettings = (() => {
     seasonMode:          'off',     // 'off' | 'random' | 'snow' | 'rain' | 'sunbeams' | 'leaves'
     vuAmp:               5,         // 1–15: VU meter bounce amplitude (÷100 = decimal offset)
     vuSpeed:             22,        // 5–60: VU meter speed (÷10 = seconds per cycle)
+    arcadePrimaryColor:  '#ffee00', // user-picked arcade primary (overrides --cyan)
     arcadeRasterBeam:    true,      // arcade ambient sub-effects
     arcadePixelDust:     true,
     arcadeAttract:       true,
@@ -79,6 +80,7 @@ const BackgroundSettings = (() => {
       seasonMode:          state.seasonMode,
       vuAmp:               state.vuAmp,
       vuSpeed:             state.vuSpeed,
+      arcadePrimaryColor:  state.arcadePrimaryColor,
       arcadeRasterBeam:    state.arcadeRasterBeam,
       arcadePixelDust:     state.arcadePixelDust,
       arcadeAttract:       state.arcadeAttract,
@@ -93,8 +95,17 @@ const BackgroundSettings = (() => {
     Object.entries(colors).forEach(([k, v]) => root.style.setProperty(k, v));
   }
 
+  // Override the arcade package's --cyan with the user-picked primary color.
+  // Runs after _applyColorScheme so the user's pick wins. If the active
+  // package isn't arcade, this is a no-op — the package's own --cyan stays.
+  function _applyPrimaryColor() {
+    if (_activePackageId !== 'arcade_cabinet') return;
+    const c = state.arcadePrimaryColor || '#ffee00';
+    document.documentElement.style.setProperty('--cyan', c);
+  }
+
   // Show only the settings sections that belong to the active package's modules.
-  // Sections without data-effect-module are always shown (UI SCALE, AXIS METERS, RVC VOICE).
+  // Sections without data-effect-module are always shown (UI SCALE, etc.).
   function _applyEffectModuleVisibility() {
     const pkg     = _getActivePackage();
     const modules = pkg?.effectModules || [];
@@ -102,6 +113,73 @@ const BackgroundSettings = (() => {
     document.body.dataset.package = _activePackageId || '';
     document.querySelectorAll('[data-effect-module]').forEach(el => {
       el.style.display = modules.includes(el.dataset.effectModule) ? '' : 'none';
+    });
+    // Push the active package's settingsTheme to every super-section.
+    _applySettingsTheme(pkg);
+  }
+
+  // One-time DOM restructure: the effect-module sections are physically
+  // placed further down in index.html for historical reasons, but they
+  // belong INSIDE the Visual Package super-section body. Move them there
+  // on init so the visual order matches the super-section grouping.
+  //
+  // Selector is intentionally `.settings-section[data-effect-module]` — some
+  // effect controls live as INNER divs inside a non-effect section (e.g.
+  // Axis Meters contains a `vuBounce` sub-block). Those must stay where
+  // they are; only the top-level effect sections get relocated.
+  function _relocateEffectSectionsIntoVisualPackage() {
+    const target = document.querySelector('[data-super-section="visualPackage"] .super-section-body');
+    if (!target) return;
+    document.querySelectorAll('.settings-section[data-effect-module]').forEach((el) => {
+      if (!target.contains(el)) target.appendChild(el);
+    });
+  }
+
+  // Move companion-only sections into the COMPANION super-section body.
+  // Currently just Axis Meters — future companion-specific mechanical
+  // settings can be added here.
+  function _relocateCompanionSectionsIntoCompanion() {
+    const target = document.querySelector('[data-super-section="companion"] .super-section-body');
+    if (!target) return;
+    const axis = document.getElementById('axis-meters-settings');
+    if (axis && !target.contains(axis)) target.appendChild(axis);
+  }
+
+  // Read the active package's `settingsTheme` and write CSS custom
+  // properties on each `.super-section` element. CSS in main.css consumes
+  // these vars (--st-*) to render the header + body + border of each
+  // super-section in the package's chosen theme.
+  function _applySettingsTheme(pkg) {
+    const theme = pkg && pkg.settingsTheme;
+    if (!theme) return;
+    const globals = {
+      '--st-border-style':           theme.borderStyle,
+      '--st-border-width':           theme.borderWidth,
+      '--st-corner-radius':          theme.cornerRadius,
+      '--st-header-font':            theme.headerFont,
+      '--st-header-transform':       theme.headerTransform,
+      '--st-header-letter-spacing':  theme.headerLetterSpacing,
+      '--st-header-weight':          theme.headerWeight,
+      '--st-header-font-size':       theme.headerFontSize,
+      '--st-header-padding':         theme.headerPadding,
+      '--st-header-divider-height':  theme.headerDividerHeight,
+      '--st-pattern':                theme.patternSvg ? `url("${theme.patternSvg}")` : 'none',
+      '--st-pattern-opacity':        String(theme.patternOpacity ?? 0),
+      '--st-pattern-size':           theme.patternSize || '24px',
+    };
+    document.querySelectorAll('[data-super-section]').forEach((el) => {
+      const key = el.dataset.superSection;
+      const sec = theme.sections && theme.sections[key];
+      if (sec) {
+        el.style.setProperty('--st-header-bg',    sec.headerBg    || '');
+        el.style.setProperty('--st-body-bg',      sec.bodyBg      || '');
+        el.style.setProperty('--st-header-color', sec.headerColor || '');
+        el.style.setProperty('--st-border-color', sec.borderColor || '');
+        el.style.setProperty('--st-accent',       sec.accent      || '');
+      }
+      for (const [k, v] of Object.entries(globals)) {
+        if (v !== undefined && v !== null) el.style.setProperty(k, v);
+      }
     });
   }
 
@@ -164,6 +242,7 @@ const BackgroundSettings = (() => {
     if (!pkg) return;
     _applyColorScheme(pkg.colors);
     Object.assign(state, pkg.effects || {});
+    _applyPrimaryColor();
     _applyAll();
     _applyEffectModuleVisibility();
     // Intentionally skips: _renderPackageSelector, _syncUI, _save
@@ -181,6 +260,7 @@ const BackgroundSettings = (() => {
     const pkg = _getActivePackage();
     if (!pkg) return;
     _applyColorScheme(pkg.colors);
+    _applyPrimaryColor();
     _applyAll();
     _applyEffectModuleVisibility();
     _renderPackageSelector();
@@ -660,12 +740,13 @@ const BackgroundSettings = (() => {
     el.textContent = active ? 'ON' : 'OFF';
   }
 
-  // All arcade event IDs — adding a new event here auto-gates all spawn buttons
-  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn'];
+  // All arcade event IDs — adding a new event here auto-gates all spawn buttons.
+  // sideScroller intentionally omitted; the effect is disabled and not selectable.
+  const _EVENT_IDS = ['spaceInvaders', 'asteroids', 'pong', 'pacman', 'datingVn'];
 
   function _syncEventSpawnBtns() {
     const anyBusy = _EVENT_IDS.some(id => PackageRegistry.getEffect(id)?.busy);
-    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'ss-spawn-btn', 'pm-spawn-btn', 'dvn-spawn-btn']) {
+    for (const id of ['si-spawn-btn', 'ast-spawn-btn', 'pong-spawn-btn', 'pm-spawn-btn', 'dvn-spawn-btn']) {
       const btn = document.getElementById(id);
       if (!btn) continue;
       btn.disabled = anyBusy;
@@ -723,6 +804,9 @@ const BackgroundSettings = (() => {
     if (vuSpeedValEl) vuSpeedValEl.textContent = (state.vuSpeed / 10).toFixed(1) + 's';
     // Event spawn buttons — dim all while any event is busy
     _syncEventSpawnBtns();
+    // Arcade primary color picker
+    const primaryEl = document.getElementById('arcade-primary-color');
+    if (primaryEl) primaryEl.value = state.arcadePrimaryColor || '#ffee00';
     // Arcade ambient sub-effect toggles
     _setToggle('ambient-raster-btn',  state.arcadeRasterBeam !== false);
     _setToggle('ambient-dust-btn',    state.arcadePixelDust  !== false);
@@ -1038,7 +1122,6 @@ const BackgroundSettings = (() => {
     document.getElementById('si-spawn-btn')?.addEventListener('click',   () => _spawnEvent('spaceInvaders'));
     document.getElementById('ast-spawn-btn')?.addEventListener('click',  () => _spawnEvent('asteroids'));
     document.getElementById('pong-spawn-btn')?.addEventListener('click', () => _spawnEvent('pong'));
-    document.getElementById('ss-spawn-btn')?.addEventListener('click',   () => _spawnEvent('sideScroller'));
     document.getElementById('pm-spawn-btn')?.addEventListener('click',   () => _spawnEvent('pacman'));
     document.getElementById('dvn-spawn-btn')?.addEventListener('click',  () => _spawnEvent('datingVn'));
 
@@ -1073,6 +1156,28 @@ const BackgroundSettings = (() => {
     document.addEventListener('mousedown',  _resetIdle, { passive: true });
     document.addEventListener('keydown',    _resetIdle, { passive: true });
     document.addEventListener('touchstart', _resetIdle, { passive: true });
+
+    // Arcade Primary Color — picker + reset. Overrides --cyan live and
+    // persists to config. Effects that read --cyan via _cssVar pick up the
+    // change on the next drawn frame; no per-effect reconfig needed.
+    const primaryInput = document.getElementById('arcade-primary-color');
+    if (primaryInput) {
+      primaryInput.addEventListener('input', () => {
+        state.arcadePrimaryColor = primaryInput.value;
+        _applyPrimaryColor();
+      });
+      primaryInput.addEventListener('change', () => {
+        state.arcadePrimaryColor = primaryInput.value;
+        _applyPrimaryColor();
+        _save();
+      });
+    }
+    document.getElementById('arcade-primary-reset-btn')?.addEventListener('click', () => {
+      state.arcadePrimaryColor = '#ffee00';
+      if (primaryInput) primaryInput.value = '#ffee00';
+      _applyPrimaryColor();
+      _save();
+    });
 
     // Arcade Ambient — sub-effect toggle buttons
     [
@@ -1205,10 +1310,16 @@ const BackgroundSettings = (() => {
     if (pkg) {
       _applyColorScheme(pkg.colors);
       Object.assign(state, pkg.effects || {});
+      _applyPrimaryColor();
     }
 
     // Set data-package BEFORE _applyAll so updateMeters renders with correct theme symbols
     document.body.dataset.package = _activePackageId || '';
+    // Move effect-module sections into the Visual Package super-section body
+    // once, before any visibility logic runs. This is a physical DOM move,
+    // idempotent (only re-appends elements not already inside the target).
+    _relocateEffectSectionsIntoVisualPackage();
+    _relocateCompanionSectionsIntoCompanion();
     _applyAll();
     _applyEffectModuleVisibility();
     _renderPackageSelector();
@@ -1237,170 +1348,3 @@ const BackgroundSettings = (() => {
 
 window.BackgroundSettings = BackgroundSettings;
 
-// ── RVC Settings ─────────────────────────────────────────────────────────────
-
-const RvcSettings = (() => {
-
-  const DEFAULTS = {
-    pitchShift:  0,
-    indexRate:   0.75,
-    f0method:    'harvest',
-    protect:     0.33,
-    sourceVoice: '',
-  };
-
-  let state = { ...DEFAULTS };
-
-  function _pitchLabel(v) {
-    return v > 0 ? `+${v} st` : v < 0 ? `${v} st` : '0 st';
-  }
-
-  function _pct(val, min, max) {
-    return ((val - min) / (max - min)) * 100;
-  }
-
-  function _syncUI() {
-    const pitchEl  = document.getElementById('rvc-pitch');
-    const pitchVal = document.getElementById('rvc-pitch-val');
-    if (pitchEl) {
-      pitchEl.value = state.pitchShift;
-      pitchEl.style.setProperty('--pct', _pct(state.pitchShift, -12, 12).toFixed(1));
-    }
-    if (pitchVal) pitchVal.textContent = _pitchLabel(state.pitchShift);
-
-    const idxInt = Math.round(state.indexRate * 100);
-    const idxEl  = document.getElementById('rvc-index');
-    const idxVal = document.getElementById('rvc-index-val');
-    if (idxEl) {
-      idxEl.value = idxInt;
-      idxEl.style.setProperty('--pct', _pct(idxInt, 0, 100).toFixed(1));
-    }
-    if (idxVal) idxVal.textContent = state.indexRate.toFixed(2);
-
-    const protInt = Math.round(state.protect * 100);
-    const protEl  = document.getElementById('rvc-protect');
-    const protVal = document.getElementById('rvc-protect-val');
-    if (protEl) {
-      protEl.value = protInt;
-      protEl.style.setProperty('--pct', _pct(protInt, 0, 50).toFixed(1));
-    }
-    if (protVal) protVal.textContent = state.protect.toFixed(2);
-
-    document.querySelectorAll('input[name="rvc-f0"]').forEach(r => {
-      r.checked = r.value === state.f0method;
-    });
-
-    const srcEl = document.getElementById('rvc-source');
-    if (srcEl) srcEl.value = state.sourceVoice;
-  }
-
-  async function _populateSourceSelect() {
-    const srcEl = document.getElementById('rvc-source');
-    if (!srcEl) return;
-
-    srcEl.innerHTML = '<option value="">Kokoro (default)</option>';
-
-    try {
-      const voices = await window.claudeAPI.ttsGetVoices();
-      if (!Array.isArray(voices)) return;
-
-      let kokoroFrag = '';
-      let vitsFrag   = '';
-      let inVits     = false;
-
-      for (const v of voices) {
-        if (v.isHeader) {
-          inVits = v.label.includes('VITS');
-          continue;
-        }
-        if (v.id.startsWith('rvc:')) continue;
-
-        const opt = `<option value="${v.id}">${v.label}</option>`;
-        if (inVits) vitsFrag += opt;
-        else        kokoroFrag += opt;
-      }
-
-      if (kokoroFrag) {
-        srcEl.innerHTML += `<optgroup label="── KOKORO">${kokoroFrag}</optgroup>`;
-      }
-      if (vitsFrag) {
-        srcEl.innerHTML += `<optgroup label="── VITS ANIME">${vitsFrag}</optgroup>`;
-      }
-    } catch (e) {
-      console.warn('[RvcSettings] could not fetch voice list:', e);
-    }
-
-    srcEl.value = state.sourceVoice;
-  }
-
-  async function _save() {
-    try {
-      await window.claudeAPI.setRvcConfig({ ...state });
-    } catch (e) {
-      console.warn('[RvcSettings] save error:', e);
-    }
-  }
-
-  async function _load() {
-    try {
-      const saved = await window.claudeAPI.getRvcConfig();
-      if (saved && typeof saved === 'object') {
-        state = { ...DEFAULTS, ...saved };
-      }
-    } catch (e) {
-      console.warn('[RvcSettings] load error:', e);
-    }
-  }
-
-  function _wire() {
-    document.getElementById('btn-settings')?.addEventListener('click', _syncUI);
-
-    const pitchEl = document.getElementById('rvc-pitch');
-    pitchEl?.addEventListener('input', () => {
-      state.pitchShift = parseInt(pitchEl.value, 10);
-      document.getElementById('rvc-pitch-val').textContent = _pitchLabel(state.pitchShift);
-      pitchEl.style.setProperty('--pct', _pct(state.pitchShift, -12, 12).toFixed(1));
-    });
-    pitchEl?.addEventListener('change', _save);
-
-    const idxEl = document.getElementById('rvc-index');
-    idxEl?.addEventListener('input', () => {
-      state.indexRate = parseInt(idxEl.value, 10) / 100;
-      document.getElementById('rvc-index-val').textContent = state.indexRate.toFixed(2);
-      idxEl.style.setProperty('--pct', _pct(parseInt(idxEl.value, 10), 0, 100).toFixed(1));
-    });
-    idxEl?.addEventListener('change', _save);
-
-    const protEl = document.getElementById('rvc-protect');
-    protEl?.addEventListener('input', () => {
-      state.protect = parseInt(protEl.value, 10) / 100;
-      document.getElementById('rvc-protect-val').textContent = state.protect.toFixed(2);
-      protEl.style.setProperty('--pct', _pct(parseInt(protEl.value, 10), 0, 50).toFixed(1));
-    });
-    protEl?.addEventListener('change', _save);
-
-    document.querySelectorAll('input[name="rvc-f0"]').forEach(r => {
-      r.addEventListener('change', () => {
-        if (!r.checked) return;
-        state.f0method = r.value;
-        _save();
-      });
-    });
-
-    const srcEl = document.getElementById('rvc-source');
-    srcEl?.addEventListener('change', () => {
-      state.sourceVoice = srcEl.value;
-      _save();
-    });
-  }
-
-  async function init() {
-    await _load();
-    await _populateSourceSelect();
-    _syncUI();
-    _wire();
-  }
-
-  return { init };
-
-})();

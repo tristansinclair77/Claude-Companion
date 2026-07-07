@@ -80,4 +80,18 @@ class VisualEffect {
     this.stop();
     this.start(this._config);
   }
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Read a live CSS custom property from :root. Cheap enough to call per-frame
+   * (browsers cache the lookup). Returns `fallback` if the var is unset.
+   * Used by arcade effects to pick up the user-chosen primary color at draw
+   * time, so a color-picker change propagates instantly without any per-effect
+   * config plumbing.
+   */
+  _cssVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
 }

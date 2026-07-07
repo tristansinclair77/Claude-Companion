@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="styles/settings.css" />
   <link rel="stylesheet" href="styles/help-panel.css" />
   <link rel="stylesheet" href="styles/text-adventure.css" />
+  <link rel="stylesheet" href="styles/text-story.css" />
 </head>
 <body>
 
@@ -52,21 +53,10 @@
     </div>
     <!-- Character picker dropdown (positioned absolute, anchored to title-bar-left) -->
     <div id="char-picker" class="hidden"></div>
-    <div id="source-indicators">
-      <span id="badge-filler" class="source-badge badge-filler" title="Filler response">FILLER ●</span>
-      <span id="badge-local"  class="source-badge badge-local"  title="Local brain response">LOCAL ●</span>
-      <span id="badge-claude" class="source-badge badge-claude" title="Claude response">CLAUDE ●</span>
-    </div>
-    <!-- Music bar: shows current track, click to browse -->
-    <div id="chat-music-bar" title="Music — click to browse tracks">
-      <span class="chat-music-icon">♫</span>
-      <span id="chat-music-name">—</span>
-    </div>
-    <!-- Music dropdown (positioned absolute below bar) -->
-    <div id="music-dropdown" class="hidden">
-      <input id="md-search" class="md-search" type="text" placeholder="search tracks..." spellcheck="false" />
-      <div id="md-track-list" class="md-track-list"></div>
-    </div>
+    <!-- Developer button area — placeholder for future DEBUG-mode buttons. -->
+    <!-- In PUBLIC builds this becomes a "Powered by Claude AI" label. -->
+    <div id="developer-buttons" class="build-debug-only"></div>
+    <div id="powered-by-claude" class="build-public-only">Powered by Claude AI</div>
     <div id="window-controls">
       <button id="btn-save-chat" class="title-action-btn" title="Save this conversation to long-term memory">💾</button>
       <button id="btn-axis"      class="title-action-btn" title="View Aria's persistent emotional axis state">💠</button>
@@ -99,9 +89,12 @@
     <!-- Text Adventure overlay (replaces #output-panel when adventure mode is on) -->
     <div id="text-adventure" class="hidden"></div>
 
+    <!-- Text Story overlay (replaces #output-panel + portrait when story mode is on) -->
+    <div id="text-story" class="hidden"></div>
+
     <!-- Right: portrait -->
     <div id="portrait-panel">
-      <div id="portrait-label-wrap">
+      <div id="portrait-label-wrap" class="build-debug-only">
         <button id="portrait-label" type="button" title="Click to swap portrait manually">
           <span id="portrait-label-text">NEUTRAL</span>
           <span class="portrait-label-caret">▾</span>
@@ -114,7 +107,7 @@
       <div id="portrait-frame">
         <img id="companion-portrait" src="" alt="Companion" />
         <div id="portrait-glow" aria-hidden="true"></div>
-        <canvas id="affection-heart" width="36" height="36"></canvas>
+        <canvas id="affection-heart" class="build-debug-only" width="36" height="36"></canvas>
       </div>
       <!-- Emotional axis bars (always visible, updated by CompanionDisplay) -->
       <div id="emotion-meters"></div>
@@ -123,6 +116,16 @@
       <!-- Adventure mode: exit button shown below portrait -->
       <div id="adventure-exit-wrap">
         <button id="btn-adventure-exit">⚔ EXIT ADVENTURE</button>
+      </div>
+      <!-- Music bar: shows current track, click to browse. Themed via visual package. -->
+      <div id="chat-music-bar" title="Music — click to browse tracks">
+        <span class="chat-music-icon">♫</span>
+        <span id="chat-music-name">—</span>
+      </div>
+      <!-- Music dropdown (positioned dynamically by music-selector.js — appears ABOVE the bar since the bar sits at the bottom of the portrait panel). -->
+      <div id="music-dropdown" class="hidden">
+        <input id="md-search" class="md-search" type="text" placeholder="search tracks..." spellcheck="false" />
+        <div id="md-track-list" class="md-track-list"></div>
       </div>
     </div>
 
@@ -156,25 +159,16 @@
 
     <!-- 4 action buttons -->
     <div id="action-buttons">
-      <button class="action-btn" id="btn-mic"     title="Mic toggle (F2)">🎤 MIC</button>
       <button class="action-btn" id="btn-folder"  title="Attach file or folder">📁 FOLDER</button>
       <button class="action-btn" id="btn-screen"  title="Capture screen">👁 SCREEN</button>
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-msg-editor" title="View and delete messages from session history">📋 MSGS</button>
       <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
-      <!-- ARCHIVED: Voice buttons — TTS feature disabled, code preserved
-      <div class="voice-btn-group">
-        <button class="action-btn" id="btn-voice" title="Toggle Aria's voice (TTS)">🔊 VOICE</button><button class="action-btn action-btn-caret" id="btn-voice-picker" title="Select voice">▾</button>
-      </div>
-      END ARCHIVED -->
       <button class="action-btn" id="btn-persona" title="Force a temporary personality directive">🎭 PERSONA</button>
       <button class="action-btn" id="btn-adventure" title="Begin a text-adventure RPG with Aria">⚔ ADVENTURE</button>
-      <button class="action-btn" id="btn-requests" title="Aria's feature request wishlist">✦ REQUESTS<span id="requests-badge" class="hidden"></span></button>
+      <button class="action-btn" id="btn-story" title="Begin a narrative Story with the Storyteller">📖 STORY</button>
+      <button class="action-btn build-debug-only" id="btn-requests" title="Aria's feature request wishlist">✦ REQUESTS<span id="requests-badge" class="hidden"></span></button>
     </div>
-
-    <!-- ARCHIVED: Voice picker popup — TTS feature disabled
-    <div id="voice-picker" class="hidden"></div>
-    END ARCHIVED -->
 
     <!-- Persona force popup -->
     <div id="persona-popup" class="hidden">
@@ -244,42 +238,90 @@
     </div>
     <div class="settings-body">
 
-      <!-- Visual Package selector -->
-      <div class="settings-section">
-        <div class="settings-section-title">VISUAL PACKAGE</div>
-        <div class="pkg-selector" id="pkg-selector">
-          <!-- Rendered dynamically by settings.js -->
-        </div>
-      </div>
+      <!-- ═════════════════ BASE GAME ═════════════════ -->
+      <div class="super-section" data-super-section="baseGame">
+        <div class="super-section-header">BASE GAME</div>
+        <div class="super-section-body">
 
-      <!-- UI Scale -->
-      <div class="settings-section">
-        <div class="settings-section-title">UI SCALE</div>
-        <div class="settings-row">
-          <span class="settings-label">ZOOM</span>
-          <div class="zoom-stepper">
-            <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
-            <span class="zoom-val" id="zoom-val">100%</span>
-            <button class="zoom-btn" id="btn-zoom-in"  title="Zoom in">+</button>
+          <!-- UI Scale -->
+          <div class="settings-section">
+            <div class="settings-section-title">UI SCALE</div>
+            <div class="settings-row">
+              <span class="settings-label">ZOOM</span>
+              <div class="zoom-stepper">
+                <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
+                <span class="zoom-val" id="zoom-val">100%</span>
+                <button class="zoom-btn" id="btn-zoom-in"  title="Zoom in">+</button>
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
 
-      <!-- Response Length -->
-      <div class="settings-section">
-        <div class="settings-section-title">RESPONSE LENGTH</div>
-        <div class="settings-row">
-          <div class="settings-radio-group" id="response-length-group">
-            <label><input type="radio" name="response-length" value="very_short"> XS</label>
-            <label><input type="radio" name="response-length" value="short">      S</label>
-            <label><input type="radio" name="response-length" value="medium">     M</label>
-            <label><input type="radio" name="response-length" value="long">       L</label>
-            <label><input type="radio" name="response-length" value="very_long">  XL</label>
+      <!-- ═════════════════ VISUAL PACKAGE ═════════════════ -->
+      <div class="super-section" data-super-section="visualPackage">
+        <div class="super-section-header">VISUAL PACKAGE</div>
+        <div class="super-section-body">
+
+          <!-- Visual Package selector -->
+          <div class="settings-section">
+            <div class="settings-section-title">PACKAGE</div>
+            <div class="pkg-selector" id="pkg-selector">
+              <!-- Rendered dynamically by settings.js -->
+            </div>
           </div>
+
+          <!-- Effect module sub-sections live below this comment and are
+               shown/hidden dynamically by settings.js based on the active
+               package's effectModules array. -->
         </div>
       </div>
 
-      <!-- Adventure Text -->
+      <!-- ═════════════════ COMPANION ═════════════════ -->
+      <!-- Hidden when in Adventure or Story mode. -->
+      <div class="super-section companion-mode-only" data-super-section="companion">
+        <div class="super-section-header">COMPANION</div>
+        <div class="super-section-body">
+
+          <!-- Response Length -->
+          <div class="settings-section">
+            <div class="settings-section-title">RESPONSE LENGTH</div>
+            <div class="settings-row">
+              <div class="settings-radio-group" id="response-length-group">
+                <label><input type="radio" name="response-length" value="very_short"> XS</label>
+                <label><input type="radio" name="response-length" value="short">      S</label>
+                <label><input type="radio" name="response-length" value="medium">     M</label>
+                <label><input type="radio" name="response-length" value="long">       L</label>
+                <label><input type="radio" name="response-length" value="very_long">  XL</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Companion Music — writes the "companion" volume slot -->
+          <div class="settings-section">
+            <div class="settings-section-title">MUSIC</div>
+            <div class="settings-slider-row">
+              <span class="settings-label">VOLUME</span>
+              <input class="settings-slider" type="range" id="music-volume-companion" min="0" max="100" value="50" step="1" />
+              <span class="settings-slider-val" id="music-volume-companion-val">50%</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">ENABLED</span>
+              <button class="settings-toggle" id="music-enabled-btn">ON</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═════════════════ ADVENTURE ═════════════════ -->
+      <!-- Only visible when in Adventure mode. -->
+      <div class="super-section adventure-mode-only" data-super-section="adventure">
+        <div class="super-section-header">ADVENTURE</div>
+        <div class="super-section-body">
+
+      <!-- Adventure Text (only visible when in Adventure mode) -->
       <div class="settings-section">
         <div class="settings-section-title">ADVENTURE TEXT</div>
         <div class="settings-row">
@@ -318,14 +360,10 @@
       <!-- Adventure Music -->
       <div class="settings-section">
         <div class="settings-section-title">ADVENTURE MUSIC</div>
-        <div class="settings-row">
-          <span class="settings-label">ENABLED</span>
-          <button class="settings-toggle" id="music-enabled-btn">ON</button>
-        </div>
         <div class="settings-slider-row">
           <span class="settings-label">VOLUME</span>
-          <input class="settings-slider" type="range" id="music-volume" min="0" max="100" value="55" step="1" />
-          <span class="settings-slider-val" id="music-volume-val">55%</span>
+          <input class="settings-slider" type="range" id="music-volume-adventure" min="0" max="100" value="50" step="1" />
+          <span class="settings-slider-val" id="music-volume-adventure-val">50%</span>
         </div>
         <div class="settings-row">
           <span class="settings-label">LOOP</span>
@@ -344,6 +382,35 @@
           <span class="settings-hint" id="music-status-text">— stopped —</span>
         </div>
       </div>
+
+        </div>
+      </div>
+      <!-- End ADVENTURE super-section -->
+
+      <!-- ═════════════════ STORY ═════════════════ -->
+      <!-- Only visible when in Story mode. -->
+      <div class="super-section story-mode-only" data-super-section="story">
+        <div class="super-section-header">STORY</div>
+        <div class="super-section-body">
+
+          <div class="settings-section">
+            <div class="settings-section-title">STORY MUSIC</div>
+            <div class="settings-slider-row">
+              <span class="settings-label">VOLUME</span>
+              <input class="settings-slider" type="range" id="music-volume-story" min="0" max="100" value="50" step="1" />
+              <span class="settings-slider-val" id="music-volume-story-val">50%</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-row">
+              <span class="settings-hint">Per-story settings (segment length, prose style, NSFW level, choice frequency) live in the story's own <em>⚙ SETTINGS</em> overlay inside the story panel.</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- End STORY super-section -->
 
       <!-- Seasons (Fantasy RPG package) -->
       <div class="settings-section" data-effect-module="seasons">
@@ -374,6 +441,19 @@
         <div class="settings-row">
           <span class="settings-label">SURFACE</span>
           <span class="settings-hint">CRT glass glare, vignette &amp; rim lights</span>
+        </div>
+      </div>
+
+      <!-- Arcade Primary Color — top of the arcade block. Overrides --cyan
+           while the arcade package is active. Changes the border, marquee
+           text, and each event's core color (SI ship, Asteroids ship,
+           Pong paddles + ball glow, Pac-Man maze walls, VN cursor). -->
+      <div class="settings-section" data-effect-module="arcadeBorder">
+        <div class="settings-section-title">PRIMARY COLOR</div>
+        <div class="settings-row">
+          <span class="settings-label">COLOR</span>
+          <input type="color" class="settings-color-input" id="arcade-primary-color" value="#ffee00" title="Primary arcade color — border, marquee, ships, paddles, maze, cursor" />
+          <button class="settings-toggle" id="arcade-primary-reset-btn" title="Reset to default yellow">RESET</button>
         </div>
       </div>
 
@@ -425,18 +505,9 @@
         </div>
       </div>
 
-      <!-- Side Scroller random event (Arcade Cabinet package) -->
-      <div class="settings-section" data-effect-module="sideScroller">
-        <div class="settings-section-title">SIDE SCROLLER</div>
-        <div class="settings-row">
-          <span class="settings-label">RANDOM EVENT</span>
-          <span class="settings-hint">Hero battles monsters, boss kills hero</span>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label">SPAWN</span>
-          <button class="settings-toggle active" id="ss-spawn-btn">SPAWN</button>
-        </div>
-      </div>
+      <!-- Side Scroller — DISABLED. Effect code preserved in
+           src/renderer/js/effects/SideScrollerEffect.js but the event is no
+           longer selectable and the settings row was removed. -->
 
       <!-- Pac-Man Chase random event (Arcade Cabinet package) -->
       <div class="settings-section" data-effect-module="pacman">
@@ -513,7 +584,7 @@
       <div class="settings-section" data-effect-module="wraithSpirits">
         <div class="settings-section-title">SPIRITS</div>
         <div class="settings-row">
-          <span class="settings-label">GHOST</span>
+          <span class="settings-label">MOTE</span>
           <button class="settings-toggle active" id="wraith-ghost-toggle">ON</button>
           <button class="settings-toggle active" id="wraith-ghost-spawn-btn">SPAWN</button>
         </div>
@@ -632,8 +703,9 @@
         </div>
       </div>
 
-      <!-- Axis Meters -->
-      <div class="settings-section">
+      <!-- Axis Meters — generic (companion) settings only.
+           Moved into COMPANION super-section on init by settings.js. -->
+      <div class="settings-section" id="axis-meters-settings">
         <div class="settings-section-title">AXIS METERS</div>
 
         <div class="settings-slider-row">
@@ -641,19 +713,23 @@
           <input class="settings-slider" type="range" id="bar-width" min="20" max="100" value="100" step="5" />
           <span class="settings-slider-val" id="bar-width-val">100%</span>
         </div>
+      </div>
 
-        <!-- VU Bounce controls — visible for packages that include 'vuBounce' in effectModules -->
-        <div data-effect-module="vuBounce">
-          <div class="settings-slider-row">
-            <span class="settings-label">BOUNCE AMP</span>
-            <input class="settings-slider" type="range" id="vu-amp" min="1" max="15" value="5" step="1" />
-            <span class="settings-slider-val" id="vu-amp-val">5%</span>
-          </div>
-          <div class="settings-slider-row">
-            <span class="settings-label">BOUNCE SPEED</span>
-            <input class="settings-slider" type="range" id="vu-speed" min="5" max="60" value="22" step="1" />
-            <span class="settings-slider-val" id="vu-speed-val">2.2s</span>
-          </div>
+      <!-- VU Bounce — the visual-package effect that animates the axis meters.
+           Tagged data-effect-module so the effect-relocate step moves it into
+           the VISUAL PACKAGE super-section and settings.js hides it when the
+           active package's effectModules doesn't include 'vuBounce'. -->
+      <div class="settings-section" data-effect-module="vuBounce">
+        <div class="settings-section-title">VU BOUNCE</div>
+        <div class="settings-slider-row">
+          <span class="settings-label">BOUNCE AMP</span>
+          <input class="settings-slider" type="range" id="vu-amp" min="1" max="15" value="5" step="1" />
+          <span class="settings-slider-val" id="vu-amp-val">5%</span>
+        </div>
+        <div class="settings-slider-row">
+          <span class="settings-label">BOUNCE SPEED</span>
+          <input class="settings-slider" type="range" id="vu-speed" min="5" max="60" value="22" step="1" />
+          <span class="settings-slider-val" id="vu-speed-val">2.2s</span>
         </div>
       </div>
 
@@ -668,45 +744,6 @@
             <label><input type="radio" name="bg-scanlines" value="light">  LT</label>
             <label><input type="radio" name="bg-scanlines" value="medium"> MED</label>
             <label><input type="radio" name="bg-scanlines" value="heavy">  HVY</label>
-          </div>
-        </div>
-      </div>
-
-      <!-- RVC Voice Conversion -->
-      <div class="settings-section" id="rvc-settings-section">
-        <div class="settings-section-title">RVC VOICE</div>
-
-        <div class="settings-slider-row">
-          <span class="settings-label">PITCH</span>
-          <input class="settings-slider" type="range" id="rvc-pitch" min="-12" max="12" value="0" step="1" />
-          <span class="settings-slider-val" id="rvc-pitch-val">0 st</span>
-        </div>
-
-        <div class="settings-slider-row">
-          <span class="settings-label">INDEX</span>
-          <input class="settings-slider" type="range" id="rvc-index" min="0" max="100" value="75" step="5" />
-          <span class="settings-slider-val" id="rvc-index-val">0.75</span>
-        </div>
-
-        <div class="settings-slider-row">
-          <span class="settings-label">PROTECT</span>
-          <input class="settings-slider" type="range" id="rvc-protect" min="0" max="50" value="33" step="5" />
-          <span class="settings-slider-val" id="rvc-protect-val">0.33</span>
-        </div>
-
-        <div class="settings-row">
-          <span class="settings-label">SOURCE</span>
-          <select class="settings-select" id="rvc-source">
-            <option value="">Kokoro (default)</option>
-          </select>
-        </div>
-
-        <div class="settings-row">
-          <span class="settings-label">F0 METHOD</span>
-          <div class="settings-radio-group">
-            <label><input type="radio" name="rvc-f0" value="harvest"> HRV</label>
-            <label><input type="radio" name="rvc-f0" value="rmvpe">  RMVPE</label>
-            <label><input type="radio" name="rvc-f0" value="pm">     PM</label>
           </div>
         </div>
       </div>
@@ -731,12 +768,10 @@
 
   <!-- Renderer scripts (order matters) -->
   <script src="js/ui-effects.js"></script>
-  <script src="js/source-indicator.js"></script>
   <script src="js/companion-display.js"></script>
   <script src="js/emotion-picker.js"></script>
   <script src="js/file-attach.js"></script>
   <script src="js/screen-capture-ui.js"></script>
-  <script src="js/mic-controller.js"></script>
   <!-- ARCHIVED: TTS controller — voice feature disabled: <script src="js/tts-controller.js"></script> -->
   <script src="js/chat-controller.js"></script>
   <!-- Visual Package system (load order: base classes → registry → effects → packages → manager) -->
@@ -767,6 +802,7 @@
   <script src="js/music-settings.js"></script>
   <script src="js/music-selector.js"></script>
   <script src="js/text-adventure.js"></script>
+  <script src="js/text-story.js"></script>
   <script src="js/adventure-settings.js"></script>
   <script src="js/app.js"></script>
 </body>

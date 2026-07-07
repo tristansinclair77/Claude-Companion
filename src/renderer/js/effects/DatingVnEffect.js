@@ -613,11 +613,12 @@ class DatingVnEffect extends VisualEffect {
       ctx.fillText(wrapped[i], textX, textY + i * lineH);
     }
 
-    // Block cursor
+    // Block cursor — overrides the per-scene accent with the arcade primary
+    // color so the blinking indicator stays consistent across scenes.
     if (this._cursorVis) {
       const last   = wrapped[wrapped.length - 1] || '';
       const rowOff = (wrapped.length - 1) * lineH;
-      ctx.fillStyle = acFull;
+      ctx.fillStyle = this._cssVar('--cyan', '#ffee00');
       ctx.fillText('█', textX + ctx.measureText(last).width + 2, textY + rowOff);
     }
 

@@ -34,12 +34,12 @@ class ArcadeEffect extends VisualEffect {
   static get BOTTOM_H()  { return 26; }   // bottom bezel height (px)
   static get LINE_W()    { return 2;  }   // bright inner border line thickness
 
-  // Colors — arcade primary palette
+  // Colors — arcade palette. The bezel/accent/dim stay fixed; the bright
+  // yellow border and marquee text follow the arcade primary color (--cyan),
+  // read live from CSS so a color-picker change is picked up next frame.
   static get C_BEZEL()   { return '#0e0a0a'; }  // dark cabinet body
-  static get C_BORDER()  { return '#ffee00'; }  // player-1 yellow border line
   static get C_ACCENT()  { return '#ff2200'; }  // p2 red accent
   static get C_DIM()     { return '#886600'; }  // dim yellow (outer edge)
-  static get C_TEXT()    { return '#ffee00'; }  // marquee text
 
   static get MARQUEE_TEXT() {
     return '  INSERT COIN  ✦  PLAYER 1 READY  ✦  HI-SCORE 000000  ✦  PRESS START  ✦  GAME OVER  ✦  1UP  ✦  CONTINUE?  ✦  ';
@@ -114,7 +114,7 @@ class ArcadeEffect extends VisualEffect {
         life:  1.0,
         decay: 0.011 + Math.random() * 0.010,
         size:  2 + Math.floor(Math.random() * 4),
-        color: Math.random() < 0.55 ? '#ffee00' : (Math.random() < 0.5 ? '#ffffff' : '#ffaa00'),
+        color: Math.random() < 0.55 ? this._cssVar('--cyan', '#ffee00') : (Math.random() < 0.5 ? '#ffffff' : '#ffaa00'),
       });
     }
   }
@@ -155,8 +155,9 @@ class ArcadeEffect extends VisualEffect {
     ctx.fillRect(S, H - BH, W - S * 2, BH);
 
     // ── Inner bright border — the "screen bezel" rectangle ──────────────────
-    // Top line (just below title bar)
-    ctx.fillStyle = ArcadeEffect.C_BORDER;
+    // Top line (just below title bar). Border tracks the arcade primary color.
+    const primary = this._cssVar('--cyan', '#ffee00');
+    ctx.fillStyle = primary;
     ctx.fillRect(0, TH, W, LW);
 
     // Left inner edge
@@ -230,9 +231,11 @@ class ArcadeEffect extends VisualEffect {
     ctx.rect(clipX, H - BH + ArcadeEffect.LINE_W + 1, clipW, BH - ArcadeEffect.LINE_W - 2);
     ctx.clip();
 
+    // Marquee text tracks the primary color. Glow uses the same color.
+    const primary = this._cssVar('--cyan', '#ffee00');
     ctx.font        = 'bold 10px "Courier New", monospace';
-    ctx.fillStyle   = ArcadeEffect.C_TEXT;
-    ctx.shadowColor = '#ffee0088';
+    ctx.fillStyle   = primary;
+    ctx.shadowColor = primary;
     ctx.shadowBlur  = 5;
     // Draw enough copies to fill the entire clip region — no gaps regardless of screen width
     for (let x = this._marqueeX; x < clipX + clipW; x += this._textW) {

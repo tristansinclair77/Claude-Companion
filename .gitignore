@@ -44,6 +44,9 @@ characters/*/text-adventure-gm-chat.json
 characters/*/text-adventure-implementation-tasks.md
 characters/*/text-adventure-debug-responses.json
 
+# Text-story runtime state (each story lives in its own folder here)
+stories/
+
 # RVC server Python 3.10 venv (large, recreatable — see scripts/rvc-server/requirements.txt)
 scripts/rvc-server/venv/
 

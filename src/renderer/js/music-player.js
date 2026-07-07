@@ -12,9 +12,26 @@ const MusicPlayer = (function () {
   let _audA, _audB;
   let _active = 'A';          // which element is currently the primary
   let _enabled    = true;
-  let _volume     = 0.55;     // 0..1 — user-facing master volume
+  // Per-mode volume slots. The active volume is whichever slot matches
+  // the current app mode (companion / adventure / story). Music re-adjusts
+  // automatically when the user switches modes so a 50% Companion setting
+  // and 100% Adventure setting are BOTH respected.
+  let _volumes    = { companion: 0.50, adventure: 0.50, story: 0.50 };
   let _loopMode   = 'crossfade';  // 'crossfade' | 'finish_restart'
   let _crossfadeMs = CROSSFADE_MS_DEFAULT;
+
+  // Read current mode from body class. Adventure and Story are mutually
+  // exclusive; Companion is the default when neither is active.
+  function _currentMode() {
+    if (document.body.classList.contains('adventure-mode')) return 'adventure';
+    if (document.body.classList.contains('story-mode'))     return 'story';
+    return 'companion';
+  }
+  function _effectiveVolume() {
+    const m = _currentMode();
+    const v = _volumes[m];
+    return typeof v === 'number' ? v : 0.5;
+  }
 
   let _currentCue = null;      // { bibleId, name, file, variant, ... } or null
   let _pausedByUser = false;
@@ -34,11 +51,26 @@ const MusicPlayer = (function () {
       const s = await window.musicAPI.getSettings();
       if (s) {
         if (typeof s.enabled  === 'boolean') _enabled  = s.enabled;
-        if (typeof s.volume   === 'number')  _volume   = s.volume;
+        if (s.volumes && typeof s.volumes === 'object') {
+          if (typeof s.volumes.companion === 'number') _volumes.companion = s.volumes.companion;
+          if (typeof s.volumes.adventure === 'number') _volumes.adventure = s.volumes.adventure;
+          if (typeof s.volumes.story     === 'number') _volumes.story     = s.volumes.story;
+        } else if (typeof s.volume === 'number') {
+          _volumes.companion = _volumes.adventure = _volumes.story = s.volume;
+        }
         if (typeof s.loopMode === 'string')  _loopMode = s.loopMode;
         if (typeof s.crossfadeMs === 'number') _crossfadeMs = s.crossfadeMs;
       }
     } catch (e) { /* fine, use defaults */ }
+
+    // Watch for mode changes on body class — when the user enters/exits
+    // Adventure or Story, the effective volume slot flips; the currently
+    // playing track needs to smoothly rebalance to the new slot.
+    const modeObserver = new MutationObserver(() => {
+      const cur = _active === 'A' ? _audA : _audB;
+      if (cur && !cur.paused) cur.volume = _effectiveVolume();
+    });
+    modeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
     // Subscribe to push directives from the main process
     if (window.musicAPI && typeof window.musicAPI.onCue === 'function') {
@@ -48,7 +80,7 @@ const MusicPlayer = (function () {
     }
 
     _startLoopWatcher();
-    console.log('[MusicPlayer] initialized — volume:', _volume, 'loopMode:', _loopMode, 'enabled:', _enabled);
+    console.log('[MusicPlayer] initialized — volumes:', _volumes, 'loopMode:', _loopMode, 'enabled:', _enabled);
   }
 
   // ── Cue directive entry point ─────────────────────────────────────────────
@@ -112,13 +144,25 @@ const MusicPlayer = (function () {
     _onNowPlayingChanged();
   }
 
-  function setVolume(v) {
-    _volume = Math.max(0, Math.min(1, Number(v) || 0));
-    // Apply to whichever is currently active
-    const cur = _active === 'A' ? _audA : _audB;
-    if (cur && !cur.paused) cur.volume = _volume;
-    window.musicAPI && window.musicAPI.setSettings({ volume: _volume });
+  // setVolume(value, opts?) — writes to the given mode slot (defaults to
+  // the current mode). Renderer UIs pass their mode explicitly so the
+  // Companion slider always writes companion, the Adventure slider always
+  // writes adventure, etc., regardless of what mode is currently active.
+  function setVolume(v, opts = {}) {
+    const value = Math.max(0, Math.min(1, Number(v) || 0));
+    const mode  = (opts.mode === 'adventure' || opts.mode === 'story' || opts.mode === 'companion')
+      ? opts.mode
+      : _currentMode();
+    _volumes[mode] = value;
+    // If the slot we just wrote is the CURRENTLY-EFFECTIVE one, apply live.
+    if (mode === _currentMode()) {
+      const cur = _active === 'A' ? _audA : _audB;
+      if (cur && !cur.paused) cur.volume = value;
+    }
+    window.musicAPI && window.musicAPI.setSettings({ volumes: { [mode]: value } });
   }
+  function getVolumes() { return { ...volumesSnapshot() }; }
+  function volumesSnapshot() { return { companion: _volumes.companion, adventure: _volumes.adventure, story: _volumes.story }; }
 
   function setLoopMode(mode) {
     if (mode !== 'crossfade' && mode !== 'finish_restart') return;
@@ -159,7 +203,7 @@ const MusicPlayer = (function () {
       playPromise.catch((e) => console.warn('[MusicPlayer] play failed:', e && e.message));
     }
     _active = _active === 'A' ? 'B' : 'A';
-    _fadeVolume(next, 0, _volume, _crossfadeMs);
+    _fadeVolume(next, 0, _effectiveVolume(), _crossfadeMs);
     _fadeVolume(prev, prev.volume, 0, _crossfadeMs, () => { try { prev.pause(); } catch {} prev.src = ''; });
   }
 
@@ -206,7 +250,7 @@ const MusicPlayer = (function () {
         if (cur.ended && !cur._restartFiring) {
           cur._restartFiring = true;
           cur.currentTime = 0;
-          cur.volume = _volume;
+          cur.volume = _effectiveVolume();
           const p = cur.play();
           if (p && typeof p.then === 'function') p.catch(() => {});
           setTimeout(() => { cur._restartFiring = false; }, 300);
@@ -219,7 +263,7 @@ const MusicPlayer = (function () {
     document.dispatchEvent(new CustomEvent('music:now-playing', { detail: getNowPlaying() }));
   }
 
-  return { init, playCue, pause, resume, stop, setVolume, setLoopMode, setEnabled, getNowPlaying };
+  return { init, playCue, pause, resume, stop, setVolume, getVolumes, setLoopMode, setEnabled, getNowPlaying };
 })();
 
 window.MusicPlayer = MusicPlayer;

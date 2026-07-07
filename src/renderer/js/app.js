@@ -31,18 +31,9 @@
   FileAttach.init();
   PersonaPopup.init();
   ScreenCaptureUI.init();
-  MicController.init((transcript) => {
-    // When Whisper transcription is ready, auto-fill input
-    const input = document.getElementById('user-input');
-    if (input && transcript) {
-      input.value = transcript;
-      input.focus();
-    }
-  });
 
   ChatController.init();
   BackgroundSettings.init();
-  // ARCHIVED: RvcSettings.init(); — voice feature disabled
   HelpPanel.init();
   MusicSelector.init();
 
@@ -145,6 +136,15 @@
 
   // Handle app:init event from main process (character data, memories, etc.)
   window.claudeAPI.on('app:init', (data) => {
+    // Apply build mode class before any other rendering runs so DEBUG-only
+    // elements never flash on-screen in a PUBLIC build.
+    const mode = (data && data.buildMode === 'public') ? 'public' : 'debug';
+    document.body.classList.add('build-' + mode);
+    // Also expose for JS code that wants to gate features
+    window.BUILD_MODE     = mode;
+    window.IS_DEBUG_BUILD = (mode === 'debug');
+    window.IS_PUBLIC_BUILD = (mode === 'public');
+
     if (data && data.character) {
       charNameEl.textContent = data.character.name.toUpperCase();
       if (data.characterId) {
@@ -196,6 +196,15 @@
     const btnAdventure = document.getElementById('btn-adventure');
     if (btnAdventure) {
       btnAdventure.addEventListener('click', () => TextAdventure.toggle());
+    }
+  }
+
+  // ── Text Story — narrative panel, no Aria involvement ──────────────────────
+  if (typeof TextStory !== 'undefined') {
+    TextStory.init();
+    const btnStory = document.getElementById('btn-story');
+    if (btnStory) {
+      btnStory.addEventListener('click', () => TextStory.toggle());
     }
   }
 

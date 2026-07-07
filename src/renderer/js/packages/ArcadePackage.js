@@ -51,10 +51,73 @@ class ArcadePackage extends VisualPackage {
       '--thoughts-color':'#886600',
     };
 
+    // ── Settings menu theme ─────────────────────────────────────────────────
+    // Arcade: chunky pixel-block bezel, 8-bit palette, ridge borders like a
+    // cabinet marquee. Zero corner radius (pixels don't curve) and blocky
+    // dividers. Faint checker pattern in the section bodies for that
+    // sprite-sheet feel.
+    this.settingsTheme = {
+      panelBg:              '#0a0800',
+      // 2×2 pixel checker — reads as a subtle 8-bit texture behind the content.
+      patternSvg:           `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='2' height='2' fill='%23ffee00' opacity='0.6'/><rect x='2' y='2' width='2' height='2' fill='%23ffee00' opacity='0.6'/></svg>`,
+      patternOpacity:       0.06,
+      patternSize:          '4px',
+      borderStyle:          'ridge',
+      borderWidth:          '3px',
+      cornerRadius:         '0',
+      headerFont:           "'Press Start 2P', 'Courier New', monospace",
+      headerTransform:      'uppercase',
+      headerLetterSpacing:  '3px',
+      headerWeight:         'normal',
+      headerFontSize:       '10px',
+      headerPadding:        '12px 16px',
+      headerDividerHeight:  '3px',
+      sections: {
+        baseGame: {
+          headerBg:    'linear-gradient(180deg, #ffee00 0%, color-mix(in srgb, #ffee00 30%, #0a0800) 100%)',
+          bodyBg:      'color-mix(in srgb, #ffee00 5%, #0a0800)',
+          headerColor: '#0a0800',
+          borderColor: '#997700',
+          accent:      '#ffee00',
+        },
+        visualPackage: {
+          headerBg:    'linear-gradient(180deg, #00dd44 0%, color-mix(in srgb, #00dd44 30%, #0a0800) 100%)',
+          bodyBg:      'color-mix(in srgb, #00dd44 5%, #0a0800)',
+          headerColor: '#0a0800',
+          borderColor: '#008833',
+          accent:      '#00dd44',
+        },
+        companion: {
+          headerBg:    'linear-gradient(180deg, #ff2200 0%, color-mix(in srgb, #ff2200 30%, #0a0800) 100%)',
+          bodyBg:      'color-mix(in srgb, #ff2200 5%, #0a0800)',
+          headerColor: '#fff',
+          borderColor: '#aa1500',
+          accent:      '#ff2200',
+        },
+        adventure: {
+          headerBg:    'linear-gradient(180deg, #ff6600 0%, color-mix(in srgb, #ff6600 30%, #0a0800) 100%)',
+          bodyBg:      'color-mix(in srgb, #ff6600 5%, #0a0800)',
+          headerColor: '#fff',
+          borderColor: '#aa4400',
+          accent:      '#ff6600',
+        },
+        story: {
+          headerBg:    'linear-gradient(180deg, #00aaff 0%, color-mix(in srgb, #00aaff 30%, #0a0800) 100%)',
+          bodyBg:      'color-mix(in srgb, #00aaff 5%, #0a0800)',
+          headerColor: '#0a0800',
+          borderColor: '#0077bb',
+          accent:      '#00aaff',
+        },
+      },
+    };
+
     // ── Effects ──────────────────────────────────────────────────────────────
-    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'pong', 'sideScroller', 'pacman', 'datingVn', 'arcadeAmbient', 'scanlines', 'filmGrain'];
+    // Side Scroller intentionally omitted — the code still exists but it is no
+    // longer selectable as a random event and its settings row is hidden.
+    this.effectModules = ['tvGlass', 'arcadeBorder', 'spaceInvaders', 'asteroids', 'pong', 'pacman', 'datingVn', 'arcadeAmbient', 'scanlines', 'filmGrain'];
 
     this.defaultEffects = {
+      arcadePrimaryColor:  '#ffee00', // player-1 yellow; overrides --cyan when arcade package is active
       grid:                'off',
       gridColor:           'cyan',
       gridAnimate:         false,
@@ -80,7 +143,6 @@ class ArcadePackage extends VisualPackage {
         spaceInvaders:  true,
         asteroids:      true,
         pong:           true,
-        sideScroller:   true,
         pacman:         true,
         datingVn:       true,
         arcadeAmbient:  true,

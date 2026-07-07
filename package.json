@@ -4,11 +4,13 @@
   "description": "Desktop AI Companion with cyberpunk anime UI — powered by Claude Code CLI",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "node scripts/launch.js",
-    "dev": "node scripts/launch.js --dev",
+    "start":        "node scripts/launch.js",
+    "dev":          "node scripts/launch.js --dev",
+    "build:debug":  "cross-env CLAUDE_COMPANION_BUILD=debug  node scripts/launch.js",
+    "build:public": "cross-env CLAUDE_COMPANION_BUILD=public node scripts/launch.js",
     "debug-viewer": "node scripts/launch-debug-viewer.js",
     "char-builder": "node scripts/launch-char-builder.js",
-    "rebuild": "electron-rebuild"
+    "rebuild":      "electron-rebuild"
   },
   "keywords": [
     "ai",
@@ -24,7 +26,6 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
-    "kokoro-js": "^1.2.1"
+    "better-sqlite3": "^12.6.2"
   }
 }

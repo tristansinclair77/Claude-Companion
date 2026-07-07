@@ -83,7 +83,18 @@ const MusicSelector = (() => {
     if (!_bar || !_dropdown) return;
     const rect = _bar.getBoundingClientRect();
     _dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-    _dropdown.style.top = rect.bottom + 'px';
+    // Prefer opening ABOVE the bar (bar now sits at the bottom of the
+    // portrait panel). Fall back to below if there's more room down.
+    const dropdownH = _dropdown.offsetHeight || 400;   // 380 max-height on list + input
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceAbove >= dropdownH || spaceAbove > spaceBelow) {
+      _dropdown.style.top    = 'auto';
+      _dropdown.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    } else {
+      _dropdown.style.bottom = 'auto';
+      _dropdown.style.top    = (rect.bottom + 6) + 'px';
+    }
   }
 
   async function _openDropdown() {

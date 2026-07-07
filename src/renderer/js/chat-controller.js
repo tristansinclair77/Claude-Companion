@@ -104,9 +104,6 @@ var ChatController = (() => {
           bodyState: response.bodyState || null,
         });
 
-        // Update source indicator
-        SourceIndicator.update(response.source);
-
         lastResponseSource = response.source;
 
         // If it was a filler or local, hide loading immediately
@@ -129,7 +126,6 @@ var ChatController = (() => {
           emotion: 'concerned',
           source: 'claude',
         });
-        SourceIndicator.update('claude');
       }
     } catch (err) {
       loadingEl.classList.add('hidden');

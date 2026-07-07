@@ -49,9 +49,71 @@ class CyberneticPackage extends VisualPackage {
       '--thoughts-color':'#558866',
     };
 
+    // ── Settings menu theme ─────────────────────────────────────────────────
+    // Cybernetic: sharp angular corners, circuit-board hex pattern, LED-glow
+    // borders with subtle chromatic edge. Uses hard 90° corners (no radius)
+    // and single-pixel double borders for a screen-print PCB feel.
+    this.settingsTheme = {
+      panelBg:              'var(--bg-dark)',
+      // Faint hexagonal PCB pattern — feels like a circuit board etched into
+      // the section body without becoming visually loud.
+      patternSvg:           `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'><path d='M14 0L28 8v16L14 32L0 24V8Z' fill='none' stroke='%2300ffcc' stroke-width='0.5' opacity='0.4'/></svg>`,
+      patternOpacity:       0.06,
+      patternSize:          '28px 32px',
+      borderStyle:          'solid',
+      borderWidth:          '1px',
+      cornerRadius:         '0',
+      headerFont:           'inherit',
+      headerTransform:      'uppercase',
+      headerLetterSpacing:  '3px',
+      headerWeight:         'bold',
+      headerFontSize:       '11px',
+      headerPadding:        '8px 14px',
+      headerDividerHeight:  '1px',
+      sections: {
+        baseGame: {
+          headerBg:    'linear-gradient(90deg, color-mix(in srgb, var(--cyan) 18%, var(--bg-panel)), var(--bg-panel))',
+          bodyBg:      'color-mix(in srgb, var(--cyan) 4%, var(--bg-panel))',
+          headerColor: 'var(--cyan)',
+          borderColor: 'color-mix(in srgb, var(--cyan) 45%, transparent)',
+          accent:      'var(--cyan)',
+        },
+        visualPackage: {
+          headerBg:    'linear-gradient(90deg, color-mix(in srgb, var(--green) 18%, var(--bg-panel)), var(--bg-panel))',
+          bodyBg:      'color-mix(in srgb, var(--green) 4%, var(--bg-panel))',
+          headerColor: 'var(--green)',
+          borderColor: 'color-mix(in srgb, var(--green) 45%, transparent)',
+          accent:      'var(--green)',
+        },
+        companion: {
+          headerBg:    'linear-gradient(90deg, color-mix(in srgb, var(--magenta) 18%, var(--bg-panel)), var(--bg-panel))',
+          bodyBg:      'color-mix(in srgb, var(--magenta) 4%, var(--bg-panel))',
+          headerColor: 'var(--magenta)',
+          borderColor: 'color-mix(in srgb, var(--magenta) 45%, transparent)',
+          accent:      'var(--magenta)',
+        },
+        adventure: {
+          headerBg:    'linear-gradient(90deg, color-mix(in srgb, var(--orange) 18%, var(--bg-panel)), var(--bg-panel))',
+          bodyBg:      'color-mix(in srgb, var(--orange) 4%, var(--bg-panel))',
+          headerColor: 'var(--orange)',
+          borderColor: 'color-mix(in srgb, var(--orange) 45%, transparent)',
+          accent:      'var(--orange)',
+        },
+        story: {
+          headerBg:    'linear-gradient(90deg, color-mix(in srgb, var(--yellow) 18%, var(--bg-panel)), var(--bg-panel))',
+          bodyBg:      'color-mix(in srgb, var(--yellow) 4%, var(--bg-panel))',
+          headerColor: 'var(--yellow)',
+          borderColor: 'color-mix(in srgb, var(--yellow) 45%, transparent)',
+          accent:      'var(--yellow)',
+        },
+      },
+    };
+
     // ── Effects ──────────────────────────────────────────────────────────────
-    // effectModules: which named sections appear in the settings panel
-    this.effectModules = ['grid', 'filmGrain', 'overlayEffects', 'scanlines', 'vuBounce'];
+    // effectModules: which named sections appear in the settings panel.
+    // Scanlines still render (see scanlinesIntensity below), but the
+    // scanlines control panel is owned by the Arcade package.
+    this.effectModules = ['grid', 'filmGrain', 'overlayEffects', 'vuBounce'];
 
     // defaultEffects: the starting state for all effect controls this package uses
     this.defaultEffects = {
@@ -74,7 +136,6 @@ class CyberneticPackage extends VisualPackage {
         grid:           true,
         filmGrain:      true,
         overlayEffects: true,
-        scanlines:      true,
         vuBounce:       true,
       },
     };

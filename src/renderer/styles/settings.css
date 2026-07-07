@@ -203,6 +203,24 @@
   pointer-events: none;
 }
 
+/* Color-picker input — used by the Arcade Primary Color setting. Native
+   <input type="color"> gets stripped down to a rectangular pixel swatch
+   consistent with the rest of the settings styling. */
+.settings-color-input {
+  width: 42px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--cyan);
+  background: transparent;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  box-shadow: 0 0 4px color-mix(in srgb, var(--cyan) 55%, transparent);
+}
+.settings-color-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.settings-color-input::-webkit-color-swatch {
+  border: none;
+}
+
 /* Radio pill group */
 .settings-radio-group {
   display: flex;

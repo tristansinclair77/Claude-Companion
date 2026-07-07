@@ -1,5 +1,5 @@
 {
-  "activeCharacter": "nataltieri",
+  "activeCharacter": "default",
   "rvc": {
     "modelsDir": "D:\\Software\\Voice Changer\\VC Client\\Models",
     "pitchShift": 6,
@@ -31,10 +31,20 @@
     "seasonMode": "off",
     "vuAmp": 4,
     "vuSpeed": 16,
+    "arcadePrimaryColor": "#ffee00",
     "arcadeRasterBeam": true,
     "arcadePixelDust": true,
     "arcadeAttract": true,
     "arcadeGlitches": true,
+    "wraithCobwebSwayHz": 2,
+    "wraithCobwebAmp": 4,
+    "wraithCobwebOpacity": 10,
+    "wraithGhostEnabled": true,
+    "wraithGhostInterval": "normal",
+    "wraithSpiderEnabled": true,
+    "wraithSpiderInterval": "normal",
+    "wraithLightningEnabled": true,
+    "wraithLightningInterval": "normal",
     "moduleEnabled": {
       "filmGrain": true,
       "overlayEffects": true,
@@ -77,7 +87,6 @@
           "grid",
           "filmGrain",
           "overlayEffects",
-          "scanlines",
           "vuBounce"
         ],
         "effects": {
@@ -86,7 +95,7 @@
           "gridAnimate": true,
           "gridOpacity": 10,
           "filmGrain": true,
-          "filmGrainOpacity": 7,
+          "filmGrainOpacity": 6,
           "filmGrainAnimate": true,
           "dataRain": true,
           "circuitPattern": true,
@@ -98,11 +107,12 @@
           "vuSpeed": 60,
           "moduleEnabled": {
             "grid": true,
-            "filmGrain": false,
+            "filmGrain": true,
             "overlayEffects": true,
             "scanlines": false
           },
           "seasonMode": "sunbeams",
+          "arcadePrimaryColor": "#ffee00",
           "arcadeRasterBeam": true,
           "arcadePixelDust": true,
           "arcadeAttract": true,
@@ -122,6 +132,59 @@
         },
         "sounds": {
           "pack": null
+        },
+        "settingsTheme": {
+          "panelBg": "var(--bg-dark)",
+          "patternSvg": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'><path d='M14 0L28 8v16L14 32L0 24V8Z' fill='none' stroke='%2300ffcc' stroke-width='0.5' opacity='0.4'/></svg>",
+          "patternOpacity": 0.06,
+          "patternSize": "28px 32px",
+          "borderStyle": "solid",
+          "borderWidth": "1px",
+          "cornerRadius": "0",
+          "headerFont": "inherit",
+          "headerTransform": "uppercase",
+          "headerLetterSpacing": "3px",
+          "headerWeight": "bold",
+          "headerFontSize": "11px",
+          "headerPadding": "8px 14px",
+          "headerDividerHeight": "1px",
+          "sections": {
+            "baseGame": {
+              "headerBg": "linear-gradient(90deg, color-mix(in srgb, var(--cyan) 18%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, var(--cyan) 4%, var(--bg-panel))",
+              "headerColor": "var(--cyan)",
+              "borderColor": "color-mix(in srgb, var(--cyan) 45%, transparent)",
+              "accent": "var(--cyan)"
+            },
+            "visualPackage": {
+              "headerBg": "linear-gradient(90deg, color-mix(in srgb, var(--green) 18%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, var(--green) 4%, var(--bg-panel))",
+              "headerColor": "var(--green)",
+              "borderColor": "color-mix(in srgb, var(--green) 45%, transparent)",
+              "accent": "var(--green)"
+            },
+            "companion": {
+              "headerBg": "linear-gradient(90deg, color-mix(in srgb, var(--magenta) 18%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, var(--magenta) 4%, var(--bg-panel))",
+              "headerColor": "var(--magenta)",
+              "borderColor": "color-mix(in srgb, var(--magenta) 45%, transparent)",
+              "accent": "var(--magenta)"
+            },
+            "adventure": {
+              "headerBg": "linear-gradient(90deg, color-mix(in srgb, var(--orange) 18%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, var(--orange) 4%, var(--bg-panel))",
+              "headerColor": "var(--orange)",
+              "borderColor": "color-mix(in srgb, var(--orange) 45%, transparent)",
+              "accent": "var(--orange)"
+            },
+            "story": {
+              "headerBg": "linear-gradient(90deg, color-mix(in srgb, var(--yellow) 18%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, var(--yellow) 4%, var(--bg-panel))",
+              "headerColor": "var(--yellow)",
+              "borderColor": "color-mix(in srgb, var(--yellow) 45%, transparent)",
+              "accent": "var(--yellow)"
+            }
+          }
         }
       },
       {
@@ -172,17 +235,18 @@
           "chromaticAberration": false,
           "scanlinesIntensity": "off",
           "parchmentOpacity": 30,
-          "seasonMode": "rain",
+          "seasonMode": "sunbeams",
           "vuAmp": 5,
           "vuSpeed": 22,
-          "arcadeRasterBeam": true,
-          "arcadePixelDust": true,
-          "arcadeAttract": true,
-          "arcadeGlitches": true,
           "moduleEnabled": {
             "parchment": true,
             "seasons": true
-          }
+          },
+          "arcadePrimaryColor": "#ffee00",
+          "arcadeRasterBeam": true,
+          "arcadePixelDust": true,
+          "arcadeAttract": true,
+          "arcadeGlitches": true
         },
         "background": {
           "type": "none",
@@ -198,6 +262,59 @@
         },
         "sounds": {
           "pack": null
+        },
+        "settingsTheme": {
+          "panelBg": "var(--bg-dark)",
+          "patternSvg": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0.7 0 0 0 0 0.55 0 0 0 0 0.25 0 0 0 1 0'/></filter><rect width='40' height='40' filter='url(%23n)' opacity='0.35'/></svg>",
+          "patternOpacity": 0.08,
+          "patternSize": "40px",
+          "borderStyle": "double",
+          "borderWidth": "3px",
+          "cornerRadius": "3px",
+          "headerFont": "Palatino Linotype, Palatino, \"Book Antiqua\", serif",
+          "headerTransform": "uppercase",
+          "headerLetterSpacing": "4px",
+          "headerWeight": "bold",
+          "headerFontSize": "12px",
+          "headerPadding": "10px 16px",
+          "headerDividerHeight": "2px",
+          "sections": {
+            "baseGame": {
+              "headerBg": "linear-gradient(180deg, color-mix(in srgb, #ffaa00 20%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, #ffaa00 6%, var(--bg-panel))",
+              "headerColor": "#ffdd88",
+              "borderColor": "color-mix(in srgb, #ffaa00 55%, transparent)",
+              "accent": "var(--cyan)"
+            },
+            "visualPackage": {
+              "headerBg": "linear-gradient(180deg, color-mix(in srgb, #ddaa00 20%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, #ddaa00 6%, var(--bg-panel))",
+              "headerColor": "#ffe4a0",
+              "borderColor": "color-mix(in srgb, #ddaa00 55%, transparent)",
+              "accent": "var(--green)"
+            },
+            "companion": {
+              "headerBg": "linear-gradient(180deg, color-mix(in srgb, #cc3333 22%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, #cc3333 6%, var(--bg-panel))",
+              "headerColor": "#ff9988",
+              "borderColor": "color-mix(in srgb, #cc3333 55%, transparent)",
+              "accent": "var(--magenta)"
+            },
+            "adventure": {
+              "headerBg": "linear-gradient(180deg, color-mix(in srgb, #ff6600 20%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, #ff6600 6%, var(--bg-panel))",
+              "headerColor": "#ffcc88",
+              "borderColor": "color-mix(in srgb, #ff6600 55%, transparent)",
+              "accent": "var(--orange)"
+            },
+            "story": {
+              "headerBg": "linear-gradient(180deg, color-mix(in srgb, #ffdd88 22%, var(--bg-panel)), var(--bg-panel))",
+              "bodyBg": "color-mix(in srgb, #ffdd88 6%, var(--bg-panel))",
+              "headerColor": "#fff0c8",
+              "borderColor": "color-mix(in srgb, #ffdd88 55%, transparent)",
+              "accent": "var(--yellow)"
+            }
+          }
         }
       },
       {
@@ -236,7 +353,6 @@
           "spaceInvaders",
           "asteroids",
           "pong",
-          "sideScroller",
           "pacman",
           "datingVn",
           "arcadeAmbient",
@@ -244,6 +360,7 @@
           "filmGrain"
         ],
         "effects": {
+          "arcadePrimaryColor": "#ffee00",
           "grid": "off",
           "gridColor": "cyan",
           "gridAnimate": false,
@@ -255,7 +372,7 @@
           "circuitPattern": false,
           "edgeGlow": false,
           "chromaticAberration": false,
-          "scanlinesIntensity": "light",
+          "scanlinesIntensity": "medium",
           "parchmentOpacity": 0,
           "vuAmp": 5,
           "vuSpeed": 22,
@@ -285,6 +402,59 @@
         },
         "sounds": {
           "pack": null
+        },
+        "settingsTheme": {
+          "panelBg": "#0a0800",
+          "patternSvg": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='2' height='2' fill='%23ffee00' opacity='0.6'/><rect x='2' y='2' width='2' height='2' fill='%23ffee00' opacity='0.6'/></svg>",
+          "patternOpacity": 0.06,
+          "patternSize": "4px",
+          "borderStyle": "ridge",
+          "borderWidth": "3px",
+          "cornerRadius": "0",
+          "headerFont": "'Press Start 2P', 'Courier New', monospace",
+          "headerTransform": "uppercase",
+          "headerLetterSpacing": "3px",
+          "headerWeight": "normal",
+          "headerFontSize": "10px",
+          "headerPadding": "12px 16px",
+          "headerDividerHeight": "3px",
+          "sections": {
+            "baseGame": {
+              "headerBg": "linear-gradient(180deg, #ffee00 0%, color-mix(in srgb, #ffee00 30%, #0a0800) 100%)",
+              "bodyBg": "color-mix(in srgb, #ffee00 5%, #0a0800)",
+              "headerColor": "#0a0800",
+              "borderColor": "#997700",
+              "accent": "#ffee00"
+            },
+            "visualPackage": {
+              "headerBg": "linear-gradient(180deg, #00dd44 0%, color-mix(in srgb, #00dd44 30%, #0a0800) 100%)",
+              "bodyBg": "color-mix(in srgb, #00dd44 5%, #0a0800)",
+              "headerColor": "#0a0800",
+              "borderColor": "#008833",
+              "accent": "#00dd44"
+            },
+            "companion": {
+              "headerBg": "linear-gradient(180deg, #ff2200 0%, color-mix(in srgb, #ff2200 30%, #0a0800) 100%)",
+              "bodyBg": "color-mix(in srgb, #ff2200 5%, #0a0800)",
+              "headerColor": "#fff",
+              "borderColor": "#aa1500",
+              "accent": "#ff2200"
+            },
+            "adventure": {
+              "headerBg": "linear-gradient(180deg, #ff6600 0%, color-mix(in srgb, #ff6600 30%, #0a0800) 100%)",
+              "bodyBg": "color-mix(in srgb, #ff6600 5%, #0a0800)",
+              "headerColor": "#fff",
+              "borderColor": "#aa4400",
+              "accent": "#ff6600"
+            },
+            "story": {
+              "headerBg": "linear-gradient(180deg, #00aaff 0%, color-mix(in srgb, #00aaff 30%, #0a0800) 100%)",
+              "bodyBg": "color-mix(in srgb, #00aaff 5%, #0a0800)",
+              "headerColor": "#0a0800",
+              "borderColor": "#0077bb",
+              "accent": "#00aaff"
+            }
+          }
         }
       },
       {
@@ -318,7 +488,6 @@
           "--thoughts-color": "#1a6b33"
         },
         "effectModules": [
-          "scanlines",
           "filmGrain"
         ],
         "effects": {
@@ -361,6 +530,59 @@
         },
         "sounds": {
           "pack": null
+        },
+        "settingsTheme": {
+          "panelBg": "#000000",
+          "patternSvg": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='3'><rect width='4' height='1' fill='%2366ff8b' opacity='0.35'/></svg>",
+          "patternOpacity": 0.08,
+          "patternSize": "4px 3px",
+          "borderStyle": "dashed",
+          "borderWidth": "1px",
+          "cornerRadius": "0",
+          "headerFont": "'Press Start 2P', 'Courier New', monospace",
+          "headerTransform": "uppercase",
+          "headerLetterSpacing": "2px",
+          "headerWeight": "normal",
+          "headerFontSize": "9px",
+          "headerPadding": "10px 14px",
+          "headerDividerHeight": "1px",
+          "sections": {
+            "baseGame": {
+              "headerBg": "color-mix(in srgb, #66ff8b 15%, #000000)",
+              "bodyBg": "color-mix(in srgb, #66ff8b 4%, #000000)",
+              "headerColor": "#66ff8b",
+              "borderColor": "color-mix(in srgb, #66ff8b 55%, transparent)",
+              "accent": "#66ff8b"
+            },
+            "visualPackage": {
+              "headerBg": "color-mix(in srgb, #ffdd44 15%, #000000)",
+              "bodyBg": "color-mix(in srgb, #ffdd44 4%, #000000)",
+              "headerColor": "#ffdd44",
+              "borderColor": "color-mix(in srgb, #ffdd44 55%, transparent)",
+              "accent": "#ffdd44"
+            },
+            "companion": {
+              "headerBg": "color-mix(in srgb, #ff6b9d 15%, #000000)",
+              "bodyBg": "color-mix(in srgb, #ff6b9d 4%, #000000)",
+              "headerColor": "#ff6b9d",
+              "borderColor": "color-mix(in srgb, #ff6b9d 55%, transparent)",
+              "accent": "#ff6b9d"
+            },
+            "adventure": {
+              "headerBg": "color-mix(in srgb, #ff8844 15%, #000000)",
+              "bodyBg": "color-mix(in srgb, #ff8844 4%, #000000)",
+              "headerColor": "#ff8844",
+              "borderColor": "color-mix(in srgb, #ff8844 55%, transparent)",
+              "accent": "#ff8844"
+            },
+            "story": {
+              "headerBg": "color-mix(in srgb, #44ddff 15%, #000000)",
+              "bodyBg": "color-mix(in srgb, #44ddff 4%, #000000)",
+              "headerColor": "#44ddff",
+              "borderColor": "color-mix(in srgb, #44ddff 55%, transparent)",
+              "accent": "#44ddff"
+            }
+          }
         }
       },
       {
@@ -395,9 +617,9 @@
         },
         "effectModules": [
           "filmGrain",
-          "overlayEffects",
-          "scanlines",
-          "vuBounce"
+          "wraithCobwebs",
+          "wraithSpirits",
+          "wraithLightning"
         ],
         "effects": {
           "grid": "off",
@@ -416,6 +638,7 @@
           "seasonMode": "off",
           "vuAmp": 4,
           "vuSpeed": 16,
+          "arcadePrimaryColor": "#ffee00",
           "arcadeRasterBeam": true,
           "arcadePixelDust": true,
           "arcadeAttract": true,
@@ -441,6 +664,59 @@
         },
         "sounds": {
           "pack": null
+        },
+        "settingsTheme": {
+          "panelBg": "#0a0714",
+          "patternSvg": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><defs><linearGradient id='m' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23b388ff' stop-opacity='0.4'/><stop offset='100%' stop-color='%23b388ff' stop-opacity='0'/></linearGradient></defs><rect width='60' height='60' fill='url(%23m)'/></svg>",
+          "patternOpacity": 0.1,
+          "patternSize": "60px",
+          "borderStyle": "solid",
+          "borderWidth": "1px",
+          "cornerRadius": "10px",
+          "headerFont": "'Trebuchet MS', 'Segoe UI', sans-serif",
+          "headerTransform": "uppercase",
+          "headerLetterSpacing": "5px",
+          "headerWeight": "300",
+          "headerFontSize": "11px",
+          "headerPadding": "12px 18px",
+          "headerDividerHeight": "1px",
+          "sections": {
+            "baseGame": {
+              "headerBg": "linear-gradient(135deg, color-mix(in srgb, #b388ff 18%, #0a0714), #0a0714 70%)",
+              "bodyBg": "color-mix(in srgb, #b388ff 4%, #0a0714)",
+              "headerColor": "#d0b8ff",
+              "borderColor": "color-mix(in srgb, #b388ff 35%, transparent)",
+              "accent": "#b388ff"
+            },
+            "visualPackage": {
+              "headerBg": "linear-gradient(135deg, color-mix(in srgb, #9c6fff 18%, #0a0714), #0a0714 70%)",
+              "bodyBg": "color-mix(in srgb, #9c6fff 4%, #0a0714)",
+              "headerColor": "#c9b0ff",
+              "borderColor": "color-mix(in srgb, #9c6fff 35%, transparent)",
+              "accent": "#9c6fff"
+            },
+            "companion": {
+              "headerBg": "linear-gradient(135deg, color-mix(in srgb, #e040d0 18%, #0a0714), #0a0714 70%)",
+              "bodyBg": "color-mix(in srgb, #e040d0 4%, #0a0714)",
+              "headerColor": "#ff9ce8",
+              "borderColor": "color-mix(in srgb, #e040d0 35%, transparent)",
+              "accent": "#e040d0"
+            },
+            "adventure": {
+              "headerBg": "linear-gradient(135deg, color-mix(in srgb, #7a5cff 18%, #0a0714), #0a0714 70%)",
+              "bodyBg": "color-mix(in srgb, #7a5cff 4%, #0a0714)",
+              "headerColor": "#b0a0ff",
+              "borderColor": "color-mix(in srgb, #7a5cff 35%, transparent)",
+              "accent": "#7a5cff"
+            },
+            "story": {
+              "headerBg": "linear-gradient(135deg, color-mix(in srgb, #d8a0ff 20%, #0a0714), #0a0714 70%)",
+              "bodyBg": "color-mix(in srgb, #d8a0ff 4%, #0a0714)",
+              "headerColor": "#ecd0ff",
+              "borderColor": "color-mix(in srgb, #d8a0ff 35%, transparent)",
+              "accent": "#d8a0ff"
+            }
+          }
         }
       }
     ]
@@ -484,11 +760,14 @@
     }
   ],
   "music": {
-    "volume": 0.03
+    "volume": 0.03,
+    "volumes": {
+      "companion": 0.5
+    }
   },
   "adventure": {
     "typeCps": 25,
     "combatFrequency": 3
   },
-  "portraitVisible": false
+  "portraitVisible": true
 }

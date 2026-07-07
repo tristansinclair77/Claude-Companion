@@ -5,16 +5,14 @@
  *
  * Three independently-toggleable sub-systems, each controlled by a settings module:
  *   wraithCobwebs   : random asymmetric corner webs swaying in a faint breeze
- *   wraithSpirits   : occasional ghost float + spider scurry
- *   wraithLightning : occasional lightning flash with 4-pane window shadow
+ *   wraithSpirits   : occasional mote drift + spider scurry (both spam-spawnable)
+ *   wraithLightning : occasional lightning flash (DOM overlay)
  *
  * All three share one rAF loop; the effect stops only when all three are disabled.
  */
 class WraithEffect extends VisualEffect {
 
   // ── Tuning ────────────────────────────────────────────────────────────────
-  static LIGHTNING_DURATION = 0.65;  // seconds for canvas window-shadow pass
-
   // Interval presets [min, max] in seconds
   static GHOST_INTERVALS     = { short:[30,60],   normal:[120,300], long:[300,600]  };
   static SPIDER_INTERVALS    = { short:[60,90],   normal:[180,420], long:[420,720]  };
@@ -46,11 +44,12 @@ class WraithEffect extends VisualEffect {
     this._lightningInterval = 'normal';
 
     // ── Runtime state ────────────────────────────────────────────────────────
-    this._lightningT     = -1;
+    // Ghosts & spiders are ARRAYS so the SPAWN buttons can be spammed to
+    // stack multiple simultaneously. Each entity self-terminates when done.
     this._lightningTimer = null;
-    this._ghost          = null;
+    this._ghosts         = [];
     this._ghostTimer     = null;
-    this._spider         = null;
+    this._spiders        = [];
     this._spiderTimer    = null;
     this._cobwebs        = null;
   }
@@ -72,9 +71,8 @@ class WraithEffect extends VisualEffect {
 
     this._initCanvas();
     this._t          = 0;
-    this._lightningT = -1;
-    this._ghost      = null;
-    this._spider     = null;
+    this._ghosts     = [];
+    this._spiders    = [];
     this._lastTs     = 0;
 
     this._generateCobwebs();
@@ -93,8 +91,8 @@ class WraithEffect extends VisualEffect {
     document.getElementById('wraith-lightning-overlay')?.remove();
     if (this._ctx && this._canvas)
       this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-    this._ghost  = null;
-    this._spider = null;
+    this._ghosts  = [];
+    this._spiders = [];
   }
 
   _onUpdate(key, value) {
@@ -125,7 +123,7 @@ class WraithEffect extends VisualEffect {
         break;
       case 'spiderEnabled':
         this._spiderEnabled = value;
-        if (!value) { clearTimeout(this._spiderTimer); this._spiderTimer = null; this._spider = null; }
+        if (!value) { clearTimeout(this._spiderTimer); this._spiderTimer = null; }
         else        this._scheduleSpider();
         break;
       case 'spiderInterval':
@@ -145,23 +143,13 @@ class WraithEffect extends VisualEffect {
   }
 
   // ── Public spawn methods (called from settings spawn buttons) ─────────────
+  // Spam-friendly: each call unconditionally adds a new entity. The
+  // scheduler timers run independently and are NOT touched here — so the
+  // player can machine-gun the SPAWN button without disturbing the natural
+  // ambient cadence.
 
-  spawnGhost() {
-    if (!this._running) return;
-    clearTimeout(this._ghostTimer);
-    this._ghostTimer = null;
-    this._spawnGhost();
-    this._scheduleGhost();
-  }
-
-  spawnSpider() {
-    if (!this._running) return;
-    clearTimeout(this._spiderTimer);
-    this._spiderTimer = null;
-    this._spider = null;
-    this._spawnSpider();
-    this._scheduleSpider();
-  }
+  spawnGhost()  { if (this._running) this._spawnGhost();  }
+  spawnSpider() { if (this._running) this._spawnSpider(); }
 
   triggerLightning() {
     if (!this._running) return;
@@ -219,19 +207,11 @@ class WraithEffect extends VisualEffect {
     this._lastTs = ts;
     this._t += dt;
 
-    if (this._ghost) {
-      this._ghost.elapsed += dt;
-      this._ghost.x += this._ghost.vx * dt;
-      this._ghost.y += this._ghost.vy * dt;
-      if (this._ghost.elapsed >= this._ghost.totalDuration) this._ghost = null;
-    }
+    for (const g of this._ghosts) this._updateGhost(g, dt);
+    this._ghosts = this._ghosts.filter(g => g.elapsed < g.totalDuration || g.childMotes.length > 0);
 
-    if (this._spider) this._updateSpider(dt);
-
-    if (this._lightningT >= 0) {
-      this._lightningT += dt / WraithEffect.LIGHTNING_DURATION;
-      if (this._lightningT >= 1) this._lightningT = -1;
-    }
+    for (const s of this._spiders) this._updateSpider(s, dt);
+    this._spiders = this._spiders.filter(s => s.wpIdx < s.waypoints.length);
 
     this._draw();
     this._rAF = requestAnimationFrame(ts => this._tick(ts));
@@ -245,9 +225,8 @@ class WraithEffect extends VisualEffect {
     ctx.clearRect(0, 0, W, H);
 
     if (this._cobwebsEnabled) this._drawCobwebs(ctx, W, H);
-    if (this._ghost)          this._drawGhost(ctx);
-    if (this._spider)         this._drawSpider(ctx);
-    if (this._lightningT >= 0) this._drawLightningWindow(ctx, W, H);
+    for (const g of this._ghosts) this._drawGhost(ctx, g);
+    for (const s of this._spiders) this._drawSpider(ctx, s);
   }
 
   // ── Cobwebs ───────────────────────────────────────────────────────────────
@@ -265,47 +244,129 @@ class WraithEffect extends VisualEffect {
     ];
 
     this._cobwebs = corners.map(({ xSign, ySign }) => {
-      const spread      = 50 + Math.random() * 35;            // 50–85° arc span
-      const numInterior = 1 + Math.floor(Math.random() * 4); // 1–4 interior spokes (3–6 total)
+      // Fixed 90° span so the two wall-anchor spokes lie exactly along the
+      // window's edges — the web fits its corner perfectly, no gap or overshoot.
+      const spread      = 90;
+      // 2–6 interior spokes (+ 2 wall anchors) = 4–8 total. Minimum 4 spokes
+      // is a hard floor — anything less looks like a broken web fragment,
+      // not a corner cobweb.
+      const numInterior = 2 + Math.floor(Math.random() * 5);
       const baseRadius  = 32 + Math.random() * 52;            // 32–84px rough reach
-      const numRings    = 3 + Math.floor(Math.random() * 3); // 3–5 rings
+      // 3–8 tiers of connecting webbing (counting the outermost tip ring).
+      // Minimum 3 so the web never reads as bare; 8 max keeps it busy but not
+      // solid.
+      const numRings    = 3 + Math.floor(Math.random() * 6);
       const alpha       = 0.18 + Math.random() * 0.22;       // per-web opacity
       const lineWidth   = 0.40 + Math.random() * 0.55;       // per-web stroke weight
-      const missRate    = 0.05 + Math.random() * 0.20;       // 5–25% ring segment miss rate
 
-      // Build spoke angles — 0° and spread° are wall-anchor endpoints; interior vary randomly
+      // Distribute interior spokes evenly across the arc with a small jitter,
+      // so the web reads as "structured" even at high spoke counts. Purely
+      // random placement collapses into visible clumps and gaps.
       const rawAngles = [0];
-      for (let i = 0; i < numInterior; i++)
-        rawAngles.push(spread * (0.1 + Math.random() * 0.8));
+      for (let i = 0; i < numInterior; i++) {
+        const base   = spread * (i + 1) / (numInterior + 1);
+        const jitter = spread * 0.05 * (Math.random() - 0.5);
+        rawAngles.push(base + jitter);
+      }
       rawAngles.push(spread);
       rawAngles.sort((a, b) => a - b);
 
-      // Remove spokes closer than 7° to keep gaps readable
-      const angles = [rawAngles[0]];
-      for (let i = 1; i < rawAngles.length; i++)
-        if (rawAngles[i] - angles[angles.length - 1] >= 7) angles.push(rawAngles[i]);
+      const angles = rawAngles;
 
-      // Each spoke gets its own length so the web has a natural ragged silhouette.
-      // Wall anchors run ~full length; interior spokes vary more.
+      // Spoke lengths form a smooth curve across the arc.
+      //   • The two wall-anchor spokes get their own random lengths.
+      //   • A "median" length sits between the two edge lengths (never longer
+      //     than the longer edge, never shorter than the shorter edge).
+      //   • Interior spokes lerp: edgeA → median across the first half, then
+      //     median → edgeB across the second half. A tiny bracket-clamped
+      //     jitter keeps things natural without ever escaping the envelope.
+      // Result: no more long/short/long/short toothy silhouettes — the tips
+      // trace a soft curve from one wall anchor to the other.
+      const edgeLenA  = baseRadius * (0.85 + Math.random() * 0.35);
+      const edgeLenB  = baseRadius * (0.85 + Math.random() * 0.35);
+      const minEdge   = Math.min(edgeLenA, edgeLenB);
+      const maxEdge   = Math.max(edgeLenA, edgeLenB);
+      const medianLen = minEdge + Math.random() * (maxEdge - minEdge);
+      const N = angles.length;
       const spokeLengths = angles.map((_, i) => {
-        const isEdge = (i === 0 || i === angles.length - 1);
-        return baseRadius * (isEdge ? 0.80 + Math.random() * 0.40 : 0.55 + Math.random() * 0.65);
+        if (i === 0)     return edgeLenA;
+        if (i === N - 1) return edgeLenB;
+        const t = i / (N - 1);
+        const [aLen, bLen, localT] = (t <= 0.5)
+          ? [edgeLenA, medianLen, t * 2]
+          : [medianLen, edgeLenB, (t - 0.5) * 2];
+        const base   = aLen + (bLen - aLen) * localT;
+        const jitter = (Math.random() - 0.5) * 0.08 * base;
+        // Clamp inside the [min(aLen,bLen), max(aLen,bLen)] envelope so the
+        // interior length never overshoots the two segment endpoints.
+        const lo = Math.min(aLen, bLen);
+        const hi = Math.max(aLen, bLen);
+        return Math.max(lo, Math.min(hi, base + jitter));
       });
 
       // Sway factors: 0 at wall-anchors (fixed), sine peak in middle
       const swayFactors = angles.map(a => Math.sin((a / spread) * Math.PI));
 
-      // Ring tiers stored as fractions of each spoke's individual length.
-      // Tiers spread from ~15% to ~95% of each spoke.
-      const rings = [];
-      for (let i = 0; i < numRings; i++) {
-        const frac = 0.15 + 0.80 * ((i + 0.5 + (Math.random() - 0.5) * 0.4) / numRings);
-        const segments = angles.slice(0, -1).map(() => Math.random() > missRate);
+      // Ring tiers.
+      //
+      // OUTERMOST ring sits exactly at the spoke tips (frac = 1.0) with every
+      // segment present as a plain `normal` connector. HARD RULE: the outer
+      // edge is always full — no misses, no diagonals, no variants. Every tip
+      // is guaranteed to be connected to its two neighbouring tips.
+      //
+      // INNER rings drop inward toward the corner. Each inner-ring segment
+      // rolls one of three variants for visual variety:
+      //   • normal — plain ring segment at ring.frac on both spokes.
+      //   • miss   — segment omitted (variant A, "torn").
+      //   • diag   — one endpoint pulled DOWN toward the corner, so the
+      //              segment slants from tier X to a lower tier on the next
+      //              spoke (variant B).
+      const rings = [
+        { frac: 1.0, segments: angles.slice(0, -1).map(() => ({ type: 'normal' })) },
+      ];
+      const innerRingCount = Math.max(0, numRings - 1);
+      for (let i = 0; i < innerRingCount; i++) {
+        // Distribute inner rings between ~20% and ~80% of each spoke's length.
+        const frac = 0.20 + 0.60 * ((i + 0.5 + (Math.random() - 0.5) * 0.35) / innerRingCount);
+        const segments = angles.slice(0, -1).map(() => {
+          const r = Math.random();
+          if (r < 0.12) return { type: 'miss' };
+          if (r < 0.30) return {
+            type: 'diag',
+            // How far to pull the low end down (fractions of ring.frac).
+            // 0.35..0.75 range = clearly slanted but never collapsing to zero.
+            drop: 0.35 + Math.random() * 0.40,
+            // Randomize which end is the low one so diagonals go both ways.
+            flipLow: Math.random() < 0.5,
+          };
+          return { type: 'normal' };
+        });
         rings.push({ frac, segments });
       }
       rings.sort((a, b) => a.frac - b.frac);
 
-      return { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth };
+      // INTER-WEBS (variant C): extra connector strands slung between two
+      // adjacent ring tiers on a random spoke pair. Both endpoints sit at
+      // fracs strictly between the two rings, so the strand looks like a
+      // bit of stray webbing bridging one tier to the next. Rolled per
+      // (tier gap × spoke pair). Rate is modest so they read as accidental
+      // extras, not a second full ring.
+      const interWebs = [];
+      for (let ri = 0; ri < rings.length - 1; ri++) {
+        const loFrac = rings[ri].frac;
+        const hiFrac = rings[ri + 1].frac;
+        for (let si = 0; si < angles.length - 1; si++) {
+          if (Math.random() < 0.22) {
+            // Random fracs in the tier gap; the two ends can (and usually do)
+            // sit at different fracs so the strand slants naturally.
+            const fA = loFrac + (0.15 + Math.random() * 0.70) * (hiFrac - loFrac);
+            const fB = loFrac + (0.15 + Math.random() * 0.70) * (hiFrac - loFrac);
+            interWebs.push({ spoke: si, fracA: fA, fracB: fB });
+          }
+        }
+      }
+
+      return { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth, interWebs };
     });
   }
 
@@ -326,7 +387,7 @@ class WraithEffect extends VisualEffect {
   }
 
   _drawCornerWeb(ctx, cx, cy, web, sway) {
-    const { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth } = web;
+    const { xSign, ySign, angles, spokeLengths, rings, swayFactors, alpha, lineWidth, interWebs } = web;
     if (!rings.length || !angles.length) return;
 
     ctx.save();
@@ -345,7 +406,27 @@ class WraithEffect extends VisualEffect {
       };
     };
 
-    // Radial spokes — each extends to its own max length
+    // Draw a single ring/connector curve from p0 to p1 with a small outward
+    // bow. The push is intentionally modest — silk strands are pulled taut
+    // between spokes, they don't balloon outward. Push scales with the
+    // segment's midpoint distance from the corner so far-out strands don't
+    // look absurdly flat while close-in ones don't collapse to straight lines.
+    const drawStrand = (p0, p1) => {
+      const midX = (p0.x + p1.x) / 2;
+      const midY = (p0.y + p1.y) / 2;
+      const vx   = midX - cx;
+      const vy   = midY - cy;
+      const dist = Math.sqrt(vx * vx + vy * vy) || 1;
+      const push = dist * 0.06;   // taut — was 0.28 (arched way too far out)
+      const cpx  = midX + (vx / dist) * push;
+      const cpy  = midY + (vy / dist) * push;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.quadraticCurveTo(cpx, cpy, p1.x, p1.y);
+      ctx.stroke();
+    };
+
+    // Radial spokes — each extends to its own max length.
     for (let i = 0; i < angles.length; i++) {
       const tip = pt(i, 1.0);
       ctx.beginPath();
@@ -354,33 +435,40 @@ class WraithEffect extends VisualEffect {
       ctx.stroke();
     }
 
-    // Ring segments — each drawn individually; bezier control point pushed AWAY from
-    // the corner so rings curve outward (classic drooping spiderweb look).
+    // Ring segments — each drawn per variant.
+    //   normal → both endpoints at ring.frac.
+    //   miss   → skip entirely.
+    //   diag   → one endpoint pulled down to a lower frac (toward the corner).
     for (const ring of rings) {
       for (let i = 0; i < angles.length - 1; i++) {
-        if (!ring.segments[i]) continue;
-        const p0  = pt(i,     ring.frac);
-        const p1  = pt(i + 1, ring.frac);
-        const midX = (p0.x + p1.x) / 2;
-        const midY = (p0.y + p1.y) / 2;
-        // Push midpoint outward from corner to make rings droop naturally
-        const vx   = midX - cx;
-        const vy   = midY - cy;
-        const dist = Math.sqrt(vx * vx + vy * vy) || 1;
-        const push = dist * 0.28;
-        const cpx  = midX + (vx / dist) * push;
-        const cpy  = midY + (vy / dist) * push;
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.quadraticCurveTo(cpx, cpy, p1.x, p1.y);
-        ctx.stroke();
+        const seg = ring.segments[i];
+        if (!seg || seg.type === 'miss') continue;
+
+        let fA = ring.frac, fB = ring.frac;
+        if (seg.type === 'diag') {
+          // Pull the "low" end down toward the corner. Clamp so it never
+          // dips below 0.10 of the spoke's length (keeps it visibly above
+          // the corner cluster).
+          const low = Math.max(0.10, ring.frac * (1 - seg.drop));
+          if (seg.flipLow) fA = low; else fB = low;
+        }
+        drawStrand(pt(i, fA), pt(i + 1, fB));
+      }
+    }
+
+    // Inter-web extras (variant C) — strands slung between tiers on a random
+    // spoke pair. Both endpoints already sit BETWEEN two rings so they're
+    // never orphans: each end lands on a spoke line.
+    if (interWebs) {
+      for (const iw of interWebs) {
+        drawStrand(pt(iw.spoke, iw.fracA), pt(iw.spoke + 1, iw.fracB));
       }
     }
 
     ctx.restore();
   }
 
-  // ── Ghost ─────────────────────────────────────────────────────────────────
+  // ── Ghost / Mote ──────────────────────────────────────────────────────────
 
   _scheduleGhost() {
     if (!this._ghostEnabled) return;
@@ -393,7 +481,6 @@ class WraithEffect extends VisualEffect {
   }
 
   _spawnGhost() {
-    if (this._ghost) return;
     const panel = document.getElementById('output-panel');
     if (!panel) return;
     const r = panel.getBoundingClientRect();
@@ -407,78 +494,156 @@ class WraithEffect extends VisualEffect {
       default:sx = r.left + Math.random() * r.width;    sy = r.bottom + 90;                    break;
     }
 
-    const tx = r.left + 30 + Math.random() * (r.width  - 60);
-    const ty = r.top  + 30 + Math.random() * (r.height - 60);
-    const dx = tx - sx, dy = ty - sy;
-    const dist  = Math.sqrt(dx * dx + dy * dy) || 1;
-    const fi    = 1.8, hold = 4.0, fo = 2.5;
-    const speed = dist / (fi + hold * 0.4);
+    // Aim roughly at panel center so it swirls inward, not off-screen.
+    const tx = r.left + r.width  * 0.5;
+    const ty = r.top  + r.height * 0.5;
+    const initialAngle = Math.atan2(ty - sy, tx - sx);
 
-    this._ghost = {
+    const fi = 2.4, hold = 6.5, fo = 3.0;
+
+    this._ghosts.push({
       x: sx, y: sy,
-      vx: (dx / dist) * speed * 0.45,
-      vy: (dy / dist) * speed * 0.45,
+      angle: initialAngle,
+
+      // Curved wandering: two overlapping sine waves at different frequencies
+      // per axis produce a non-repeating swirl. Seeds are per-mote so stacked
+      // spawns drift independently.
+      turnSeedA:  Math.random() * Math.PI * 2,
+      turnSeedB:  Math.random() * Math.PI * 2,
+      maxTurn:    1.4 + Math.random() * 1.0,     // 1.4–2.4 rad/s peak turn (~80–140°/s)
+
+      // Speed shifts throughout life too — same two-sine trick per mote.
+      speedSeedA: Math.random() * Math.PI * 2,
+      speedSeedB: Math.random() * Math.PI * 2,
+      baseSpeed:  120 + Math.random() * 40,       // 120–160 px/s baseline
+      speedAmp:   70  + Math.random() * 40,       // ±70–110 px/s modulation
+
       elapsed: 0,
       totalDuration: fi + hold + fo,
-      wobblePhase: Math.random() * Math.PI * 2,
-    };
+      fi, hold, fo,
+      pulsePhase: Math.random() * Math.PI * 2,
+      childMotes: [],
+      nextEmit:   0.30 + Math.random() * 0.35,
+    });
   }
 
-  _ghostAlpha() {
-    if (!this._ghost) return 0;
-    const { elapsed, totalDuration } = this._ghost;
-    const fi = 1.8, fo = 2.5, max = 0.13;
-    if (elapsed < fi)                    return (elapsed / fi) * max;
-    if (elapsed < totalDuration - fo)    return max;
+  // Update position + child-mote emission for one ghost.
+  _updateGhost(g, dt) {
+    g.elapsed += dt;
+
+    // Curved swirling path — angle drifts with two overlapping sines;
+    // speed modulates with its own two-sine envelope.
+    const turnRate =
+      (Math.sin(this._t * 0.55 + g.turnSeedA) * 0.7 +
+       Math.sin(this._t * 1.30 + g.turnSeedB) * 0.4) * g.maxTurn;
+    g.angle += turnRate * dt;
+
+    const speedMod =
+      Math.sin(this._t * 0.45 + g.speedSeedA) * 0.65 +
+      Math.sin(this._t * 1.10 + g.speedSeedB) * 0.35;
+    const curSpeed = Math.max(20, g.baseSpeed + g.speedAmp * speedMod);
+
+    g.x += Math.cos(g.angle) * curSpeed * dt;
+    g.y += Math.sin(g.angle) * curSpeed * dt;
+
+    // Emit tiny child motes while the main mote is "present" (not yet
+    // fading out). Each emitted mote drifts in a random direction and
+    // slowly fades to nothing.
+    g.nextEmit -= dt;
+    if (g.nextEmit <= 0 && g.elapsed < g.fi + g.hold) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 7 + Math.random() * 8;                  // 7–15 px/s
+      g.childMotes.push({
+        x:      g.x + (Math.random() - 0.5) * 6,
+        y:      g.y + (Math.random() - 0.5) * 6,
+        vx:     Math.cos(ang) * spd,
+        vy:     Math.sin(ang) * spd,
+        age:    0,
+        life:   2.0 + Math.random() * 1.8,                // 2.0–3.8s
+        radius: 1.5 + Math.random() * 1.6,                // 1.5–3.1px core
+      });
+      g.nextEmit = 0.30 + Math.random() * 0.45;
+    }
+
+    for (const cm of g.childMotes) {
+      cm.age += dt;
+      cm.x   += cm.vx * dt;
+      cm.y   += cm.vy * dt;
+    }
+    g.childMotes = g.childMotes.filter(cm => cm.age < cm.life);
+  }
+
+  // Envelope for a mote's presence — fade in, hold, fade out.
+  _ghostAlpha(g) {
+    const { elapsed, totalDuration, fi, fo } = g;
+    const max = 0.85;
+    if (elapsed < fi)                 return (elapsed / fi) * max;
+    if (elapsed < totalDuration - fo) return max;
     return Math.max(0, ((totalDuration - elapsed) / fo) * max);
   }
 
-  _drawGhost(ctx) {
-    const alpha = this._ghostAlpha();
-    if (alpha <= 0) return;
-    const g      = this._ghost;
-    const wobble = Math.sin(this._t * 1.3 + g.wobblePhase) * 5;
-    const x      = g.x;
-    const y      = g.y + wobble;
-    const W2     = 28, H2 = 40;
+  // 3-stop pulse: white → teal-white → background → white.
+  // `phase` seeds each mote (or child) so they aren't perfectly in sync.
+  _motePulseColor(phase) {
+    const CYCLE = 6.0;
+    const p = (((this._t + phase) % CYCLE) + CYCLE) % CYCLE / CYCLE;   // 0..1
+    // Stops laid out so index i → i+1 blends across a third of the cycle.
+    // Last stop wraps back to white for a seamless loop.
+    const stops = [
+      [255, 255, 255],   // white
+      [180, 250, 240],   // teal-white
+      [ 6,   4,  13],    // ~bg-dark
+      [255, 255, 255],   // white (wrap)
+    ];
+    const seg = p * 3;
+    const si  = Math.min(2, Math.floor(seg));
+    const sf  = seg - si;
+    const c0  = stops[si], c1 = stops[si + 1];
+    return [
+      Math.round(c0[0] + (c1[0] - c0[0]) * sf),
+      Math.round(c0[1] + (c1[1] - c0[1]) * sf),
+      Math.round(c0[2] + (c1[2] - c0[2]) * sf),
+    ];
+  }
+
+  _drawGhost(ctx, g) {
+    if (!g) return;
+    const envelope = this._ghostAlpha(g);
+    if (envelope <= 0 && g.childMotes.length === 0) return;
+
+    const [R, G, B] = this._motePulseColor(g.pulsePhase);
+    const CORE_R    = 22;        // full-opacity core radius (falls off from here)
 
     ctx.save();
-    ctx.globalAlpha = alpha;
 
-    const halo = ctx.createRadialGradient(x, y - 4, 4, x, y - 4, W2 * 2.0);
-    halo.addColorStop(0,    'rgba(210, 180, 255, 0.70)');
-    halo.addColorStop(0.45, 'rgba(160, 110, 230, 0.30)');
-    halo.addColorStop(1,    'rgba(80,  40,  160, 0.00)');
-    ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.ellipse(x, y - 4, W2 * 2.0, H2 * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(240, 228, 255, 0.88)';
-    ctx.beginPath();
-    ctx.arc(x, y - H2 * 0.22, W2, Math.PI, 0, false);
-    ctx.lineTo(x + W2, y + H2 * 0.55);
-    const bumps = 4, bumpH = 7;
-    for (let i = bumps; i >= 0; i--) {
-      const bx = x - W2 + (i / bumps) * W2 * 2;
-      const by = y + H2 * 0.55 + (i % 2 === 0 ? -bumpH : bumpH);
-      ctx.lineTo(bx, by);
+    // Main mote — opaque center, radial falloff to 0.
+    if (envelope > 0) {
+      const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, CORE_R);
+      grad.addColorStop(0.00, `rgba(${R},${G},${B},${envelope})`);
+      grad.addColorStop(0.35, `rgba(${R},${G},${B},${envelope * 0.55})`);
+      grad.addColorStop(1.00, `rgba(${R},${G},${B},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, CORE_R, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.closePath();
-    ctx.fill();
 
-    const shine = ctx.createRadialGradient(x - 8, y - H2 * 0.15, 2, x - 4, y - H2 * 0.1, W2 * 0.9);
-    shine.addColorStop(0,   'rgba(255,252,255,0.45)');
-    shine.addColorStop(0.5, 'rgba(220,200,255,0.10)');
-    shine.addColorStop(1,   'rgba(180,150,255,0.00)');
-    ctx.fillStyle = shine;
-    ctx.beginPath();
-    ctx.ellipse(x - 4, y - H2 * 0.10, W2 * 0.75, H2 * 0.45, -0.15, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(35, 8, 75, 0.75)';
-    ctx.beginPath(); ctx.ellipse(x - 9, y - H2 * 0.08, 5.5, 8, -0.18, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x + 9, y - H2 * 0.08, 5.5, 8,  0.18, 0, Math.PI * 2); ctx.fill();
+    // Emitted child motes — same pulse (offset phase), tiny, fade out.
+    for (const cm of g.childMotes) {
+      const [cr, cg, cb] = this._motePulseColor(g.pulsePhase + cm.life);
+      const lifeAlpha    = Math.max(0, 1 - cm.age / cm.life);
+      const a            = lifeAlpha * lifeAlpha * 0.75;   // ease-out fade
+      if (a <= 0.01) continue;
+      const cR = cm.radius * 3.0;
+      const cgd = ctx.createRadialGradient(cm.x, cm.y, 0, cm.x, cm.y, cR);
+      cgd.addColorStop(0.0, `rgba(${cr},${cg},${cb},${a})`);
+      cgd.addColorStop(0.5, `rgba(${cr},${cg},${cb},${a * 0.35})`);
+      cgd.addColorStop(1.0, `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle = cgd;
+      ctx.beginPath();
+      ctx.arc(cm.x, cm.y, cR, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -496,7 +661,6 @@ class WraithEffect extends VisualEffect {
   }
 
   _spawnSpider() {
-    if (this._spider) return;
     const panel = document.getElementById('output-panel');
     if (!panel) return;
     const r = panel.getBoundingClientRect();
@@ -529,16 +693,15 @@ class WraithEffect extends VisualEffect {
     const dx0 = wps[0].x - sx, dy0 = wps[0].y - sy;
     const initialAngle = Math.atan2(dy0, dx0);
 
-    this._spider = { x: sx, y: sy, angle: initialAngle, waypoints: wps, wpIdx: 0, legT: 0 };
+    this._spiders.push({ x: sx, y: sy, angle: initialAngle, waypoints: wps, wpIdx: 0, legT: 0 });
   }
 
-  _updateSpider(dt) {
-    const s = this._spider;
+  _updateSpider(s, dt) {
     if (!s) return;
 
     s.legT += dt;
 
-    if (s.wpIdx >= s.waypoints.length) { this._spider = null; return; }
+    if (s.wpIdx >= s.waypoints.length) return;
 
     const tgt  = s.waypoints[s.wpIdx];
     const dx   = tgt.x - s.x;
@@ -567,18 +730,14 @@ class WraithEffect extends VisualEffect {
     }
   }
 
-  _drawSpider(ctx) {
-    const s = this._spider;
+  _drawSpider(ctx, s) {
     if (!s) return;
 
     // Symmetrical 8-legged spider drawn in local space (faces +x = direction of travel)
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(s.angle);
-    ctx.globalAlpha = 0.88;
-
-    const LEG_COLOR  = '#9966cc';   // mid-purple — visible on dark backgrounds
-    const BODY_COLOR = '#8855bb';
+    ctx.globalAlpha = 0.92;
 
     // 4 legs per side — perfectly mirrored about the x-axis
     // Angles (in local degrees from +x): front→back spread across the body
@@ -586,7 +745,8 @@ class WraithEffect extends VisualEffect {
     const THIGH_LEN   = 10;
     const SHIN_LEN    = 10;
 
-    ctx.strokeStyle = LEG_COLOR;
+    // Legs: plain black
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth   = 1.1;
 
     for (let side = 0; side < 2; side++) {
@@ -612,16 +772,53 @@ class WraithEffect extends VisualEffect {
       }
     }
 
-    // Body: abdomen (rear oval) + cephalothorax (front oval)
-    ctx.fillStyle = BODY_COLOR;
+    // Body — each oval is black with a deep pink-purple radial gradient
+    // blooming from center to edge. The scale trick shapes the gradient to
+    // the ellipse so the falloff matches the body shape.
+    const drawBody = (ox, oy, rw, rh) => {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(1, rh / rw);
+      // Black base
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(0, 0, rw, 0, Math.PI * 2);
+      ctx.fill();
+      // Deep pink → purple radial gradient overlay — dark & moody, not neon.
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rw);
+      grad.addColorStop(0.00, 'rgba(180,  50, 130, 0.80)');   // deep magenta core
+      grad.addColorStop(0.55, 'rgba(105,  25, 110, 0.40)');   // dark purple mid
+      grad.addColorStop(1.00, 'rgba( 40,   8,  55, 0.00)');   // fades to black edge
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, rw, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
 
-    ctx.beginPath();
-    ctx.ellipse(-7, 0, 8, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawBody(-7, 0, 8, 5.5);   // abdomen
+    drawBody( 2, 0, 5, 4);     // cephalothorax
 
-    ctx.beginPath();
-    ctx.ellipse(2, 0, 5, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // 8 tiny red eyes on the cephalothorax — very low alpha, hard to spot,
+    // slow soft pulse. Classic spider arrangement: 2 large front-central +
+    // 6 smaller flanking, arranged in staggered rows near the front.
+    const eyePulse = 0.18 + 0.10 * (Math.sin(s.legT * 2.2) * 0.5 + 0.5);
+    ctx.fillStyle = `rgba(230, 40, 40, ${eyePulse})`;
+    const eyes = [
+      { x: 6.4, y: -0.6, r: 0.50 },   // primary median row (bigger)
+      { x: 6.4, y:  0.6, r: 0.50 },
+      { x: 5.5, y: -1.4, r: 0.35 },   // upper flank
+      { x: 5.5, y:  1.4, r: 0.35 },   // lower flank
+      { x: 5.4, y: -0.3, r: 0.32 },   // inner secondary row
+      { x: 5.4, y:  0.3, r: 0.32 },
+      { x: 4.4, y: -1.6, r: 0.28 },   // rear-outer
+      { x: 4.4, y:  1.6, r: 0.28 },
+    ];
+    for (const e of eyes) {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -639,7 +836,6 @@ class WraithEffect extends VisualEffect {
   }
 
   _triggerLightning() {
-    this._lightningT = 0;
     this._doLightningFlash();
   }
 
@@ -669,40 +865,6 @@ class WraithEffect extends VisualEffect {
     setTimeout(() => document.getElementById('wraith-lightning-overlay')?.remove(), 660);
   }
 
-  _drawLightningWindow(ctx, W, H) {
-    const t = this._lightningT;
-    if (t < 0.08 || t > 0.72) return;
-    const fadeIn  = Math.min(1, (t - 0.08) / 0.12);
-    const fadeOut = t > 0.58 ? Math.max(0, 1 - (t - 0.58) / 0.14) : 1;
-    const alpha   = fadeIn * fadeOut;
-    if (alpha <= 0) return;
-
-    const cx  = W * 0.38, cy = H * 0.24;
-    const ww  = W * 0.30, wh = H * 0.38;
-    const fw  = 11;
-
-    ctx.save();
-    ctx.globalAlpha = alpha * 0.22;
-    ctx.fillStyle   = 'rgba(200, 170, 255, 1)';
-
-    ctx.fillRect(cx - ww / 2,      cy - wh / 2,       ww,  fw);
-    ctx.fillRect(cx - ww / 2,      cy + wh / 2 - fw,  ww,  fw);
-    ctx.fillRect(cx - ww / 2,      cy - wh / 2,       fw,  wh);
-    ctx.fillRect(cx + ww / 2 - fw, cy - wh / 2,       fw,  wh);
-    ctx.fillRect(cx - ww / 2,      cy - fw / 2,        ww,  fw);
-    ctx.fillRect(cx - fw / 2,      cy - wh / 2,        fw,  wh);
-
-    ctx.globalAlpha = alpha * 0.06;
-    ctx.fillStyle   = 'rgba(230, 210, 255, 1)';
-    const ix = cx - ww / 2 + fw, iy = cy - wh / 2 + fw;
-    const pw = ww / 2 - fw * 1.5, ph = wh / 2 - fw * 1.5;
-    ctx.fillRect(ix,        iy,        pw, ph);
-    ctx.fillRect(cx + fw/2, iy,        pw, ph);
-    ctx.fillRect(ix,        cy + fw/2, pw, ph);
-    ctx.fillRect(cx + fw/2, cy + fw/2, pw, ph);
-
-    ctx.restore();
-  }
 }
 
 PackageRegistry.registerEffect(new WraithEffect());

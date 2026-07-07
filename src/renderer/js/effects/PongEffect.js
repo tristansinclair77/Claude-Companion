@@ -565,13 +565,14 @@ class PongEffect extends VisualEffect {
   // ── Crumble ───────────────────────────────────────────────────────────────
 
   _buildCrumble(ga) {
+    const paddleColor = this._cssVar('--cyan', '#ffee00');
     const addPaddle = (pd) => {
       for (let py = 0; py < pd.h; py += 4) {
         for (let px = 0; px < pd.w; px += 4) {
           this._particles.push({
             x: pd.x + px + Math.random() * 4, y: pd.y + py + Math.random() * 4,
             vx: (Math.random() - 0.5) * 95,   vy: -65 - Math.random() * 90,
-            size: Math.random() < 0.35 ? 4 : 2, color: '#ffee00',
+            size: Math.random() < 0.35 ? 4 : 2, color: paddleColor,
             life: 1.0 + Math.random() * 1.4,   maxLife: 2.4,
           });
         }
@@ -633,7 +634,7 @@ class PongEffect extends VisualEffect {
   }
 
   _drawPaddle(ctx, pd) {
-    ctx.fillStyle = '#ffee00';
+    ctx.fillStyle = this._cssVar('--cyan', '#ffee00');
     ctx.fillRect(Math.round(pd.x), Math.round(pd.y), pd.w, pd.h);
     ctx.fillStyle = 'rgba(255,255,200,0.30)';
     ctx.fillRect(Math.round(pd.x) + 2, Math.round(pd.y) + 2, pd.w - 4, pd.h - 4);
@@ -642,7 +643,8 @@ class PongEffect extends VisualEffect {
   _drawBall(ctx) {
     const b = this._ball, hs = b.size / 2;
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#ffee00'; ctx.shadowBlur = 6;
+    ctx.shadowColor = this._cssVar('--cyan', '#ffee00');
+    ctx.shadowBlur = 6;
     ctx.fillRect(Math.round(b.x - hs), Math.round(b.y - hs), b.size, b.size);
     ctx.shadowBlur = 0;
   }
