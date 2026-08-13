@@ -209,6 +209,39 @@ The validator lives at `src/main/text-adventure-validator.js`. The debug append
 is in `runCalcRequestPhase` and `runNarratorPhase` inside
 `src/main/text-adventure-ipc.js`.
 
+### Companion Authoring — the Companion Builds Story & Adventure
+
+The companion can commission and adjust Stories and Adventures from ordinary
+companion chat via four output tags — `[CREATE_STORY]`, `[CREATE_ADVENTURE]`,
+`[STORY_SETTINGS]`, `[STORY_NUDGE]`. Stories can also be narrated *by* the
+companion instead of the neutral Storyteller (`state.narratorMode`).
+
+**The canonical spec is [docs/COMPANION_AUTHORING.md](docs/COMPANION_AUTHORING.md).**
+Read it before touching the tags, the workshop context block, narrator mode, the
+author's brief, or the background planning chain. Load-bearing invariants:
+
+1. **`narratorMode` lives OUTSIDE `state.settings`.** `settings` is
+   storyteller-writable via the per-turn `[STATE]` diff; the narrator identity
+   must never be self-reassignable mid-story.
+2. **Storyteller mode stays 100% companion-free.** `_companionCtxFor()` returns
+   null unless the story is explicitly in companion mode. Story mode's default
+   separation from Aria is a feature, not an accident.
+3. **In companion-narrator mode, `rules.json` is NOT injected** — it mandates
+   `[DIALOGUE]`/`[THOUGHTS]`/`(emotion)`, which would break the story parser.
+   The prompt explicitly forbids those three tags in that channel.
+4. **A live adventure is never overwritten silently.** One adventure slot exists
+   per character; if `turnCount > 0`, the companion's plan becomes a pending
+   proposal the user must confirm.
+5. **The planning chain carries all three subprocess-sweep guards** (spawn
+   ceiling 200, consecutive-failure breaker 5, cooperative cancel), stages run
+   strictly sequentially, and only one chain runs at a time. Every stage spawns
+   a `claude` CLI process and stage count scales with chapter count — see the
+   subprocess rule in `~/.claude/CLAUDE.md`.
+6. **Malformed JSON from the companion is reported, never silently dropped**, and
+   unknown enum values fall back to defaults rather than failing creation.
+7. **She cannot delete, rewrite prose, or take turns.** Building and narrating
+   only.
+
 ### Keep the Help Panel Current
 `src/renderer/js/help-panel.js` is the in-app reference manual. It **must always
 be kept up-to-date** with every feature in the app.

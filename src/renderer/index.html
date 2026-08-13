@@ -60,7 +60,12 @@
     <div id="window-controls">
       <button id="btn-save-chat" class="title-action-btn" title="Save this conversation to long-term memory">💾</button>
       <button id="btn-axis"      class="title-action-btn" title="View Aria's persistent emotional axis state">💠</button>
-      <button id="btn-fast"      class="title-action-btn" title="Fast mode: brief responses, Haiku model, limited file reading">↯</button>
+      <button id="btn-model"     class="title-action-btn model-selector-btn" title="Switch the chat model (Haiku / Sonnet / Opus)">
+        <span id="btn-model-label">HAIKU</span>
+        <span class="model-selector-arrow">▾</span>
+      </button>
+      <div id="model-picker" class="hidden"></div>
+      <button id="btn-fast"      class="title-action-btn" title="Fast mode: brief responses + tight context">↯</button>
       <button id="btn-portrait"  class="title-action-btn" title="Toggle portrait panel">◨</button>
       <button id="btn-help"      title="Help &amp; feature reference">?</button>
       <button id="btn-settings"  title="Background &amp; display settings">⚙</button>
@@ -161,6 +166,7 @@
     <div id="action-buttons">
       <button class="action-btn" id="btn-folder"  title="Attach file or folder">📁 FOLDER</button>
       <button class="action-btn" id="btn-screen"  title="Capture screen">👁 SCREEN</button>
+      <button class="action-btn" id="btn-search"  title="Ask your companion to search the web">🔎 SEARCH</button>
       <button class="action-btn" id="btn-emotion" title="Set emotion context">😊 EMOTION</button>
       <button class="action-btn" id="btn-msg-editor" title="View and delete messages from session history">📋 MSGS</button>
       <button class="action-btn" id="btn-trackers"    title="View Aria's self-chosen trackers">📊 TRACK</button>
@@ -168,6 +174,27 @@
       <button class="action-btn" id="btn-adventure" title="Begin a text-adventure RPG with Aria">⚔ ADVENTURE</button>
       <button class="action-btn" id="btn-story" title="Begin a narrative Story with the Storyteller">📖 STORY</button>
       <button class="action-btn build-debug-only" id="btn-requests" title="Aria's feature request wishlist">✦ REQUESTS<span id="requests-badge" class="hidden"></span></button>
+    </div>
+
+    <!-- Web search popup -->
+    <div id="search-popup" class="hidden">
+      <div class="search-popup-label">// WEB_SEARCH</div>
+      <div class="search-mode-row">
+        <button class="search-mode-btn active" data-mode="web"   title="Search web pages">🔎 WEB</button>
+        <button class="search-mode-btn"        data-mode="image" title="Find an image">🖼 IMAGE</button>
+        <button class="search-mode-btn"        data-mode="video" title="Find a video">🎬 VIDEO</button>
+      </div>
+      <div class="search-site-row" id="search-site-row">
+        <span class="search-site-label">SITE:</span>
+        <select id="search-site-select"></select>
+      </div>
+      <textarea id="search-input" placeholder="Search the web, or paste a URL...&#10;e.g. &quot;best noise-cancelling headphones 2026&quot;&#10;or &quot;https://example.com/article&quot;" maxlength="500" spellcheck="false" rows="4"></textarea>
+      <div class="search-popup-hint" id="search-mode-hint">Aria will read what she finds and answer as herself.</div>
+      <div class="search-popup-actions">
+        <button id="btn-search-cancel">CANCEL</button>
+        <button id="btn-search-go" class="search-go-btn">SEARCH</button>
+      </div>
+      <div id="search-status" class="search-popup-status hidden"></div>
     </div>
 
     <!-- Persona force popup -->
@@ -751,6 +778,28 @@
     </div>
   </div>
 
+  <!-- Media popup — image / video from web search. Center of screen. -->
+  <div id="media-popup" class="hidden">
+    <div class="media-popup-frame">
+      <div class="media-popup-header">
+        <span class="media-popup-title" id="media-popup-title">// MEDIA</span>
+        <div class="media-popup-header-actions">
+          <button id="btn-media-save"  class="media-popup-btn" title="Save to disk">💾 SAVE</button>
+          <button id="btn-media-hide"  class="media-popup-btn" title="Hide (keeps content available)">▁ HIDE</button>
+          <button id="btn-media-close" class="media-popup-btn media-popup-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="media-popup-content" id="media-popup-content"></div>
+      <div class="media-popup-meta" id="media-popup-meta"></div>
+    </div>
+  </div>
+
+  <!-- Media popup mini chip — visible while media popup is hidden. -->
+  <button id="media-popup-mini" class="hidden" title="Restore media popup">
+    <span class="media-mini-icon" id="media-mini-icon">🖼</span>
+    <span class="media-mini-label" id="media-mini-label">MEDIA</span>
+  </button>
+
   <!-- Loading overlay -->
   <div id="loading-overlay" class="hidden">
     <div class="loading-spinner"></div>
@@ -764,6 +813,34 @@
   <div id="storage-warning" class="hidden">
     <span id="storage-warning-text"></span>
     <button id="storage-warning-dismiss" title="Dismiss">×</button>
+  </div>
+
+  <!-- Companion authoring banner — progress for Stories/Adventures the
+       companion is building from chat. See docs/COMPANION_AUTHORING.md. -->
+  <div id="authoring-banner" class="hidden">
+    <div class="authoring-banner-body">
+      <span class="authoring-banner-icon">✎</span>
+      <div class="authoring-banner-text">
+        <div id="authoring-banner-title"></div>
+        <div id="authoring-banner-label"></div>
+      </div>
+    </div>
+    <div class="authoring-banner-actions">
+      <button id="authoring-banner-cancel" class="hidden" title="Stop building after the current stage">STOP</button>
+      <button id="authoring-banner-dismiss" title="Dismiss">×</button>
+    </div>
+  </div>
+
+  <!-- Confirmation for replacing a campaign that is already in progress -->
+  <div id="authoring-confirm" class="hidden">
+    <div class="authoring-confirm-panel">
+      <div class="authoring-confirm-title">REPLACE CURRENT CAMPAIGN?</div>
+      <div id="authoring-confirm-text" class="authoring-confirm-text"></div>
+      <div class="authoring-confirm-actions">
+        <button id="authoring-confirm-yes" class="authoring-confirm-danger">REPLACE IT</button>
+        <button id="authoring-confirm-no">KEEP MY CAMPAIGN</button>
+      </div>
+    </div>
   </div>
 
   <!-- Renderer scripts (order matters) -->
@@ -798,6 +875,9 @@
   <script src="js/settings.js"></script>
   <script src="js/requests-panel.js"></script>
   <script src="js/persona-popup.js"></script>
+  <script src="js/media-popup.js"></script>
+  <script src="js/search-popup.js"></script>
+  <script src="js/model-selector.js"></script>
   <script src="js/help-panel.js"></script>
   <script src="js/music-player.js"></script>
   <script src="js/music-settings.js"></script>
@@ -805,6 +885,7 @@
   <script src="js/text-adventure.js"></script>
   <script src="js/text-story.js"></script>
   <script src="js/adventure-settings.js"></script>
+  <script src="js/companion-authoring-ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

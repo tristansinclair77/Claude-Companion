@@ -296,6 +296,11 @@
             <select id="story-new-nsfw"></select>
             <div class="story-form-hint-inline" id="story-new-nsfw-hint"></div>
           </div>
+          <div class="story-form-group">
+            <label class="story-form-label">Narrated by</label>
+            <select id="story-new-narrator"></select>
+            <div class="story-form-hint-inline" id="story-new-narrator-hint"></div>
+          </div>
 
           <div class="story-overlay-actions">
             <button class="story-btn story-btn-primary" id="story-btn-new-start">BEGIN STORY</button>
@@ -334,6 +339,11 @@
             <label class="story-form-label">Content level (NSFW)</label>
             <select id="story-set-nsfw"></select>
             <div class="story-form-hint-inline" id="story-set-nsfw-hint"></div>
+          </div>
+          <div class="story-form-group">
+            <label class="story-form-label">Narrated by</label>
+            <select id="story-set-narrator"></select>
+            <div class="story-form-hint-inline" id="story-set-narrator-hint"></div>
           </div>
           <div class="story-overlay-actions">
             <button class="story-btn story-btn-primary" id="story-btn-set-save">SAVE</button>
@@ -557,6 +567,8 @@
     $('story-set-seg').addEventListener('change', () => _updateSettingsHints());
     $('story-set-choicefreq').addEventListener('change', () => _updateSettingsHints());
     $('story-set-nsfw').addEventListener('change', () => _updateSettingsHints());
+    $('story-set-narrator')?.addEventListener('change', () => _updateSettingsHints());
+    $('story-new-narrator')?.addEventListener('change', () => _updateNewHints());
 
     // Ask Storyteller
     $('story-btn-ask-send').addEventListener('click', _sendAsk);
@@ -644,11 +656,18 @@
       const updated = s.updated ? new Date(s.updated).toLocaleString() : '';
       const type = s.storyTypeLabel || s.storyType || '';
       const mc = s.mainCharacter && s.mainCharacter.name ? ` · ${_esc(s.mainCharacter.name)}` : '';
+      // Provenance + narrator badges: a story the companion commissioned, or
+      // one she narrates, reads very differently from a default story.
+      const badges = [];
+      if (s.createdBy === 'companion')     badges.push('commissioned by your companion');
+      if (s.narratorMode === 'companion')  badges.push('narrated by your companion');
+      if (s.hasBlueprint && !s.planComplete) badges.push('plan incomplete — REGEN PLAN');
+      const badgeStr = badges.length ? ` · <span class="story-library-row-badge">${_esc(badges.join(' · '))}</span>` : '';
       return `
         <div class="story-library-row" data-slug="${_esc(s.slug)}">
           <div class="story-library-row-main">
             <div class="story-library-row-title">${_esc(s.title || s.slug)}</div>
-            <div class="story-library-row-meta">${_esc(type)} · Turn ${s.turnCount || 0}${mc} · <span class="story-library-row-updated">${_esc(updated)}</span></div>
+            <div class="story-library-row-meta">${_esc(type)} · Turn ${s.turnCount || 0}${mc} · <span class="story-library-row-updated">${_esc(updated)}</span>${badgeStr}</div>
           </div>
           <div class="story-library-row-actions">
             <button class="story-btn story-btn-primary story-btn-small" data-act="open">OPEN</button>
@@ -777,6 +796,8 @@
     _fillSelect('story-new-choicefreq', _catalogs.choiceFrequencies, _catalogs.defaults.choiceFrequency);
     // NSFW
     _fillSelect('story-new-nsfw', _catalogs.nsfwLevels, _catalogs.defaults.nsfwLevel);
+    // Narrator — defaults to the neutral Storyteller.
+    _fillSelect('story-new-narrator', _narratorCatalog(), 'storyteller');
 
     // Sliders default
     $('story-new-desc').value  = _catalogs.defaults.descriptiveness || 3;
@@ -787,22 +808,39 @@
     _updateNewHints();
   }
 
+  // Narrator catalog. Comes from the main process (store.NARRATOR_MODES) but
+  // falls back to a local copy so an older cached catalogs payload can't blank
+  // the picker out.
+  function _narratorCatalog() {
+    if (_catalogs && Array.isArray(_catalogs.narratorModes) && _catalogs.narratorModes.length) {
+      return _catalogs.narratorModes;
+    }
+    return [
+      { slug: 'storyteller', label: 'The Storyteller', hint: 'The default professional novelist. Neutral, no companion involvement.' },
+      { slug: 'companion',   label: 'Your Companion',  hint: 'Your companion tells the story herself — her voice, her memories of you, her moods in the prose.' },
+    ];
+  }
+
   function _updateNewHints() {
     const seg  = _catalogs.segmentLengths.find((s) => s.slug === $('story-new-seg').value);
     const cf   = _catalogs.choiceFrequencies.find((s) => s.slug === $('story-new-choicefreq').value);
     const nsfw = _catalogs.nsfwLevels.find((s) => s.slug === $('story-new-nsfw').value);
+    const nar  = _narratorCatalog().find((s) => s.slug === $('story-new-narrator').value);
     $('story-new-seg-hint').textContent        = seg  ? `${seg.range} · ${seg.hint}` : '';
     $('story-new-choicefreq-hint').textContent = cf   ? cf.hint   : '';
     $('story-new-nsfw-hint').textContent       = nsfw ? nsfw.hint : '';
+    $('story-new-narrator-hint').textContent   = nar  ? nar.hint  : '';
   }
 
   function _updateSettingsHints() {
     const seg  = _catalogs.segmentLengths.find((s) => s.slug === $('story-set-seg').value);
     const cf   = _catalogs.choiceFrequencies.find((s) => s.slug === $('story-set-choicefreq').value);
     const nsfw = _catalogs.nsfwLevels.find((s) => s.slug === $('story-set-nsfw').value);
+    const nar  = _narratorCatalog().find((s) => s.slug === $('story-set-narrator').value);
     $('story-set-seg-hint').textContent        = seg  ? `${seg.range} · ${seg.hint}` : '';
     $('story-set-choicefreq-hint').textContent = cf   ? cf.hint   : '';
     $('story-set-nsfw-hint').textContent       = nsfw ? nsfw.hint : '';
+    $('story-set-narrator-hint').textContent   = nar  ? nar.hint  : '';
   }
 
   function _fillSelect(id, items, defaultSlug) {
@@ -838,9 +876,12 @@
     _showOverlay('story-overlay-new', false);
     _showBusy('Creating story…');
 
+    const narratorMode = $('story-new-narrator') ? $('story-new-narrator').value : 'storyteller';
+
     const res = await window.storyAPI.create({
       title, storyType: typeSlug, storyTypeLabel: typeObj.label,
       startingContext, mainCharacter, settings, storyLength,
+      narratorMode, createdBy: 'user',
     });
     if (!res || !res.success) {
       _hideBusy();
@@ -958,6 +999,7 @@
     _fillSelect('story-set-seg',        _catalogs.segmentLengths,    _state.settings.segmentLength);
     _fillSelect('story-set-choicefreq', _catalogs.choiceFrequencies, _state.settings.choiceFrequency);
     _fillSelect('story-set-nsfw',       _catalogs.nsfwLevels,        _state.settings.nsfwLevel);
+    _fillSelect('story-set-narrator',   _narratorCatalog(),          _state.narratorMode || 'storyteller');
     $('story-set-desc').value  = _state.settings.descriptiveness || 3;
     $('story-set-desc-val').textContent  = $('story-set-desc').value;
     $('story-set-prose').value = _state.settings.proseStyle || 3;
@@ -975,7 +1017,8 @@
       proseStyle:       parseInt($('story-set-prose').value, 10) || 3,
       nsfwLevel:        $('story-set-nsfw').value,
     };
-    const res = await window.storyAPI.updateSettings(_currentSlug, settings);
+    const narratorMode = $('story-set-narrator') ? $('story-set-narrator').value : undefined;
+    const res = await window.storyAPI.updateSettings(_currentSlug, settings, narratorMode);
     if (res && res.success) {
       _state = res.state;
       _refreshHeader();
@@ -1261,7 +1304,12 @@
   // ── Rendering: header + sidebar cards ────────────────────────────────
   function _refreshHeader() {
     if (!_state) return;
-    $('story-header-title').textContent   = _state.title || '—';
+    // A ✎ after the title marks a story the companion is narrating herself.
+    const companionTold = _state.narratorMode === 'companion';
+    $('story-header-title').textContent   = (_state.title || '—') + (companionTold ? '  ✎' : '');
+    $('story-header-title').title = companionTold
+      ? 'Narrated by your companion — her voice, memories, and mood shape this telling. Change it in STORY SETTINGS.'
+      : 'Narrated by the Storyteller. Change it in STORY SETTINGS.';
     $('story-header-section').textContent = `Section ${_state.turnCount || 0}`;
     const sc = _state.scene || {};
     // Explicit "Scene:" prefix so the scene name doesn't visually blur into
@@ -2872,5 +2920,27 @@
       .replace(/'/g, '&#39;');
   }
 
-  window.TextStory = { init, toggle };
+  // Something outside Story mode changed the library — currently the
+  // companion commissioning or adjusting a story from chat. If the library
+  // overlay is on screen, re-render it so the new story appears without a
+  // restart. If the user is mid-story, reload that story's state so a
+  // narrator/settings change she made lands immediately.
+  async function notifyExternalChange() {
+    if (!_initialized) return;
+    try {
+      const libOpen = $('story-overlay-library') && !$('story-overlay-library').classList.contains('hidden');
+      if (libOpen) { await _openLibrary(); return; }
+      if (_currentSlug) {
+        const res = await window.storyAPI.get(_currentSlug);
+        if (res && res.success) {
+          _state = res.state;
+          _refreshHeader();
+        }
+      }
+    } catch (e) {
+      console.warn('[TextStory] external-change refresh failed:', e);
+    }
+  }
+
+  window.TextStory = { init, toggle, notifyExternalChange };
 })();

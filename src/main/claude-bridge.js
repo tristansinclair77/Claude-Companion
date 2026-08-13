@@ -93,6 +93,7 @@ async function sendToClaude({
   emotionalState = null,
   onStreamChunk = null,
   fastMode = false,
+  model = null,
   addonContexts = [],
   trackers = {},
   activeThreads = [],
@@ -226,7 +227,7 @@ async function sendToClaude({
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
-      '--model', 'claude-haiku-4-5-20251001',
+      '--model', model || 'claude-haiku-4-5-20251001',
       '--system-prompt-file', sysTmpPath,
       '--dangerously-skip-permissions',
     ];

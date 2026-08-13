@@ -255,12 +255,18 @@ function _freshMemory() {
   };
 }
 
-function _freshState({ tone, setting, companionName = 'Aria' }) {
+function _freshState({ tone, setting, companionName = 'Aria', authorBrief = '', createdBy = 'user' }) {
   return {
     version:  3,
     started:  new Date().toISOString(),
     tone:     tone    || 'classic_high_fantasy',
     setting:  setting || '',
+    // When the companion designs the campaign from chat she writes a brief:
+    // what kind of run this is, why she picked it, what she wants it to feel
+    // like. Surfaced to the GM every turn via formatStateSummary so her intent
+    // shapes the whole campaign. See docs/COMPANION_AUTHORING.md.
+    authorBrief: String(authorBrief || '').trim(),
+    createdBy:   createdBy === 'companion' ? 'companion' : 'user',
     scene:    { name: 'The Beginning', area: 'Unknown' },
     time:     { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' },
     player:   _freshPlayer(),
@@ -292,6 +298,8 @@ function loadState(characterDir) {
     // Forward-compat: backfill any new top-level fields older saves are missing.
     if (!state.aria)    state.aria    = _freshAria();
     if (!state.memory)  state.memory  = _freshMemory();
+    if (state.authorBrief === undefined) state.authorBrief = '';
+    if (state.createdBy   === undefined) state.createdBy   = 'user';
     if (!state.time)    state.time    = { dayCount: 1, phase: 'morning', label: 'Day 1 — Morning' };
     if (!state.party)                      state.party     = [];
     if (!state.summons)                    state.summons   = [];
@@ -506,8 +514,8 @@ function clearDebugResponses(characterDir) {
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
 
-function newGame(characterDir, { tone, setting, companionName = 'Aria' } = {}) {
-  const state = _freshState({ tone, setting, companionName });
+function newGame(characterDir, { tone, setting, companionName = 'Aria', authorBrief = '', createdBy = 'user' } = {}) {
+  const state = _freshState({ tone, setting, companionName, authorBrief, createdBy });
   saveState(characterDir, state);
   saveLog(characterDir, _emptyLog());
   saveSideChat(characterDir, _emptySideChat());
@@ -1050,6 +1058,11 @@ function formatStateSummary(state) {
   const m = state.memory;
   const parts = [];
   parts.push(`Tone: ${state.tone}${state.setting ? ` — "${state.setting}"` : ''}`);
+  if (state.authorBrief) {
+    parts.push(
+      `CAMPAIGN BRIEF (written by ${state.aria && state.aria.name ? state.aria.name : 'the companion'} when she designed this run — honor it; it is why this campaign exists):\n${state.authorBrief}`
+    );
+  }
   parts.push(`Scene: ${state.scene.name}${state.scene.area ? ` (${state.scene.area})` : ''}`);
   if (m.storySummary)     parts.push(`Story so far:\n${m.storySummary}`);
   if (m.currentSituation) parts.push(`Right now: ${m.currentSituation}`);

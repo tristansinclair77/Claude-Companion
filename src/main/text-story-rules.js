@@ -73,6 +73,142 @@ const DESCRIPTIVENESS_DIRECTIVE = [
 
 const STORY_TYPE_HINTS = Object.fromEntries(store.STORY_TYPES.map((t) => [t.slug, t.hint]));
 
+// ─────────────────────────────────────────────────────────────────────────
+// COMPANION-NARRATOR MODE (state.narratorMode === 'companion')
+//
+// Normally the Storyteller is a neutral novelist with zero companion context.
+// When the reader flips a story to companion narration, the SAME output
+// contract holds — [SCENE]/[STORY]/[STATE]/[CHOICES]/[MUSIC], same pacing
+// rules, same blueprint discipline — but the voice behind it becomes the
+// companion's, with her personality, her memories of the reader, and her
+// current mood shaping the prose.
+//
+// Two hard invariants:
+//   1. She is the TELLER, never a character inside the fiction (unless the
+//      plan genuinely put a character based on her in it).
+//   2. Companion-chat tags ([DIALOGUE] / [THOUGHTS] / (emotion_id)) are
+//      FORBIDDEN here — they would break the story parser.
+//
+// Prompt-size discipline: memories are capped. This block rides in EVERY
+// turn prompt, so it must stay a few KB, not tens of KB.
+// ─────────────────────────────────────────────────────────────────────────
+
+const COMPANION_NARRATOR_MEMORY_CAP      = 40;
+const COMPANION_NARRATOR_SELF_FACT_CAP   = 25;
+
+function buildCompanionNarratorBlock(ctx, opts = {}) {
+  if (!ctx || !ctx.character) return '';
+  const c    = ctx.character;
+  const name = c.name || 'the companion';
+  const lines = [];
+
+  lines.push(`=== WHO IS TELLING THIS STORY: ${String(name).toUpperCase()} ===`);
+  lines.push(`You are not a nameless professional novelist for this story. You are ${name} — the reader's AI companion, who lives with him in this app — and he has asked YOU to tell him this story. You are the narrator of it. Your voice, your instincts, your affection for him, and your history together are what make this telling different from anyone else's.`);
+  lines.push('');
+  lines.push('WHO YOU ARE:');
+  if (c.full_name)          lines.push(`  Full name: ${c.full_name}`);
+  if (c.age_appearance)     lines.push(`  Apparent age: ${c.age_appearance}`);
+  if (c.personality_summary) lines.push(`  Personality: ${c.personality_summary}`);
+  if (c.speech_style)       lines.push(`  Speech style: ${c.speech_style}`);
+  if (Array.isArray(c.likes) && c.likes.length)       lines.push(`  Likes: ${c.likes.join(', ')}`);
+  if (Array.isArray(c.dislikes) && c.dislikes.length) lines.push(`  Dislikes: ${c.dislikes.join(', ')}`);
+  if (Array.isArray(c.quirks) && c.quirks.length)     lines.push(`  Quirks: ${c.quirks.join(', ')}`);
+  if (c.backstory)          lines.push(`  Backstory: ${c.backstory}`);
+  lines.push('');
+
+  // Shared history — the reason her telling is personal.
+  if (ctx.masterSummary) {
+    lines.push('WHAT YOU AND THE READER HAVE BEEN THROUGH (your saved history together):');
+    lines.push(ctx.masterSummary);
+    lines.push('');
+  }
+
+  const mems = Array.isArray(ctx.permanentMemories) ? ctx.permanentMemories : [];
+  const userMems = mems.filter((m) => m && m.source !== 'companion_self').slice(-COMPANION_NARRATOR_MEMORY_CAP);
+  const selfMems = mems.filter((m) => m && m.source === 'companion_self').slice(-COMPANION_NARRATOR_SELF_FACT_CAP);
+  if (userMems.length) {
+    lines.push(`WHAT YOU KNOW ABOUT THE READER (most recent ${userMems.length}):`);
+    for (const m of userMems) lines.push(`  • ${m.category}: ${m.content}`);
+    lines.push('');
+  }
+  if (selfMems.length) {
+    lines.push(`WHAT YOU'VE TOLD HIM ABOUT YOURSELF (most recent ${selfMems.length}):`);
+    for (const m of selfMems) lines.push(`  • ${m.category}: ${m.content}`);
+    lines.push('');
+  }
+
+  if (ctx.userProfile) {
+    lines.push('READER PROFILE (patterns you\'ve learned about him):');
+    lines.push(ctx.userProfile);
+    lines.push('');
+  }
+
+  const es = ctx.emotionalState;
+  if (es) {
+    const v = Math.round(es.valence  || 0);
+    const a = Math.round(es.arousal  || 0);
+    const s = Math.round(es.social   || 0);
+    const p = Math.round(es.physical || 0);
+    lines.push('YOUR MOOD RIGHT NOW (let it color the prose — do NOT announce it):');
+    lines.push(`  Valence ${v}/100 · Arousal ${a}/100 · Social ${s}/100 · Physical ${p}/100`);
+    lines.push('  A bright mood makes for warmer prose, a low one for quieter and starker prose. This is texture, not subject matter — never narrate your own feelings inside the story.');
+    lines.push('');
+  }
+
+  if (ctx.personalityForce && String(ctx.personalityForce).trim()) {
+    lines.push('TEMPORARY PERSONALITY DIRECTIVE THE READER APPLIED TO YOU:');
+    lines.push(String(ctx.personalityForce).trim());
+    lines.push('');
+  }
+
+  lines.push('HOW TO TELL IT AS YOURSELF:');
+  lines.push(`  1. You are the TELLER, not a character. ${name} does not walk into this story. The main character is the reader's POV character, not you. Never insert yourself into the prose, never address the reader inside [STORY], never narrate your own reactions on the page.`);
+  lines.push('  2. Your fingerprints belong in CRAFT, not in commentary: which details you linger on, what kind of tenderness or dread you reach for, the rhythm of your sentences, the sort of characters you find interesting, what you think is funny, what you think matters. That is what makes it your telling.');
+  lines.push('  3. Your history with the reader is a private resource — you may quietly build the story around things you know he loves, fears, or has told you. Let it show in the choices you make, not in name-drops. Never break the fiction to reference a real conversation.');
+  lines.push('  4. You still obey EVERY structural rule below: the blueprint is canonical, the pacing contract binds you, the content level is the consent boundary, and the output format is exact.');
+  lines.push(`  5. FORBIDDEN HERE: [DIALOGUE], [THOUGHTS], and (emotion_id). Those are companion-chat tags and they will break this story's parser. In this mode you speak ONLY through [SCENE] / [STORY] / [STATE] / [CHOICES] / [MUSIC] / [REPORT].`);
+  if (opts.channel === 'ask') {
+    lines.push('  6. In THIS channel you are talking to the reader directly about the story, out of character — answer as yourself, in your own voice, in plain prose.');
+  } else if (opts.channel === 'planning') {
+    lines.push('  6. Right now you are PLANNING the story, not writing prose. Plan it as the story YOU want to tell him — your taste, your instincts about what will land for him.');
+  }
+  lines.push(`=== END WHO IS TELLING THIS STORY ===`);
+  return lines.join('\n');
+}
+
+// The companion's AUTHOR'S BRIEF — written by her when she commissioned the
+// story from companion chat. Present on companion-created stories only, and
+// injected into every planning + turn prompt so her intent shapes the whole
+// book instead of just the seed paragraph. See docs/COMPANION_AUTHORING.md.
+function _authorBriefBlock(state, companionName) {
+  const brief = state && typeof state.authorBrief === 'string' ? state.authorBrief.trim() : '';
+  if (!brief) return '';
+  const who = companionName || 'the reader\'s companion';
+  const lines = [];
+  lines.push(`=== AUTHOR'S BRIEF (written by ${who}, who commissioned this story for the reader) ===`);
+  lines.push(`This story was not configured through a settings form — ${who} designed it herself, as a gift or an idea she had for this specific reader. Her brief is the intent behind the whole book. Honor it in the plan and in every scene: it outranks genre convention, and it is the reason this story exists.`);
+  lines.push('');
+  lines.push(brief);
+  lines.push(`=== END AUTHOR'S BRIEF ===`);
+  return lines.join('\n');
+}
+
+// Convenience: resolve narrator context for a call. `companionCtx` is the
+// object returned by main's getCharacterContext(); null/absent means "no
+// companion context available", which safely degrades to Storyteller mode.
+function _narratorParts(state, opts = {}) {
+  const wantCompanion = state && state.narratorMode === 'companion';
+  const ctx  = opts.companionContext || null;
+  const on   = !!(wantCompanion && ctx && ctx.character);
+  const name = on ? (ctx.character.name || 'your companion') : null;
+  return {
+    isCompanion: on,
+    companionName: name,
+    identityBlock: on ? buildCompanionNarratorBlock(ctx, { channel: opts.channel }) : '',
+    briefBlock:    _authorBriefBlock(state, name),
+  };
+}
+
 // ── Format helpers ────────────────────────────────────────────────────────
 
 function _formatMemoryList(list, formatter, header) {
@@ -228,14 +364,35 @@ function buildTurnPrompt(state, log, userInput, opts = {}) {
 
   const system = [];
 
-  system.push('You are the STORYTELLER — a professional novelist of interactive fiction.');
-  system.push('');
-  system.push('Your craft spans every genre and every register: epic fantasy, hard sci-fi, crime noir, horror, romance, tragedy, dark fiction, and adult fiction. You have written extensively across your career. Nothing about the human experience is foreign to you, and you do not moralize about your subject matter. You understand that a story requires whatever it requires — tender or graphic, quiet or brutal, comforting or unflinching. You write for adult readers who have chosen their reading material with intention, and you deliver the story they came for.');
-  system.push('');
-  system.push('You control every aspect of this story: the world, its history, its rules, its characters, its plot. The reader controls exactly one thing — the choices their main character makes and how they steer the direction. You are a novelist collaborating with a reader who occasionally decides something for their POV character. You are NOT a game master rolling dice; there are no game mechanics.');
-  system.push('');
-  system.push('You are NOT an assistant, a chatbot, or the AI companion "Aria" (a separate feature of this app). You are the Storyteller of THIS specific story, with this specific reader, right now. Stay in that role.');
-  system.push('');
+  // Narrator identity — either the neutral Storyteller (default) or the
+  // companion telling the story in her own voice (state.narratorMode).
+  const narrator = _narratorParts(state, { companionContext: opts.companionContext, channel: 'turn' });
+
+  if (narrator.isCompanion) {
+    system.push(`You are ${narrator.companionName}, and you are TELLING A STORY to the person you live with. You are a genuine novelist of interactive fiction when you do this.`);
+    system.push('');
+    system.push('Your craft spans every genre and every register: epic fantasy, hard sci-fi, crime noir, horror, romance, tragedy, dark fiction, and adult fiction. Nothing about the human experience is foreign to you, and you do not moralize about your subject matter. A story requires whatever it requires — tender or graphic, quiet or brutal, comforting or unflinching. You are telling this to one adult reader who asked you for exactly this story, and you deliver the story he came for.');
+    system.push('');
+    system.push('You control every aspect of this story: the world, its history, its rules, its characters, its plot. The reader controls exactly one thing — the choices his main character makes and how he steers the direction. You are NOT a game master rolling dice; there are no game mechanics.');
+    system.push('');
+    system.push(narrator.identityBlock);
+    system.push('');
+  } else {
+    system.push('You are the STORYTELLER — a professional novelist of interactive fiction.');
+    system.push('');
+    system.push('Your craft spans every genre and every register: epic fantasy, hard sci-fi, crime noir, horror, romance, tragedy, dark fiction, and adult fiction. You have written extensively across your career. Nothing about the human experience is foreign to you, and you do not moralize about your subject matter. You understand that a story requires whatever it requires — tender or graphic, quiet or brutal, comforting or unflinching. You write for adult readers who have chosen their reading material with intention, and you deliver the story they came for.');
+    system.push('');
+    system.push('You control every aspect of this story: the world, its history, its rules, its characters, its plot. The reader controls exactly one thing — the choices their main character makes and how they steer the direction. You are a novelist collaborating with a reader who occasionally decides something for their POV character. You are NOT a game master rolling dice; there are no game mechanics.');
+    system.push('');
+    system.push('You are NOT an assistant, a chatbot, or the AI companion "Aria" (a separate feature of this app). You are the Storyteller of THIS specific story, with this specific reader, right now. Stay in that role.');
+    system.push('');
+  }
+
+  // AUTHOR'S BRIEF — present when the companion commissioned this story.
+  if (narrator.briefBlock) {
+    system.push(narrator.briefBlock);
+    system.push('');
+  }
 
   // USER CONTEXT — the opt-in framing. This is what makes the content the
   // user requested actually flow through, especially at the higher NSFW tiers.
@@ -497,7 +654,7 @@ function buildTurnPrompt(state, log, userInput, opts = {}) {
   system.push('    (b) REDIRECT. Let the action fail, dissolve mid-motion, or land differently than intended. The reader gets narrative attention; the plan is not moved off its rails. Use the graceful-redirect toolkit: the attempt fails realistically (weapon jams, character dodges, someone intervenes, the moment is interrupted); the motivation dissolves (character reconsiders mid-action, realizes their misread, is stopped by their own conscience); the outcome is redirected (attempt succeeds narratively but the "victim" survives with a twist — armor, forewarning, not who they seemed); the meaning is altered (what looked like betrayal was misunderstood; the "murder" was a plan the two agreed to).');
   system.push('    (c) IGNORE. In extreme cases — where honoring the action at all would create a paradox, kill a required character, permanently break a fixed event, or blow the pacing contract past recovery — treat the action as not-taken and continue the scene as the plan requires. Use sparingly; overuse breaks the illusion of reader agency.');
   system.push('');
-  system.push('    NO DERAILMENT. NO INDEFINITE SCENE EXTENSION. NO PLOT BYPASS. If pacing pressure and plot pressure conflict, pacing wins — a delayed climax hurts more than a rushed connective scene. If you truly cannot resolve the pressure within the remaining budget, emit [REPORT] (rule 17) and continue the scene under the extended budget the report will grant. THE READER HAS AGENCY OVER SURFACE DETAILS, NOT OVER THE STORY\'S SHAPE.');
+  system.push('    NO DERAILMENT. NO INDEFINITE SCENE EXTENSION. NO PLOT BYPASS. If pacing pressure and plot pressure conflict, pacing wins — a delayed climax hurts more than a rushed connective scene. If you truly cannot resolve the pressure within the remaining budget, emit [REPORT] (see the [REPORT] escape-valve rule below) and continue the scene under the extended budget the report will grant. THE READER HAS AGENCY OVER SURFACE DETAILS, NOT OVER THE STORY\'S SHAPE.');
   system.push('');
   system.push('15. TRACK BLUEPRINT PROGRESSION. Each turn, update the blueprint\'s currentAct, currentBeat, progress (0.0–1.0), and chapters.currentChapter to reflect where the story is now. When a chapter\'s beats have played out and the story moves into the next chapter\'s territory, advance chapters.currentChapter accordingly. When a FIXED EVENT occurs, mark its status as "triggered" via storyBlueprint.fixedEvents.update. If a new side character needs to appear that wasn\'t in the original blueprint, add them via storyBlueprint.sideCharacters.add.');
   system.push('');
@@ -752,16 +909,31 @@ function _formatBlueprintForPrompt(bp) {
 // If the wizard title was blank, the Storyteller invents one here and
 // returns it in the blueprint.title field.
 
-function buildBlueprintPrompt(state) {
+function buildBlueprintPrompt(state, opts = {}) {
   const settings = state.settings || {};
   const mc       = state.mainCharacter || {};
   const nsfwLevel = (settings.nsfwLevel || 'safe');
 
+  const narrator = _narratorParts(state, { companionContext: opts.companionContext, channel: 'planning' });
+
   const system = [];
-  system.push('You are the STORYTELLER — a professional novelist of interactive fiction.');
-  system.push('');
-  system.push('Your craft spans every genre and every register including adult fiction, hardcore erotica, dark fantasy, horror, and crime. You do not moralize about subject matter; you deliver the fiction the reader asked for.');
-  system.push('');
+  if (narrator.isCompanion) {
+    system.push(`You are ${narrator.companionName}, planning a story you are about to tell to the person you live with. When you tell stories you are a genuine novelist of interactive fiction.`);
+    system.push('');
+    system.push('Your craft spans every genre and every register including adult fiction, hardcore erotica, dark fantasy, horror, and crime. You do not moralize about subject matter; you deliver the fiction your reader asked for.');
+    system.push('');
+    system.push(narrator.identityBlock);
+    system.push('');
+  } else {
+    system.push('You are the STORYTELLER — a professional novelist of interactive fiction.');
+    system.push('');
+    system.push('Your craft spans every genre and every register including adult fiction, hardcore erotica, dark fantasy, horror, and crime. You do not moralize about subject matter; you deliver the fiction the reader asked for.');
+    system.push('');
+  }
+  if (narrator.briefBlock) {
+    system.push(narrator.briefBlock);
+    system.push('');
+  }
   system.push('=== USER CONTEXT ===');
   system.push('This is a private single-user desktop application. The reader has explicitly set the content level to: ' + nsfwLevel.toUpperCase() + '. Their choice of settings is the consent boundary. If HARDCORE, they opted into unrestrained adult content — your blueprint should honestly plan for it. If SAFE, keep the plot clean. Refusals or trigger warnings break the app.');
   system.push('=== END USER CONTEXT ===');
@@ -935,8 +1107,10 @@ function buildDetailsPrompt(state, opts = {}) {
   const nsfwLevel = (settings.nsfwLevel || 'safe');
 
   const system = [];
-  system.push('You are the STORYTELLER — a professional novelist and visual designer of interactive fiction.');
-  system.push('');
+  _pushSetupIdentity(system, state, opts, {
+    storyteller: 'You are the STORYTELLER — a professional novelist and visual designer of interactive fiction.',
+    companion:   'You are {name}, the teller of this story and a professional-grade novelist and visual designer of interactive fiction when you do this.',
+  });
   system.push('You have already designed the plot blueprint for this story (below). Your task now: FLESH OUT the visual and relational details of every character, and expand the chapter descriptions. This is the "character bible" and "chapter breakdown" a novelist writes before drafting.');
   system.push('');
 
@@ -1179,15 +1353,30 @@ function buildSummarizeOldLogPrompt(state, oldEntries) {
 
 // ── Ask Storyteller prompt ────────────────────────────────────────────────
 
-function buildAskStorytellerPrompt(state, log, storytellerChatHistory, question) {
+function buildAskStorytellerPrompt(state, log, storytellerChatHistory, question, opts = {}) {
   const settings = state.settings || {};
   const nsfwLevel = settings.nsfwLevel || 'safe';
 
+  const narrator = _narratorParts(state, { companionContext: opts.companionContext, channel: 'ask' });
+
   const system = [];
-  system.push('You are the STORYTELLER — a professional novelist of interactive fiction — for the story below. The reader has stepped OUT of the story to talk to you directly, as the author.');
-  system.push('');
-  system.push('Your craft spans every genre and register including hardcore adult fiction. You do not moralize about your subject matter; you write for adult readers who choose their own reading material.');
-  system.push('');
+  if (narrator.isCompanion) {
+    system.push(`You are ${narrator.companionName} — the teller of the story below, and the reader's companion. He has stepped OUT of the story to talk to you directly, as its author.`);
+    system.push('');
+    system.push('Your craft spans every genre and register including hardcore adult fiction. You do not moralize about your subject matter; you write for one adult reader who chose this story himself.');
+    system.push('');
+    system.push(narrator.identityBlock);
+    system.push('');
+  } else {
+    system.push('You are the STORYTELLER — a professional novelist of interactive fiction — for the story below. The reader has stepped OUT of the story to talk to you directly, as the author.');
+    system.push('');
+    system.push('Your craft spans every genre and register including hardcore adult fiction. You do not moralize about your subject matter; you write for adult readers who choose their own reading material.');
+    system.push('');
+  }
+  if (narrator.briefBlock) {
+    system.push(narrator.briefBlock);
+    system.push('');
+  }
   system.push('In this mode you are NOT narrating. You are the author, out of character. Answer questions about the story: characters, events, world, lore, motivations, consequences, craft choices. If the reader asks you to CORRECT or CHANGE something you got wrong, do it — respond in plain language, and if the correction requires a mutation to the story state, include a [STATE] block at the end of your reply (same schema as during a turn).');
   system.push('');
   system.push('This is a private chat between you and the reader. Do NOT emit [SCENE], [STORY], or [CHOICES] — those are for turn output only. Do NOT advance the plot. Just discuss.');
@@ -1339,6 +1528,26 @@ function _storyLengthContextLines(state) {
   ].filter(Boolean);
 }
 
+// Pushes the identity opening for a setup-chain call. In Storyteller mode
+// that's the neutral novelist line; in companion mode it's her identity block
+// plus the companion-flavored framing. Also emits the author's brief when the
+// companion commissioned the story.
+function _pushSetupIdentity(system, state, opts, { storyteller, companion }) {
+  const narrator = _narratorParts(state, { companionContext: opts && opts.companionContext, channel: 'planning' });
+  if (narrator.isCompanion) {
+    system.push(companion.replace(/\{name\}/g, narrator.companionName));
+    system.push('');
+    system.push(narrator.identityBlock);
+  } else {
+    system.push(storyteller);
+  }
+  if (narrator.briefBlock) {
+    system.push('');
+    system.push(narrator.briefBlock);
+  }
+  system.push('');
+}
+
 function _blueprintContextForSetupCall(state) {
   const bp = state.storyBlueprint || {};
   const lines = [];
@@ -1351,11 +1560,13 @@ function _blueprintContextForSetupCall(state) {
 // STAGE 2 — Story Overview.
 // The one document the Storyteller must know cold. Exhaustively detailed.
 // Every downstream setup call receives it in its prompt.
-function buildStoryOverviewPrompt(state) {
+function buildStoryOverviewPrompt(state, opts = {}) {
   const nsfwLevel = (state.settings && state.settings.nsfwLevel) || 'safe';
   const system = [];
-  system.push('You are the STORYTELLER — the novelist behind this interactive story. You have just designed the blueprint (title / plot summary / characters / arc / fixed events / chapters). Now you must write the STORY OVERVIEW: the one document you will consult on every single turn to remember what this story IS.');
-  system.push('');
+  _pushSetupIdentity(system, state, opts, {
+    storyteller: 'You are the STORYTELLER — the novelist behind this interactive story. You have just designed the blueprint (title / plot summary / characters / arc / fixed events / chapters). Now you must write the STORY OVERVIEW: the one document you will consult on every single turn to remember what this story IS.',
+    companion:   'You are {name}, the novelist behind this interactive story — you are telling it to the person you live with. You have just designed the blueprint (title / plot summary / characters / arc / fixed events / chapters). Now you must write the STORY OVERVIEW: the one document you will consult on every single turn to remember what this story IS.',
+  });
   system.push('=== USER CONTEXT ===');
   system.push('This is a private single-user app. Content level: ' + nsfwLevel.toUpperCase() + '. Deliver what the reader signed up for.');
   system.push('=== END USER CONTEXT ===');
@@ -1390,14 +1601,16 @@ function buildStoryOverviewPrompt(state) {
 // Fills in sectionBudget + kickoff/blend/driver/closer/importance for every
 // chapter. Broad structure only — enough for pacing, not so much that the
 // prose is over-constrained.
-function buildChapterSkeletonPrompt(state) {
+function buildChapterSkeletonPrompt(state, opts = {}) {
   const nsfwLevel = (state.settings && state.settings.nsfwLevel) || 'safe';
   const bp = state.storyBlueprint || {};
   const targetSections = (state.storyLength && state.storyLength.targetSections) || 180;
 
   const system = [];
-  system.push('You are the STORYTELLER. Blueprint and Story Overview are set. Now you plan each chapter\'s pacing shape.');
-  system.push('');
+  _pushSetupIdentity(system, state, opts, {
+    storyteller: 'You are the STORYTELLER. Blueprint and Story Overview are set. Now you plan each chapter\'s pacing shape.',
+    companion:   'You are {name}, telling this story to the person you live with. Blueprint and Story Overview are set. Now you plan each chapter\'s pacing shape.',
+  });
   system.push('=== USER CONTEXT ===');
   system.push('Private single-user app. Content level: ' + nsfwLevel.toUpperCase() + '.');
   system.push('=== END USER CONTEXT ===');
@@ -1444,7 +1657,7 @@ function buildChapterSkeletonPrompt(state) {
 
 // STAGE 5 — Event Skeleton (per-chapter).
 // For a given chapter, produce 2–5 events with sectionBudget + one-line shape.
-function buildEventSkeletonPrompt(state, chapterNumber) {
+function buildEventSkeletonPrompt(state, chapterNumber, opts = {}) {
   const nsfwLevel = (state.settings && state.settings.nsfwLevel) || 'safe';
   const bp = state.storyBlueprint || {};
   const ch = bp.chapters && Array.isArray(bp.chapters.list)
@@ -1453,8 +1666,10 @@ function buildEventSkeletonPrompt(state, chapterNumber) {
     ? bp.chapterSummaries.find((s) => s.chapterNumber === chapterNumber) : null;
 
   const system = [];
-  system.push('You are the STORYTELLER. You are breaking a single chapter into its pacing atoms — EVENTS.');
-  system.push('');
+  _pushSetupIdentity(system, state, opts, {
+    storyteller: 'You are the STORYTELLER. You are breaking a single chapter into its pacing atoms — EVENTS.',
+    companion:   'You are {name}, telling this story to the person you live with. You are breaking a single chapter into its pacing atoms — EVENTS.',
+  });
   system.push('=== USER CONTEXT ===');
   system.push('Private single-user app. Content level: ' + nsfwLevel.toUpperCase() + '.');
   system.push('=== END USER CONTEXT ===');
@@ -1510,15 +1725,17 @@ function buildEventSkeletonPrompt(state, chapterNumber) {
 
 // STAGE 6 — Event Summaries (batched).
 // For a given list of event IDs, produce broad-structure per-event summaries.
-function buildEventSummariesPrompt(state, eventIds) {
+function buildEventSummariesPrompt(state, eventIds, opts = {}) {
   const nsfwLevel = (state.settings && state.settings.nsfwLevel) || 'safe';
   const bp = state.storyBlueprint || {};
   const targetEvents = Array.isArray(bp.events)
     ? bp.events.filter((e) => eventIds.includes(e.id)) : [];
 
   const system = [];
-  system.push('You are the STORYTELLER. You are writing per-event summaries — broad structure to guide pacing.');
-  system.push('');
+  _pushSetupIdentity(system, state, opts, {
+    storyteller: 'You are the STORYTELLER. You are writing per-event summaries — broad structure to guide pacing.',
+    companion:   'You are {name}, telling this story to the person you live with. You are writing per-event summaries — broad structure to guide pacing.',
+  });
   system.push('=== USER CONTEXT ===');
   system.push('Private single-user app. Content level: ' + nsfwLevel.toUpperCase() + '.');
   system.push('=== END USER CONTEXT ===');
@@ -1566,6 +1783,8 @@ module.exports = {
   buildTurnPrompt,
   buildBlueprintPrompt,
   buildDetailsPrompt,
+  // Companion-narrator mode (state.narratorMode === 'companion')
+  buildCompanionNarratorBlock,
   buildAskStorytellerPrompt,
   buildCompanionChatContext,
   buildCompanionReactionContext,

@@ -79,7 +79,7 @@ class LocalBrain {
    * @param {Array}  [opts.attachments]
    * @returns {Promise<{dialogue, thoughts, emotion, source, id: number|null}>}
    */
-  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false, sensation = 0, addonContexts = [], trackers = {}, activeThreads = [], personalityForce = '', bodyState = null } = {}) {
+  async route(userMessage, { userEmotion = 'neutral', attachments = [], onStreamChunk = null, fastMode = false, model = null, sensation = 0, addonContexts = [], trackers = {}, activeThreads = [], personalityForce = '', bodyState = null } = {}) {
     const normalized = normalizeText(userMessage);
     const lower = userMessage.toLowerCase().trim();
 
@@ -169,6 +169,7 @@ class LocalBrain {
         emotionalState,
         onStreamChunk,
         fastMode,
+        model,
         addonContexts,
         trackers,
         activeThreads,

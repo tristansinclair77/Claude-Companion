@@ -872,13 +872,17 @@ function register({ ipcMain, mainWindow, getCharacterContext, getAdventureSettin
   // ── New game / reset ──────────────────────────────────────────────────────
   ipcMain.handle('adventure:new-game', (_event, opts = {}) => {
     const tone    = String(opts.tone    || 'classic_high_fantasy').slice(0, 60);
-    const setting = String(opts.setting || '').slice(0, 400);
+    // Companion-designed campaigns write a much richer setting than the
+    // wizard's one-liner, so the cap is generous. The brief is separate.
+    const setting = String(opts.setting || '').slice(0, 4000);
+    const authorBrief = String(opts.authorBrief || '').slice(0, 6000);
+    const createdBy   = opts.createdBy === 'companion' ? 'companion' : 'user';
     let companionName = 'Aria';
     try {
       const charJson = JSON.parse(fs.readFileSync(require('path').join(characterDir, 'character.json'), 'utf8'));
       if (charJson.name) companionName = charJson.name;
     } catch {}
-    const state = store.newGame(characterDir, { tone, setting, companionName });
+    const state = store.newGame(characterDir, { tone, setting, companionName, authorBrief, createdBy });
     return { state, log: [] };
   });
 

@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Web fetch
   fetchUrl: (url) => ipcRenderer.invoke('web:fetch', url),
 
+  // Web search — mode ∈ {'web','image','video'}. 'web' also accepts a URL.
+  // site is an optional explicit host restriction (from the dropdown).
+  webSearch: (input, mode = 'web', site = '') => ipcRenderer.invoke('web:search', { input, mode, site }),
+
+  // Save a fetched image URL to disk via native Save-As dialog
+  saveImage: (imageUrl, defaultName) => ipcRenderer.invoke('media:save-image', { imageUrl, defaultName }),
+
   // Feedback signal to brain
   sendFeedback: (message) => ipcRenderer.send('brain:feedback', { message }),
 
@@ -46,6 +53,10 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   // Fast mode
   getFastMode: ()      => ipcRenderer.invoke('settings:get-fast-mode'),
   setFastMode: (val)   => ipcRenderer.invoke('settings:set-fast-mode', val),
+
+  // Chat model selection (null = default Haiku 4.5)
+  getModel: ()        => ipcRenderer.invoke('settings:get-model'),
+  setModel: (modelId) => ipcRenderer.invoke('settings:set-model', modelId),
 
   // Get native file path from a File object (Electron 32+ replacement for file.path)
   getPathForFile: (file) => webUtils.getPathForFile(file),
@@ -86,6 +97,9 @@ contextBridge.exposeInMainWorld('claudeAPI', {
       'companion:trackers',
       'companion:affection',
       'feature-requests:updated',
+      // Companion Story/Adventure authoring — progress + results of the
+      // things she builds from chat. See docs/COMPANION_AUTHORING.md.
+      'companion:authoring',
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => callback(...args));
@@ -112,6 +126,20 @@ contextBridge.exposeInMainWorld('musicAPI', {
   },
 });
 
+// ── Companion Authoring API ────────────────────────────────────────────────────
+// The Story/Adventure workshop the companion drives from chat. The renderer
+// uses this for the progress banner and the replace-my-campaign confirmation.
+contextBridge.exposeInMainWorld('authoringAPI', {
+  status:           ()             => ipcRenderer.invoke('authoring:status'),
+  cancel:           ()             => ipcRenderer.invoke('authoring:cancel'),
+  resolveAdventure: (id, approved) => ipcRenderer.invoke('authoring:resolve-adventure', { id, approved }),
+  onEvent: (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('companion:authoring', listener);
+    return () => ipcRenderer.removeListener('companion:authoring', listener);
+  },
+});
+
 // ── Text Story API ─────────────────────────────────────────────────────────────
 contextBridge.exposeInMainWorld('storyAPI', {
   catalogs:      ()               => ipcRenderer.invoke('story:catalogs'),
@@ -127,7 +155,16 @@ contextBridge.exposeInMainWorld('storyAPI', {
   },
   delete:        (slug)           => ipcRenderer.invoke('story:delete', { slug }),
   rename:        (slug, title)    => ipcRenderer.invoke('story:rename', { slug, title }),
-  updateSettings: (slug, settings) => ipcRenderer.invoke('story:update-settings', { slug, settings }),
+  updateSettings: (slug, settings, narratorMode) => ipcRenderer.invoke('story:update-settings', { slug, settings, narratorMode }),
+  // Narrator selection — 'storyteller' (default) | 'companion'
+  setNarratorMode: (slug, narratorMode) => ipcRenderer.invoke('story:set-narrator-mode', { slug, narratorMode }),
+  // Main-process setup chain (same one the companion's background jobs use).
+  runSetupChain: (slug, opts = {}) => ipcRenderer.invoke('story:run-setup-chain', { slug, ...opts }),
+  onSetupProgress: (cb) => {
+    const listener = (_evt, payload) => cb(payload);
+    ipcRenderer.on('story:setup-progress', listener);
+    return () => ipcRenderer.removeListener('story:setup-progress', listener);
+  },
   takeTurn:      (opts)           => ipcRenderer.invoke('story:take-turn', opts),
   retryTurn:     (slug)           => ipcRenderer.invoke('story:retry-turn', { slug }),
   setNudge:      (slug, nudge)    => ipcRenderer.invoke('story:set-nudge', { slug, nudge }),

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,10 +10,12 @@ const LocalBrain = require('./local-brain');
 const { captureScreen, cleanupScreenshot } = require('./screen-capture');
 const { openFilePicker, openFolderPicker } = require('./file-handler');
 const { fetchUrl } = require('./web-fetcher');
+const { searchWeb } = require('./web-search');
 const { registerDebugViewerIPC } = require('./debug-viewer-ipc');
 const { registerCharacterBuilderIPC } = require('./character-builder-ipc');
 const { register: registerTextAdventureIPC } = require('./text-adventure-ipc');
 const { register: registerTextStoryIPC }     = require('./text-story-ipc');
+const { CompanionAuthoring, buildWorkshopContext } = require('./companion-authoring');
 const musicEngine = require('./music-engine');
 const { summarizeConversation } = require('./claude-bridge');
 const { EMOTION_AXES, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, SENSATION_DECAY, SENSATION_MAX } = require('../shared/constants');
@@ -69,11 +71,14 @@ let character;
 let characterRules;
 let fillerResponses;
 let _fastMode = false;
+let _model = null;            // null = default (Haiku). Overridable to sonnet/opus.
 let _responseLength = null;   // null = use character default
 let _personalityForce = '';   // empty = no override
 let _addonContexts = []; // merged context blobs from loaded addons
 let _currentSensation = 0; // Session-only pleasure/pain accumulator; resets on app restart
 let _trackers = {};         // Persistent named counters (loaded from DB per character)
+let _authoring = null;      // CompanionAuthoring — the companion's Story/Adventure workshop
+let _storyIpc  = null;      // handle returned by registerTextStoryIPC (runSetupChain)
 
 
 // ── App Bootstrap ─────────────────────────────────────────────────────────────
@@ -195,6 +200,22 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
+  // Block only "open a new window/tab" requests from the renderer AND from
+  // embedded iframes (YouTube "Watch on YouTube", channel links, rule34video
+  // meta links). Electron's default would otherwise spawn a fresh BrowserWindow
+  // for every window.open / target="_blank" click inside an embed.
+  //
+  // NOTE: intentionally NOT hooking `will-navigate` — that fires for the
+  // iframe embed's own internal resource loads (player.js, video streams,
+  // ads.js on YouTube). Blocking it turns the embed into a static thumbnail
+  // that won't play on click. setWindowOpenHandler alone is sufficient — it
+  // fires only for actual new-window intents, not for iframe subresource
+  // loads or top-level in-place navigations.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('did-attach-webview', (_evt, wc) => {
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
     mainWindow.show();
@@ -215,7 +236,60 @@ function createWindow() {
 const DEBUG_VIEWER_MODE = process.argv.includes('--debug-viewer');
 const CHAR_BUILDER_MODE = process.argv.includes('--char-builder');
 
+// ── companion-img:// proxy protocol ───────────────────────────────────────
+//
+// Sites like gelbooru's CDN block hotlinking (302 redirect unless the request
+// has Referer=<host>/). An <img> tag in the renderer can't set a custom
+// Referer, so we proxy remote image requests through this custom protocol:
+// the renderer uses  companion-img://fetch/<url-encoded-target>  as its src,
+// and this handler fetches the target from Node with the right Referer.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'companion-img', privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: true, corsEnabled: true } },
+]);
+
+function _hostReferer(url) {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}/`;
+  } catch { return ''; }
+}
+
+async function _registerImgProxy() {
+  protocol.handle('companion-img', async (req) => {
+    try {
+      const u = new URL(req.url);
+      // Path is either "/fetch/<encoded>" or "/<encoded>"
+      let encoded = u.pathname.replace(/^\/+/, '');
+      if (encoded.startsWith('fetch/')) encoded = encoded.slice('fetch/'.length);
+      const target = decodeURIComponent(encoded);
+      if (!/^https?:\/\//i.test(target)) {
+        return new Response('bad-target', { status: 400 });
+      }
+      const res = await net.fetch(target, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36',
+          'Referer':    _hostReferer(target),
+          'Accept':     'image/*,video/*,*/*;q=0.5',
+        },
+        redirect: 'follow',
+      });
+      // Strip hop-by-hop headers; forward status + content-type + body.
+      const buf = await res.arrayBuffer();
+      return new Response(buf, {
+        status: res.status,
+        headers: {
+          'Content-Type':  res.headers.get('content-type') || 'application/octet-stream',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    } catch (err) {
+      return new Response('proxy-error: ' + err.message, { status: 502 });
+    }
+  });
+}
+
 app.whenReady().then(() => {
+  _registerImgProxy();
   if (DEBUG_VIEWER_MODE) {
     // Standalone debug viewer — no companion window, no brain
     registerDebugViewerIPC(null, null);
@@ -241,6 +315,10 @@ app.whenReady().then(() => {
   // Restore fast mode
   _fastMode = readConfig().fastMode || false;
   console.log('[App] Fast mode:', _fastMode ? 'ON' : 'OFF');
+
+  // Restore selected chat model (null = default Haiku)
+  _model = readConfig().model || null;
+  console.log('[App] Model:', _model || '(default: Haiku 4.5)');
 
   // Restore response length override
   _responseLength = readConfig().responseLength || null;
@@ -279,7 +357,7 @@ app.whenReady().then(() => {
   // character context in the Storyteller's prompt), but the Companion Chat
   // pathway inside Story mode DOES route Aria's full context so she can
   // discuss the story alongside Trist. That's why we pass getCharacterContext.
-  registerTextStoryIPC({
+  _storyIpc = registerTextStoryIPC({
     ipcMain,
     mainWindow: win,
     storiesRoot: STORIES_ROOT,
@@ -298,6 +376,22 @@ app.whenReady().then(() => {
       featureRequests:   featureRequestsStore.loadRequests(CHARACTER_DIR),
       addonContexts:     _addonContexts,
     }),
+  });
+
+  // Companion authoring workshop — lets the companion commission and adjust
+  // Stories and Adventures from ordinary chat. Needs runSetupChain from the
+  // story IPC so a companion-made story gets its full plan built in the
+  // background. See docs/COMPANION_AUTHORING.md.
+  _authoring = new CompanionAuthoring({
+    storiesRoot:   STORIES_ROOT,
+    characterDir:  CHARACTER_DIR,
+    runSetupChain: _storyIpc && _storyIpc.runSetupChain,
+    getCompanionName: () => (character && character.name) || 'Your companion',
+    emit: (channel, payload) => {
+      if (win && !win.isDestroyed()) {
+        try { win.webContents.send(channel, payload); } catch {}
+      }
+    },
   });
 
   // Refresh .claude/aria-context.md at boot — picks up any DB changes made
@@ -366,6 +460,25 @@ ipcMain.on('window:close', (e) => {
   }
 });
 
+// Addon contexts for a companion-chat turn: the addons loaded from disk plus
+// the live Story/Adventure workshop block, rebuilt every turn so she always
+// sees the current story library and adventure status. Cheap — a directory
+// scan plus two small JSON reads.
+function _composeAddonContexts() {
+  const out = _addonContexts.slice();
+  try {
+    const workshop = buildWorkshopContext({
+      storiesRoot:   STORIES_ROOT,
+      characterDir:  CHARACTER_DIR,
+      companionName: (character && character.name) || 'You',
+    });
+    if (workshop) out.push(workshop);
+  } catch (err) {
+    console.warn('[App] workshop context build failed:', err.message);
+  }
+  return out;
+}
+
 ipcMain.handle('claude:send-message', async (event, payload) => {
   const { message, userEmotion, attachments } = payload;
   try {
@@ -382,7 +495,7 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
     };
     if (_responseLength) character.default_response_length = _responseLength;
     const bodyState = _preBodyState;
-    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, sensation: _currentSensation, addonContexts: _addonContexts, trackers: _trackers, personalityForce: _personalityForce, bodyState });
+    const response = await localBrain.route(message, { userEmotion, attachments, onStreamChunk, fastMode: _fastMode, model: _model, sensation: _currentSensation, addonContexts: _composeAddonContexts(), trackers: _trackers, personalityForce: _personalityForce, bodyState });
     // Add to session window AFTER route() so the current message isn't already in the
     // conversation window when Claude builds the prompt (claude-bridge appends it explicitly).
     sessionManager.addMessage('user', message, userEmotion);
@@ -527,6 +640,22 @@ ipcMain.handle('claude:send-message', async (event, payload) => {
       mainWindow?.webContents.send('feature-requests:updated');
     }
 
+    // Story / Adventure authoring directives ([CREATE_STORY], [CREATE_ADVENTURE],
+    // [STORY_SETTINGS], [STORY_NUDGE]). Story creation is instant; the multi-stage
+    // planning chain that follows runs in the background and reports progress to
+    // the renderer over 'companion:authoring'. Never allowed to fail the turn.
+    if (_authoring) {
+      try {
+        const { notices } = _authoring.processTags(response);
+        if (notices.length) {
+          response.authoringNotices = notices;
+          logger.log('companion_authoring', { notices });
+        }
+      } catch (err) {
+        console.error('[App] companion authoring failed:', err.message);
+      }
+    }
+
     const sumCheck = sessionManager.checkForSummarization();
     if (sumCheck) {
       sessionManager.applySummarization('', sumCheck.remaining);
@@ -594,6 +723,50 @@ ipcMain.handle('web:fetch', async (event, url) => {
   try {
     const result = await fetchUrl(url);
     return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('web:search', async (event, payload) => {
+  try {
+    // Back-compat: allow a bare string OR { input, mode, site }
+    let input, mode, site;
+    if (typeof payload === 'string') { input = payload; mode = 'web'; site = ''; }
+    else {
+      input = (payload && payload.input) || '';
+      mode  = (payload && payload.mode)  || 'web';
+      site  = (payload && payload.site)  || '';
+    }
+    const result = await searchWeb(input, { mode, site });
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Save an image URL to disk via a Save-As dialog. Returns { success, path? }.
+ipcMain.handle('media:save-image', async (event, payload) => {
+  try {
+    const { imageUrl, defaultName } = payload || {};
+    if (!imageUrl) throw new Error('Missing imageUrl');
+    const { downloadImage } = require('./web-search');
+    const { buffer, extension } = await downloadImage(imageUrl);
+
+    const safeName = (defaultName || 'image').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 80);
+    const suggested = safeName.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) ? safeName : safeName + extension;
+
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Image',
+      defaultPath: suggested,
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    if (res.canceled || !res.filePath) return { success: false, canceled: true };
+    fs.writeFileSync(res.filePath, buffer);
+    return { success: true, path: res.filePath };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -790,6 +963,29 @@ ipcMain.handle('emotional-state:reset', () => {
 });
 
 // ── Fast mode IPC ─────────────────────────────────────────────────────────────
+
+// ── Model IPC ─────────────────────────────────────────────────────────────
+//
+// Choices are validated against a whitelist so a malformed setting can't send
+// arbitrary strings to the Claude CLI. null → the CLI's default (Haiku 4.5).
+const _MODEL_WHITELIST = new Set([
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-6',
+  'claude-opus-4-7',
+]);
+
+ipcMain.handle('settings:get-model', () => _model);
+
+ipcMain.handle('settings:set-model', (_event, val) => {
+  if (val && !_MODEL_WHITELIST.has(val)) {
+    console.warn('[App] Rejected non-whitelisted model:', val);
+    return _model;
+  }
+  _model = val || null;
+  writeConfig({ model: _model });
+  console.log('[App] Model set to:', _model || '(default: Haiku 4.5)');
+  return _model;
+});
 
 ipcMain.handle('settings:get-fast-mode', () => _fastMode);
 
@@ -1003,6 +1199,28 @@ ipcMain.handle('adventure-display:set-settings', (_event, partial = {}) => {
   if (typeof partial.combatFrequency === 'number')  next.combatFrequency = Math.max(0, Math.min(4, Math.round(partial.combatFrequency)));
   writeConfig({ adventure: next });
   return next;
+});
+
+// ── Companion Authoring IPC ───────────────────────────────────────────────────
+//
+// The renderer's authoring banner polls status on load and then rides the
+// 'companion:authoring' push events. Cancel stops the in-flight planning chain
+// at the next stage boundary and clears the queue.
+
+ipcMain.handle('authoring:status', () => {
+  return _authoring ? _authoring.status() : { running: null, queued: [], pendingAdventure: null };
+});
+
+ipcMain.handle('authoring:cancel', () => {
+  if (!_authoring) return { success: false, error: 'Authoring not available.' };
+  return _authoring.cancelCurrent();
+});
+
+// The companion proposed replacing a campaign that's already in progress.
+// Nothing is destroyed until this resolves with approved === true.
+ipcMain.handle('authoring:resolve-adventure', (_event, { id, approved } = {}) => {
+  if (!_authoring) return { success: false, error: 'Authoring not available.' };
+  return _authoring.resolvePendingAdventure(id, !!approved);
 });
 
 // ── Feature Requests IPC ──────────────────────────────────────────────────────

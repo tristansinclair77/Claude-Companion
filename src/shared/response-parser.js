@@ -1,5 +1,67 @@
 const { EMOTION_MAP, COMBINED_EMOTION_MAP, SPECIAL_EMOTIONS, RESPONSE_MARKERS } = require('./constants');
 
+// ── Authoring block tags (Story / Adventure workshop) ─────────────────────────
+//
+// The companion can commission a Story or an Adventure from inside normal
+// companion chat. Those directives are BLOCK tags carrying JSON, not one-line
+// key:value tags, because a story brief is structured data.
+//
+// See docs/COMPANION_AUTHORING.md for the schemas.
+const AUTHORING_BLOCK_TAGS = ['CREATE_STORY', 'CREATE_ADVENTURE', 'STORY_SETTINGS'];
+const AUTHORING_LINE_TAGS  = ['STORY_NUDGE'];
+
+/**
+ * Pulls every [TAG]...[/TAG] block out of a response.
+ * Tolerant of a missing closer: falls back to "everything up to the next
+ * known structural tag or end of string", which is the common Claude failure
+ * mode on long JSON blocks.
+ *
+ * @returns {string[]} inner bodies, in document order
+ */
+function extractBlocks(text, tag) {
+  const out = [];
+  const closed = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'gi');
+  let m;
+  while ((m = closed.exec(text)) !== null) {
+    const body = m[1].trim();
+    if (body) out.push(body);
+  }
+  if (out.length) return out;
+
+  // Unclosed fallback — one block only (a second unclosed opener is
+  // unrecoverable and would just corrupt the first).
+  const opener = new RegExp(`\\[${tag}\\]`, 'i');
+  const om = text.match(opener);
+  if (!om) return out;
+  const after = text.slice(om.index + om[0].length);
+  const boundary = after.search(
+    /\[(?:DIALOGUE|THOUGHTS|MEMORY|MEMORY_UPDATE|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE|REMEMBER|RECALL|CREATE_STORY|CREATE_ADVENTURE|STORY_SETTINGS|STORY_NUDGE)\b/i
+  );
+  const body = (boundary >= 0 ? after.slice(0, boundary) : after).trim();
+  if (body) out.push(body);
+  return out;
+}
+
+/**
+ * Lenient JSON parse for model-emitted blocks: raw, fenced, or with a
+ * trailing comma. Returns null when nothing usable is present.
+ */
+function parseLooseJson(s) {
+  if (!s || typeof s !== 'string') return null;
+  const attempts = [s.trim()];
+  const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) attempts.push(fenced[1].trim());
+  // Outermost brace pair — strips any prose the model wrapped around the JSON.
+  const first = s.indexOf('{');
+  const last  = s.lastIndexOf('}');
+  if (first >= 0 && last > first) attempts.push(s.slice(first, last + 1));
+  for (const a of attempts) {
+    try { return JSON.parse(a); } catch {}
+    try { return JSON.parse(a.replace(/,(\s*[\]}])/g, '$1')); } catch {}
+  }
+  return null;
+}
+
 /**
  * Parses a raw Claude response string into structured parts.
  *
@@ -22,7 +84,7 @@ function parseResponse(raw, opts = {}) {
     : 'neutral';
 
   if (!raw || typeof raw !== 'string') {
-    return { dialogue: '', thoughts: '', emotion: fallbackEmotion, emotionExplicit: false, memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [], rememberShort: [], rememberLong: [], recalledMemoryIds: [] };
+    return { dialogue: '', thoughts: '', emotion: fallbackEmotion, emotionExplicit: false, memories: [], memoryUpdates: [], selfFacts: [], sensation: 0, sensationLingers: false, trackUpdates: [], rememberShort: [], rememberLong: [], recalledMemoryIds: [], storyPlans: [], adventurePlans: [], storyPatches: [], storyNudges: [] };
   }
 
   const text = raw.trim();
@@ -64,10 +126,10 @@ function parseResponse(raw, opts = {}) {
   // A tag like "[THOUGHTS]" written mid-sentence in dialogue is treated as literal text.
   // The emotion tag (already located above) bounds the search, so we no longer rely
   // on a fragile `\([a-z_]+\)` lookahead that would over-match parens-words in prose.
-  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\])|$)/i);
+  const dialogueMatch = beforeEmotion.match(/\[DIALOGUE\]([\s\S]*?)(?=\n[ \t]*(?:\[THOUGHTS\]|\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\]|\[CREATE_STORY\]|\[CREATE_ADVENTURE\]|\[STORY_SETTINGS\]|\[STORY_NUDGE\])|$)/i);
   const dialogue = dialogueMatch
     ? dialogueMatch[1].trim()
-        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE|REMEMBER(?::(?:short|long))?|RECALL)\]/gi, '')
+        .replace(/\[(?:THOUGHTS|DIALOGUE|MEMORY(?:_UPDATE)?|SELF|SENSATION|TRACK|THREAD|KNOWLEDGE|FEATURE_REQUEST|AFFECTION|STATE|REMEMBER(?::(?:short|long))?|RECALL|\/?CREATE_STORY|\/?CREATE_ADVENTURE|\/?STORY_SETTINGS|STORY_NUDGE)\]/gi, '')
         .replace(/\\n/g, ' ')  // strip literal \n text Claude occasionally outputs
         .trim()
     : '';
@@ -76,7 +138,7 @@ function parseResponse(raw, opts = {}) {
   // Only match when the tag starts a line; mid-sentence mentions are ignored.
   // Bounded by the emotion tag position (via beforeEmotion) so paren-words in the
   // thoughts text can no longer cut the capture short.
-  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\])|$)/i);
+  const thoughtsMatch = beforeEmotion.match(/(?:^|\n)[ \t]*\[THOUGHTS\]([\s\S]*?)(?=\n[ \t]*(?:\[SENSATION\]|\[TRACK\]|\[MEMORY\]|\[SELF\]|\[KNOWLEDGE\]|\[FEATURE_REQUEST\]|\[AFFECTION\]|\[STATE\]|\[REMEMBER\b|\[RECALL\]|\[CREATE_STORY\]|\[CREATE_ADVENTURE\]|\[STORY_SETTINGS\]|\[STORY_NUDGE\])|$)/i);
   const thoughts = thoughtsMatch ? thoughtsMatch[1].trim() : '';
 
   // Extract [MEMORY] tags (new facts)
@@ -225,6 +287,41 @@ function parseResponse(raw, opts = {}) {
     }
   }
 
+  // ── Authoring directives (Story / Adventure workshop) ────────────────────
+  // Each is a JSON block the companion emits to commission or adjust a Story
+  // or an Adventure. Malformed JSON is dropped here and reported by the
+  // authoring layer, never silently applied. See docs/COMPANION_AUTHORING.md.
+  const storyPlans     = [];
+  const adventurePlans = [];
+  const storyPatches   = [];
+
+  for (const body of extractBlocks(text, 'CREATE_STORY')) {
+    const obj = parseLooseJson(body);
+    if (obj && typeof obj === 'object') storyPlans.push(obj);
+    else storyPlans.push({ _parseError: true, raw: body.slice(0, 600) });
+  }
+  for (const body of extractBlocks(text, 'CREATE_ADVENTURE')) {
+    const obj = parseLooseJson(body);
+    if (obj && typeof obj === 'object') adventurePlans.push(obj);
+    else adventurePlans.push({ _parseError: true, raw: body.slice(0, 600) });
+  }
+  for (const body of extractBlocks(text, 'STORY_SETTINGS')) {
+    const obj = parseLooseJson(body);
+    if (obj && typeof obj === 'object') storyPatches.push(obj);
+    else storyPatches.push({ _parseError: true, raw: body.slice(0, 600) });
+  }
+
+  // [STORY_NUDGE] <slug> | <directive text> — one-shot steer for a story's
+  // next turn. Line-anchored so prose mentions aren't captured.
+  const storyNudges = [];
+  const nudgeRegex = /^[ \t]*\[STORY_NUDGE\]\s*([^|\n]+)\|\s*(.+)$/gim;
+  let nudgeMatch;
+  while ((nudgeMatch = nudgeRegex.exec(text)) !== null) {
+    const slug = nudgeMatch[1].trim();
+    const note = nudgeMatch[2].trim();
+    if (slug && note) storyNudges.push({ slug, nudge: note });
+  }
+
   // Fallback: if no [DIALOGUE] marker, treat entire (non-thoughts, non-emotion, non-memory) text as dialogue
   const finalDialogue = dialogue || extractFallbackDialogue(text);
 
@@ -247,6 +344,10 @@ function parseResponse(raw, opts = {}) {
     rememberShort,
     rememberLong,
     recalledMemoryIds,
+    storyPlans,
+    adventurePlans,
+    storyPatches,
+    storyNudges,
   };
 }
 
@@ -255,7 +356,7 @@ function parseResponse(raw, opts = {}) {
  */
 function extractFallbackDialogue(text) {
   // Strip [THOUGHTS], (emotion), [MEMORY], [SELF], [THREAD], [KNOWLEDGE], [FEATURE_REQUEST] parts
-  let cleaned = text
+  let cleaned = stripAuthoringTags(text)
     .replace(/\[THOUGHTS\][\s\S]*?(?=\([a-z_]+\)|\[MEMORY\]|\[SELF\]|\[THREAD\]|\[KNOWLEDGE\]|\[REMEMBER\b|\[RECALL\]|$)/gi, '')
     .replace(/\([a-z_]+\)/g, '')
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
@@ -274,10 +375,30 @@ function extractFallbackDialogue(text) {
 }
 
 /**
+ * Strips authoring blocks ([CREATE_STORY] / [CREATE_ADVENTURE] /
+ * [STORY_SETTINGS]) and [STORY_NUDGE] lines. These carry JSON payloads, so a
+ * whole-block strip is required — a line-based strip would leak the body into
+ * the dialogue panel.
+ */
+function stripAuthoringTags(text) {
+  let out = String(text || '');
+  for (const tag of AUTHORING_BLOCK_TAGS) {
+    // Closed blocks first, then any dangling opener through end-of-string.
+    out = out.replace(new RegExp(`\\[${tag}\\][\\s\\S]*?\\[\\/${tag}\\]`, 'gi'), '');
+    out = out.replace(new RegExp(`\\[${tag}\\][\\s\\S]*$`, 'i'), '');
+    out = out.replace(new RegExp(`\\[\\/${tag}\\]`, 'gi'), '');
+  }
+  for (const tag of AUTHORING_LINE_TAGS) {
+    out = out.replace(new RegExp(`^[ \\t]*\\[${tag}\\][^\\n]*$`, 'gim'), '');
+  }
+  return out;
+}
+
+/**
  * Strips [MEMORY], [MEMORY_UPDATE], and [SELF] lines from text (for display purposes).
  */
 function stripMemoryTags(text) {
-  return text
+  return stripAuthoringTags(text)
     .replace(/\[MEMORY(?:_UPDATE)?\][^\n]*/gi, '')
     .replace(/\[SELF\][^\n]*/gi, '')
     .replace(/\[SENSATION\][^\n]*/gi, '')
@@ -292,4 +413,12 @@ function stripMemoryTags(text) {
     .trim();
 }
 
-module.exports = { parseResponse, stripMemoryTags };
+module.exports = {
+  parseResponse,
+  stripMemoryTags,
+  stripAuthoringTags,
+  extractBlocks,
+  parseLooseJson,
+  AUTHORING_BLOCK_TAGS,
+  AUTHORING_LINE_TAGS,
+};

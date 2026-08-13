@@ -360,21 +360,52 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // Verbose diagnostic — this log shows up in the Electron main-process console.
   console.log('[TextStory] IPC registered. storiesRoot =', storiesRoot);
 
+  // Every handler is registered through this wrapper so main-process code can
+  // invoke the exact same logic the renderer does. That's what lets the
+  // companion commission a story from chat and have the full setup chain run
+  // without the Story panel ever being opened.
+  const _handlers = {};
+  function handle(channel, fn) {
+    _handlers[channel] = fn;
+    ipcMain.handle(channel, fn);
+  }
+  // Internal call: `_call('story:generate-blueprint', { slug })`.
+  function _call(channel, payload) {
+    const fn = _handlers[channel];
+    if (!fn) return Promise.resolve({ success: false, error: 'No such handler: ' + channel });
+    return Promise.resolve(fn(null, payload || {}));
+  }
+
+  // Companion context for storyteller calls. Only resolved when the story is
+  // actually set to companion narration — Storyteller-narrated stories must
+  // stay completely free of companion context (that separation is the whole
+  // point of Story mode's default).
+  function _companionCtxFor(state) {
+    if (!state || state.narratorMode !== 'companion') return null;
+    if (typeof getCharacterContext !== 'function') return null;
+    try { return getCharacterContext() || null; } catch { return null; }
+  }
+  // Standard opts bundle handed to every text-story-rules prompt builder.
+  function _promptOpts(state, extra = {}) {
+    return { companionContext: _companionCtxFor(state), ...extra };
+  }
+
   // Catalogs (story types, segment lengths, etc.) — a single call for the UI.
-  ipcMain.handle('story:catalogs', () => ({
+  handle('story:catalogs', () => ({
     storyTypes:       store.STORY_TYPES,
     segmentLengths:   store.SEGMENT_LENGTHS,
     choiceFrequencies: store.CHOICE_FREQUENCIES,
     nsfwLevels:       store.NSFW_LEVELS,
     storyLengths:     store.STORY_LENGTHS,   // STORY_GUIDELINES_PATCH §3.3.2
+    narratorModes:    store.NARRATOR_MODES,  // docs/COMPANION_AUTHORING.md
     defaults:         store.DEFAULT_SETTINGS,
   }));
 
-  ipcMain.handle('story:list', () => {
+  handle('story:list', () => {
     return { stories: store.listStories(storiesRoot) };
   });
 
-  ipcMain.handle('story:get', (_e, { slug } = {}) => {
+  handle('story:get', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     if (!fs.existsSync(dir)) return { success: false, error: 'Story not found.' };
@@ -384,8 +415,11 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, state, log };
   });
 
-  ipcMain.handle('story:create', (_e, opts = {}) => {
-    const { title, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength } = opts;
+  handle('story:create', (_e, opts = {}) => {
+    const {
+      title, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength,
+      narratorMode, authorBrief, createdBy,
+    } = opts;
     try {
       const { slug, state } = store.createStory(storiesRoot, {
         title: title || 'Untitled Story',
@@ -395,6 +429,9 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
         mainCharacter,
         settings,
         storyLength,   // preset slug — resolved by the store
+        narratorMode,  // 'storyteller' (default) | 'companion'
+        authorBrief,   // companion-written creative brief (companion-made stories)
+        createdBy,     // 'user' | 'companion'
       });
       return { success: true, slug, state, log: [] };
     } catch (e) {
@@ -408,7 +445,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // turn). Storyteller designs the entire plot arc as a canonical JSON
   // blueprint which then travels in every subsequent turn's prompt.
   // Also backfills state.title if the wizard left it blank.
-  ipcMain.handle('story:generate-blueprint', async (_e, { slug } = {}) => {
+  handle('story:generate-blueprint', async (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -420,7 +457,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
       return { success: true, state, cached: true };
     }
 
-    const { system, user } = buildBlueprintPrompt(state);
+    const { system, user } = buildBlueprintPrompt(state, _promptOpts(state));
 
     let raw = '';
     try {
@@ -539,13 +576,13 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // progress. If a batch fails, only that batch retries; every other
   // batch's saved output survives.
 
-  ipcMain.handle('story:generate-story-overview', async (_e, { slug } = {}) => {
+  handle('story:generate-story-overview', async (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
     if (!state || !state.storyBlueprint) return { success: false, error: 'Blueprint must exist first.' };
 
-    const { system, user } = buildStoryOverviewPrompt(state);
+    const { system, user } = buildStoryOverviewPrompt(state, _promptOpts(state));
     let raw = '';
     try {
       const res = await callStoryteller({ systemPrompt: system, userPrompt: user });
@@ -565,13 +602,13 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, storyOverview: ov, state };
   });
 
-  ipcMain.handle('story:generate-chapter-skeleton', async (_e, { slug } = {}) => {
+  handle('story:generate-chapter-skeleton', async (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
     if (!state || !state.storyBlueprint) return { success: false, error: 'Blueprint must exist first.' };
 
-    const { system, user } = buildChapterSkeletonPrompt(state);
+    const { system, user } = buildChapterSkeletonPrompt(state, _promptOpts(state));
     let raw = '';
     try {
       const res = await callStoryteller({ systemPrompt: system, userPrompt: user });
@@ -599,14 +636,14 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, chapterSummaries: parsed.chapterSummaries, state };
   });
 
-  ipcMain.handle('story:generate-event-skeleton', async (_e, { slug, chapterNumber } = {}) => {
+  handle('story:generate-event-skeleton', async (_e, { slug, chapterNumber } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const ch = Math.max(1, parseInt(chapterNumber, 10) || 1);
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
     if (!state || !state.storyBlueprint) return { success: false, error: 'Blueprint must exist first.' };
 
-    const { system, user } = buildEventSkeletonPrompt(state, ch);
+    const { system, user } = buildEventSkeletonPrompt(state, ch, _promptOpts(state));
     let raw = '';
     try {
       const res = await callStoryteller({ systemPrompt: system, userPrompt: user });
@@ -647,14 +684,14 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, events: parsed.events, state };
   });
 
-  ipcMain.handle('story:generate-event-summaries', async (_e, { slug, eventIds } = {}) => {
+  handle('story:generate-event-summaries', async (_e, { slug, eventIds } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     if (!Array.isArray(eventIds) || !eventIds.length) return { success: false, error: 'eventIds is required.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
     if (!state || !state.storyBlueprint) return { success: false, error: 'Blueprint must exist first.' };
 
-    const { system, user } = buildEventSummariesPrompt(state, eventIds);
+    const { system, user } = buildEventSummariesPrompt(state, eventIds, _promptOpts(state));
     let raw = '';
     try {
       const res = await callStoryteller({ systemPrompt: system, userPrompt: user });
@@ -682,7 +719,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, eventSummaries: parsed.eventSummaries, state };
   });
 
-  ipcMain.handle('story:reports', (_e, { slug } = {}) => {
+  handle('story:reports', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     if (!fs.existsSync(dir)) return { success: false, error: 'Story not found.' };
@@ -699,7 +736,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // stories on first open if state.storyBlueprint.characterDetails is
   // missing. Idempotent: passing { force: true } regenerates; otherwise
   // returns the cached details.
-  ipcMain.handle('story:generate-details', async (_e, { slug, force } = {}) => {
+  handle('story:generate-details', async (_e, { slug, force } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -732,7 +769,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     }
 
     async function _runOneCharacterBatch(batchIds, batchIndex, batchCount) {
-      const { system, user } = buildDetailsPrompt(state, { scope: 'characters', characterIds: batchIds });
+      const { system, user } = buildDetailsPrompt(state, _promptOpts(state, { scope: 'characters', characterIds: batchIds }));
       const label = `Character batch ${batchIndex + 1} of ${batchCount} (${batchIds.length} chars)`;
       _emitPhaseProgress(label);
       try {
@@ -786,7 +823,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     }
 
     async function _runChapters() {
-      const { system, user } = buildDetailsPrompt(state, { scope: 'chapters' });
+      const { system, user } = buildDetailsPrompt(state, _promptOpts(state, { scope: 'chapters' }));
       _emitPhaseProgress('Chapter deep-dives (single call)');
       try {
         const res = await callStoryteller({ systemPrompt: system, userPrompt: user, timeoutMs: 600000 });
@@ -887,33 +924,51 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     };
   });
 
-  ipcMain.handle('story:delete', (_e, { slug } = {}) => {
+  handle('story:delete', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const ok = store.deleteStory(storiesRoot, slug);
     return { success: ok };
   });
 
-  ipcMain.handle('story:rename', (_e, { slug, title } = {}) => {
+  handle('story:rename', (_e, { slug, title } = {}) => {
     if (!slug || !title) return { success: false, error: 'Missing slug or title.' };
     const res = store.renameStory(storiesRoot, slug, title);
     if (!res) return { success: false, error: 'Rename failed.' };
     return { success: true, slug: res.slug, state: res.state };
   });
 
-  ipcMain.handle('story:update-settings', (_e, { slug, settings } = {}) => {
+  handle('story:update-settings', (_e, { slug, settings, narratorMode } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
     if (!state) return { success: false, error: 'Story not found.' };
     state.settings = { ...state.settings, ...(settings || {}) };
+    // Narrator mode lives outside `settings` (see the store) so the
+    // Storyteller can never reassign itself mid-story via a [STATE] diff.
+    if (narratorMode !== undefined) {
+      state.narratorMode = store._resolveNarratorMode(narratorMode);
+    }
     store.saveState(dir, state);
     return { success: true, state };
+  });
+
+  // Narrator mode on its own — 'storyteller' (default neutral novelist) or
+  // 'companion' (the active companion tells it in her own voice). Switchable
+  // at any point mid-story; it only changes who is holding the pen.
+  handle('story:set-narrator-mode', (_e, { slug, narratorMode } = {}) => {
+    if (!slug) return { success: false, error: 'No slug provided.' };
+    const dir = store._storyDir(storiesRoot, slug);
+    const state = store.loadState(dir);
+    if (!state) return { success: false, error: 'Story not found.' };
+    state.narratorMode = store._resolveNarratorMode(narratorMode);
+    store.saveState(dir, state);
+    return { success: true, state, narratorMode: state.narratorMode };
   });
 
   // ── Nudge ─────────────────────────────────────────────────────────────
   // Queue a one-shot reader directive that fires on the next turn.
   // Passing null/empty clears the pending nudge.
-  ipcMain.handle('story:set-nudge', (_e, { slug, nudge } = {}) => {
+  handle('story:set-nudge', (_e, { slug, nudge } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -925,7 +980,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   });
 
   // ── Main turn ────────────────────────────────────────────────────────
-  ipcMain.handle('story:take-turn', async (_e, opts = {}) => {
+  handle('story:take-turn', async (_e, opts = {}) => {
     const { slug } = opts;
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
@@ -955,7 +1010,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     // Build music catalog once — small (a few KB), can go into every turn prompt
     let musicCatalog = '';
     try { musicCatalog = musicEngine.formatBibleForPrompt(); } catch {}
-    const { system, user } = buildTurnPrompt(state, log, input, { kind, nudge, musicCatalog });
+    const { system, user } = buildTurnPrompt(state, log, input, _promptOpts(state, { kind, nudge, musicCatalog }));
 
     let raw = '';
     let stderr = '';
@@ -1121,7 +1176,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   });
 
   // ── Ask Storyteller ─────────────────────────────────────────────────
-  ipcMain.handle('story:ask', async (_e, { slug, message } = {}) => {
+  handle('story:ask', async (_e, { slug, message } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const text = String(message || '').trim();
     if (!text) return { success: false, error: 'Empty message.' };
@@ -1131,7 +1186,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     const log = store.loadLog(dir);
     const history = store.loadStorytellerChat(dir);
 
-    const { system, user } = buildAskStorytellerPrompt(state, log, history, text);
+    const { system, user } = buildAskStorytellerPrompt(state, log, history, text, _promptOpts(state));
 
     let raw = '';
     try {
@@ -1196,13 +1251,13 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     };
   });
 
-  ipcMain.handle('story:ask-history', (_e, { slug } = {}) => {
+  handle('story:ask-history', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, history: store.loadStorytellerChat(dir) };
   });
 
-  ipcMain.handle('story:ask-clear', (_e, { slug } = {}) => {
+  handle('story:ask-clear', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     store.clearStorytellerChat(dir);
@@ -1212,7 +1267,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // ── Retry — remove the last player action from the log and let the
   //    user try a different action. Useful when the storyteller went off
   //    the rails or hit an error.
-  ipcMain.handle('story:retry-turn', (_e, { slug } = {}) => {
+  handle('story:retry-turn', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -1244,7 +1299,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // Aria talks WITH Trist about the story he's reading. She's not IN the
   // story — she's the reader alongside him. Full companion context flows
   // through sendToClaude(); the story is added as an addon block.
-  ipcMain.handle('story:companion-chat', async (_e, { slug, message } = {}) => {
+  handle('story:companion-chat', async (_e, { slug, message } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const text = String(message || '').trim();
     if (!text) return { success: false, error: 'Empty message.' };
@@ -1319,13 +1374,13 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     };
   });
 
-  ipcMain.handle('story:companion-chat-history', (_e, { slug } = {}) => {
+  handle('story:companion-chat-history', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, history: store.loadCompanionChat(dir) };
   });
 
-  ipcMain.handle('story:companion-chat-clear', (_e, { slug } = {}) => {
+  handle('story:companion-chat-clear', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     store.clearCompanionChat(dir);
@@ -1336,7 +1391,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   // Light-context call fires after every story turn. Uses the active
   // companion via getCharacterContext() so it's whoever the user has
   // selected — Aria by default, but any character pack works.
-  ipcMain.handle('story:react', async (_e, { slug } = {}) => {
+  handle('story:react', async (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     if (typeof getCharacterContext !== 'function') return { success: false, error: 'Companion context not wired.' };
     const dir = store._storyDir(storiesRoot, slug);
@@ -1405,14 +1460,14 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true, reaction: { companionName, dialogue, thoughts, emotion } };
   });
 
-  ipcMain.handle('story:reactions', (_e, { slug } = {}) => {
+  handle('story:reactions', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, reactions: store.loadReactions(dir) };
   });
 
   // ── Companion suggests a choice ─────────────────────────────────────
-  ipcMain.handle('story:suggest-choice', async (_e, { slug } = {}) => {
+  handle('story:suggest-choice', async (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     if (typeof getCharacterContext !== 'function') return { success: false, error: 'Companion context not wired.' };
     const dir = store._storyDir(storiesRoot, slug);
@@ -1473,26 +1528,26 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   });
 
   // ── Stats + bookmarks + export ───────────────────────────────────────
-  ipcMain.handle('story:stats', (_e, { slug } = {}) => {
+  handle('story:stats', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, stats: store.computeStats(dir) };
   });
 
-  ipcMain.handle('story:bookmarks', (_e, { slug } = {}) => {
+  handle('story:bookmarks', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, bookmarks: store.loadBookmarks(dir) };
   });
 
-  ipcMain.handle('story:toggle-bookmark', (_e, { slug, logIdx, label } = {}) => {
+  handle('story:toggle-bookmark', (_e, { slug, logIdx, label } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const bookmarks = store.toggleBookmark(dir, logIdx, label || '');
     return { success: true, bookmarks };
   });
 
-  ipcMain.handle('story:export', async (_e, { slug, format } = {}) => {
+  handle('story:export', async (_e, { slug, format } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -1513,7 +1568,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   });
 
   // ── Portrait upload ─────────────────────────────────────────────────
-  ipcMain.handle('story:upload-portrait', async (_e, { slug, characterId } = {}) => {
+  handle('story:upload-portrait', async (_e, { slug, characterId } = {}) => {
     if (!slug)        return { success: false, error: 'No slug provided.' };
     if (!characterId) return { success: false, error: 'No character id provided.' };
     const res = await dialog.showOpenDialog(mainWindow, {
@@ -1531,7 +1586,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     }
   });
 
-  ipcMain.handle('story:clear-portrait', (_e, { slug, characterId } = {}) => {
+  handle('story:clear-portrait', (_e, { slug, characterId } = {}) => {
     if (!slug)        return { success: false, error: 'No slug provided.' };
     if (!characterId) return { success: false, error: 'No character id provided.' };
     const dir = store._storyDir(storiesRoot, slug);
@@ -1539,14 +1594,14 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     return { success: true };
   });
 
-  ipcMain.handle('story:list-portraits', (_e, { slug } = {}) => {
+  handle('story:list-portraits', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     return { success: true, portraits: store.listPortraits(dir) };
   });
 
   // ── Summarize old log (rolls old sections into memory.rolledLog) ────
-  ipcMain.handle('story:summarize-old-log', async (_e, { slug, chunkSize } = {}) => {
+  handle('story:summarize-old-log', async (_e, { slug, chunkSize } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -1600,7 +1655,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
   //   • the exact system+user prompt that WOULD be sent right now
   //   • the last-actually-sent prompt+response for turn and blueprint calls
   // Intentionally spoils the story — the button label warns the user.
-  ipcMain.handle('story:get-debug-snapshot', (_e, { slug } = {}) => {
+  handle('story:get-debug-snapshot', (_e, { slug } = {}) => {
     if (!slug) return { success: false, error: 'No slug provided.' };
     const dir = store._storyDir(storiesRoot, slug);
     const state = store.loadState(dir);
@@ -1608,7 +1663,7 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
     const log = store.loadLog(dir);
     // Rebuild the exact prompt a "continue" turn would send right now.
     const previewNudge = (typeof state.pendingNudge === 'string' && state.pendingNudge.trim()) ? state.pendingNudge.trim() : '';
-    const { system, user } = buildTurnPrompt(state, log, '', { kind: 'continue', nudge: previewNudge });
+    const { system, user } = buildTurnPrompt(state, log, '', _promptOpts(state, { kind: 'continue', nudge: previewNudge }));
     return {
       success: true,
       state,
@@ -1621,6 +1676,175 @@ function register({ ipcMain, mainWindow, storiesRoot, getCharacterContext, chara
       lastAskCall:          store.lastDebugResponseByPhase(dir, 'ask'),
     };
   });
+
+  // ── Main-process setup chain ─────────────────────────────────────────
+  //
+  // Mirrors the renderer's _runSetupChain (text-story.js) but runs entirely
+  // in main, so a story the COMPANION commissioned from chat gets its full
+  // plan built without the Story panel ever being opened.
+  //
+  // Every stage is one `claude` CLI process. Per the subprocess-sweep rule in
+  // ~/.claude/CLAUDE.md, three guards are mandatory and all three are here:
+  //   1. MAX_STAGE_CALLS   — hard total-spawn ceiling per job.
+  //   2. MAX_CONSECUTIVE_FAILURES — circuit breaker on a broken sink.
+  //   3. Cooperative cancel via shouldAbort(), checked before every spawn.
+  // Stages are sequential (never parallel), so at most one CLI process is
+  // alive at a time and each one is awaited to completion.
+  const MAX_STAGE_CALLS          = 200;
+  const MAX_CONSECUTIVE_FAILURES = 5;
+
+  async function runSetupChain({
+    slug,
+    includeBlueprint = true,
+    includeOpening   = true,
+    onProgress       = null,
+    shouldAbort      = null,
+  } = {}) {
+    const dir = store._storyDir(storiesRoot, slug);
+    if (!fs.existsSync(dir)) return { success: false, error: 'Story not found: ' + slug };
+
+    let state = store.loadState(dir);
+    if (!state) return { success: false, error: 'Story state unreadable: ' + slug };
+
+    let calls = 0;
+    let consecutiveFailures = 0;
+    const warnings = [];
+    let aborted = false;
+
+    const report = (label, extra = {}) => {
+      if (typeof onProgress === 'function') {
+        try { onProgress({ slug, label, calls, maxCalls: MAX_STAGE_CALLS, ...extra }); } catch {}
+      }
+    };
+
+    // Wraps one stage call with the caps + breaker. Returns the handler's
+    // result, or null when the stage was skipped/failed/aborted.
+    async function stage(label, channel, payload) {
+      if (aborted) return null;
+      if (typeof shouldAbort === 'function' && shouldAbort()) {
+        aborted = true;
+        warnings.push('Cancelled before: ' + label);
+        return null;
+      }
+      if (calls >= MAX_STAGE_CALLS) {
+        aborted = true;
+        warnings.push(`Stage-call ceiling reached (${MAX_STAGE_CALLS}) — stopped before: ${label}. The story is usable; finish the plan with REGEN PLAN in the story inspector.`);
+        console.warn('[TextStory] setup chain hit MAX_STAGE_CALLS for', slug);
+        return null;
+      }
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        aborted = true;
+        warnings.push(`${MAX_CONSECUTIVE_FAILURES} stage calls failed in a row — circuit breaker tripped, stopped before: ${label}.`);
+        console.warn('[TextStory] setup chain circuit breaker tripped for', slug);
+        return null;
+      }
+      calls += 1;
+      report(label);
+      let res = null;
+      try {
+        res = await _call(channel, payload);
+      } catch (err) {
+        res = { success: false, error: err.message };
+      }
+      if (res && res.success) {
+        consecutiveFailures = 0;
+        if (res.state) state = res.state;
+      } else {
+        consecutiveFailures += 1;
+        const msg = (res && res.error) || 'unknown error';
+        warnings.push(`${label} — ${msg}`);
+        console.warn('[TextStory] setup stage failed:', label, msg);
+      }
+      return res;
+    }
+
+    // Stage 1 — Blueprint (the one stage that is fatal if it fails: nothing
+    // downstream can be planned without it).
+    if (includeBlueprint && (!state.storyBlueprint || !state.storyBlueprint.plotSummary)) {
+      const bp = await stage('Designing the story — plot, characters, arc', 'story:generate-blueprint', { slug });
+      if (!bp || !bp.success) {
+        return { success: false, error: 'Blueprint generation failed: ' + ((bp && bp.error) || 'aborted'), warnings, calls };
+      }
+    }
+
+    // Stage 2 — Story Overview
+    if (!state.storyBlueprint || !state.storyBlueprint.storyOverview) {
+      await stage('Writing the story overview', 'story:generate-story-overview', { slug });
+    }
+
+    // Stage 3 — Chapter Skeleton
+    if (!state.storyBlueprint || !Array.isArray(state.storyBlueprint.chapterSummaries) || state.storyBlueprint.chapterSummaries.length === 0) {
+      await stage('Sketching every chapter', 'story:generate-chapter-skeleton', { slug });
+    }
+
+    // Stage 4 — Event Skeleton, one call per chapter
+    const chapterList = (state.storyBlueprint && state.storyBlueprint.chapters && Array.isArray(state.storyBlueprint.chapters.list))
+      ? state.storyBlueprint.chapters.list.slice() : [];
+    for (let i = 0; i < chapterList.length; i++) {
+      if (aborted) break;
+      const ch = chapterList[i];
+      const hasEvents = state.storyBlueprint && Array.isArray(state.storyBlueprint.events)
+        && state.storyBlueprint.events.some((e) => (e.chapterNumber || 0) === ch.number);
+      if (hasEvents) continue;
+      await stage(`Breaking chapter ${ch.number} of ${chapterList.length} into events`,
+        'story:generate-event-skeleton', { slug, chapterNumber: ch.number });
+    }
+
+    // Stage 5 — Event Summaries, batched 2 per call
+    if (!aborted) {
+      const allEvents  = (state.storyBlueprint && Array.isArray(state.storyBlueprint.events)) ? state.storyBlueprint.events : [];
+      const summarized = new Set((state.storyBlueprint && Array.isArray(state.storyBlueprint.eventSummaries))
+        ? state.storyBlueprint.eventSummaries.map((s) => s.id) : []);
+      const need = allEvents.map((e) => e.id).filter((id) => id && !summarized.has(id));
+      const batches = Math.ceil(need.length / 2);
+      for (let i = 0; i < need.length; i += 2) {
+        if (aborted) break;
+        await stage(`Writing event summaries — batch ${Math.floor(i / 2) + 1} of ${batches}`,
+          'story:generate-event-summaries', { slug, eventIds: need.slice(i, i + 2) });
+      }
+    }
+
+    // Stage 6 — Opening scene (only for a story with nothing written yet)
+    let openingOk = false;
+    if (includeOpening && !aborted) {
+      const existingLog = store.loadLog(dir);
+      if (!existingLog.length) {
+        const turn = await stage('Composing the opening scene', 'story:take-turn', { slug, kind: 'continue', input: '' });
+        openingOk = !!(turn && turn.success);
+      } else {
+        openingOk = true;
+      }
+    }
+
+    state = store.loadState(dir) || state;
+    return {
+      success: true,
+      aborted,
+      slug,
+      state,
+      calls,
+      warnings,
+      openingWritten: openingOk,
+    };
+  }
+
+  // Handler form so the renderer can drive (or resume) the chain too.
+  handle('story:run-setup-chain', async (_e, { slug, includeBlueprint, includeOpening } = {}) => {
+    if (!slug) return { success: false, error: 'No slug provided.' };
+    return runSetupChain({
+      slug,
+      includeBlueprint: includeBlueprint !== false,
+      includeOpening:   includeOpening   !== false,
+      onProgress: (p) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          try { mainWindow.webContents.send('story:setup-progress', p); } catch {}
+        }
+      },
+    });
+  });
+
+  // Handed back to main.js so companion-authoring can build a full story plan.
+  return { runSetupChain, storiesRoot };
 }
 
 module.exports = { register };

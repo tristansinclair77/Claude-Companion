@@ -30,12 +30,19 @@
 
   FileAttach.init();
   PersonaPopup.init();
+  MediaPopup.init();
+  SearchPopup.init();
+  ModelSelector.init();
   ScreenCaptureUI.init();
 
   ChatController.init();
   BackgroundSettings.init();
   HelpPanel.init();
   MusicSelector.init();
+
+  // Companion authoring workshop UI — progress banner for Stories/Adventures
+  // the companion builds from chat, plus the replace-campaign confirmation.
+  if (typeof CompanionAuthoringUI !== 'undefined') CompanionAuthoringUI.init();
 
   // Chat-storage size warning — fires once on startup if knowledge.db > 1 GB.
   // The DB never auto-prunes, so this is the user's nudge to clean things up.

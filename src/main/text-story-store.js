@@ -252,7 +252,24 @@ function _freshScene() {
   return { name: 'Prologue', location: '', time: '', situation: '', characters: [] };
 }
 
-function _freshState({ title, slug, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength }) {
+// Who narrates the story.
+//   'storyteller' — the default neutral novelist persona. No companion context.
+//   'companion'   — the active companion (Aria) narrates in her own voice,
+//                   with her personality, memories, and emotional baseline
+//                   woven into every storyteller call. See
+//                   docs/COMPANION_AUTHORING.md § Narrator Mode.
+const NARRATOR_MODES = [
+  { slug: 'storyteller', label: 'The Storyteller',
+    hint: 'The default professional novelist. Neutral, genre-fluent, no companion involvement. Recommended for most stories.' },
+  { slug: 'companion',   label: 'Your Companion',
+    hint: 'The companion narrates the story herself — her voice, her memories of you, her biases and moods color the prose. She is the teller, never a character in it.' },
+];
+
+function _resolveNarratorMode(mode) {
+  return mode === 'companion' ? 'companion' : 'storyteller';
+}
+
+function _freshState({ title, slug, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength, narratorMode, authorBrief, createdBy }) {
   const now = new Date().toISOString();
   const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
   return {
@@ -264,6 +281,19 @@ function _freshState({ title, slug, storyType, storyTypeLabel, startingContext, 
     created:         now,
     updated:         now,
     settings:        merged,
+    // Narrator selection — NOT part of `settings` on purpose: `settings` is
+    // storyteller-writable via [STATE].settings, and the narrator identity
+    // must never be self-reassignable mid-story.
+    narratorMode:    _resolveNarratorMode(narratorMode),
+    // 'user' (built through the wizard) or 'companion' (commissioned by the
+    // companion from chat). Provenance only — no behavioral effect.
+    createdBy:       createdBy === 'companion' ? 'companion' : 'user',
+    // When the companion commissions a story she writes an AUTHOR'S BRIEF:
+    // why this story, for whom, what it should feel like, which shared
+    // history it draws on. Injected into every planning + turn prompt so her
+    // intent shapes the whole book, not just the seed. Null for user-made
+    // stories.
+    authorBrief:     typeof authorBrief === 'string' && authorBrief.trim() ? authorBrief.trim() : null,
     // User-picked size at setup time. Injected into every setup-time prompt
     // and displayed in the pacing UI so Claude/UI always know the target.
     // See STORY_GUIDELINES_PATCH §3.3.2.
@@ -312,6 +342,14 @@ function listStories(storiesRoot) {
         created:         state.created || null,
         updated:         state.updated || null,
         turnCount:       state.turnCount || 0,
+        narratorMode:    _resolveNarratorMode(state.narratorMode),
+        createdBy:       state.createdBy === 'companion' ? 'companion' : 'user',
+        hasBlueprint:    !!state.storyBlueprint,
+        planComplete:    !!(state.storyBlueprint
+                            && state.storyBlueprint.storyOverview
+                            && Array.isArray(state.storyBlueprint.events)
+                            && state.storyBlueprint.events.length > 0),
+        storyLengthLabel: (state.storyLength && state.storyLength.label) || null,
         mainCharacter:   state.mainCharacter ? {
           name:   state.mainCharacter.name || '',
           gender: state.mainCharacter.gender || '',
@@ -335,12 +373,16 @@ function listStories(storiesRoot) {
 
 function createStory(storiesRoot, {
   title, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength,
+  narratorMode, authorBrief, createdBy,
 } = {}) {
   ensureRoot(storiesRoot);
   const slug = _uniqueSlug(storiesRoot, title || 'untitled-story');
   const dir  = _storyDir(storiesRoot, slug);
   fs.mkdirSync(dir, { recursive: true });
-  const state = _freshState({ title, slug, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength });
+  const state = _freshState({
+    title, slug, storyType, storyTypeLabel, startingContext, mainCharacter, settings, storyLength,
+    narratorMode, authorBrief, createdBy,
+  });
   fs.writeFileSync(_statePath(dir), JSON.stringify(state, null, 2), 'utf8');
   fs.writeFileSync(_logPath(dir), '[]', 'utf8');
   fs.writeFileSync(_stChatPath(dir), '[]', 'utf8');
@@ -409,6 +451,11 @@ function loadState(storyDir) {
     // Backfill storyLength on old stories so the STORY LENGTH picker is
     // meaningful for everyone. Default = novel.
     if (!state.storyLength) state.storyLength = _resolveStoryLength('novel');
+    // Narrator / provenance / author-brief backfills — every pre-existing
+    // story is a user-made, Storyteller-narrated story.
+    state.narratorMode = _resolveNarratorMode(state.narratorMode);
+    if (state.createdBy !== 'companion')   state.createdBy   = 'user';
+    if (state.authorBrief === undefined)   state.authorBrief  = null;
     // Backfill pacing-patch fields on the blueprint so old stories can be
     // rendered without null-guards everywhere. These stay empty until a
     // REGEN PLAN pass fills them.
@@ -1185,8 +1232,10 @@ module.exports = {
   CHOICE_FREQUENCIES,
   NSFW_LEVELS,
   STORY_LENGTHS,
+  NARRATOR_MODES,
   DEFAULT_SETTINGS,
   MEMORY_CAPS,
+  _resolveNarratorMode,
   // paths
   ensureRoot,
   // list / create / delete / rename

@@ -113,18 +113,32 @@ const HelpPanel = (() => {
     },
     {
       catId: 'chat', id: 'fast-mode',
-      title: 'Fast Mode (⚡ FAST)',
-      tags: ['fast', 'haiku', 'model', 'speed', 'brief', 'quick', 'mode', 'toggle'],
+      title: 'Fast Mode (↯ FAST)',
+      tags: ['fast', 'speed', 'brief', 'quick', 'mode', 'toggle', 'brevity', 'context'],
       content:
-        p('<em>Fast Mode</em> makes responses shorter and faster by switching to the Haiku model and applying strict brevity instructions.') +
+        p('<em>Fast Mode</em> tightens context limits and asks Aria to keep replies short. It is independent of the model selector — pick your model from the title bar dropdown separately.') +
         kv([
-          ['Button',      '⚡ FAST in the action bar'],
-          ['Model',       'Claude Haiku (faster, less expensive quota)'],
+          ['Button',      '↯ in the title bar'],
           ['Responses',   'Short and direct — avoids lengthy explanations'],
-          ['File reading','Limited — skips large file contents'],
+          ['File reading','Truncated — attached files/folders/URLs use tight caps to save tokens'],
+          ['Model',       'Uses whatever model is selected in the MODEL dropdown; Fast Mode does NOT force Haiku'],
           ['When active', 'Button is highlighted; title tooltip reflects active state'],
         ]) +
-        ex('EXAMPLE USE', 'Use Fast Mode for quick factual questions, simple commands, or when you want Aria to give you a quick status check rather than a detailed explanation.')
+        ex('EXAMPLE USE', 'Turn on Fast Mode for quick factual questions or brief check-ins. Combine with the Haiku model for the cheapest / snappiest option.')
+    },
+    {
+      catId: 'chat', id: 'model-selector',
+      title: 'MODEL — Chat Model Selector',
+      tags: ['model', 'haiku', 'sonnet', 'opus', 'switch', 'brain', 'dropdown', 'title bar', 'ai', 'engine'],
+      content:
+        p('The <em>MODEL</em> dropdown in the title bar picks which Claude model powers Aria\'s next reply. The selection persists across sessions.') +
+        kv([
+          ['HAIKU 4.5',  'Fastest, cheapest. Great default for chat, small tasks, and Fast Mode.'],
+          ['SONNET 4.6', 'Balanced quality vs. speed. Better nuance and longer reasoning than Haiku.'],
+          ['OPUS 4.7',   'Deepest reasoning, slowest and most expensive. Save for hard questions.'],
+        ]) +
+        p('Only Aria\'s main chat reply uses this model. Housekeeping calls (summarizing saved chats, extracting memories, adventure state agent, etc.) stay on Haiku regardless — they don\'t need the extra horsepower.') +
+        note('The model choice is independent from Fast Mode. Fast Mode only tightens context truncation and brevity — you can run Opus + Fast Mode, or Haiku without Fast Mode, in any combination.')
     },
     {
       catId: 'chat', id: 'session-history',
@@ -164,6 +178,38 @@ const HelpPanel = (() => {
           ['Use case',  'Ask "what do you see?" or describe an error on screen'],
           ['Privacy',   'Image is only sent with the next message — nothing is shared automatically'],
         ])
+    },
+    {
+      catId: 'actions', id: 'btn-search',
+      title: '🔎 SEARCH — Web / Image / Video',
+      tags: ['search', 'web', 'internet', 'browse', 'url', 'link', 'duckduckgo', 'lookup', 'fetch', 'website', 'find', 'online', 'image', 'video', 'youtube', 'openverse', 'picture', 'clip', 'site:', 'site restricted', 'specific site'],
+      content:
+        p('The <em>SEARCH</em> button opens a popup with three modes — WEB, IMAGE, and VIDEO. Aria stays herself throughout: whatever she finds is folded into her next reply as context, and she talks about it in her own voice.') +
+        kv([
+          ['🔎 WEB',   'DuckDuckGo query OR direct http(s) URL. Top 3 pages are fetched and attached as text context to your next message.'],
+          ['🖼 IMAGE', 'Openverse (openly-licensed image library). The top match is displayed in a centered popup; Aria also gets the URL + metadata as context.'],
+          ['🎬 VIDEO', 'YouTube search. The top match is embedded in a centered popup; Aria also gets the title / channel / URL as context.'],
+        ]) +
+        p('<strong>Media popup controls</strong> (image / video mode):') +
+        kv([
+          ['💾 SAVE', 'For images: native Save-As dialog writes the file to disk. For videos: opens the YouTube URL in your default browser.'],
+          ['▁ HIDE', 'Minimizes the popup to a small 🖼/🎬 chip in the bottom-right so you can read Aria\'s reply. Click the chip to restore.'],
+          ['✕ CLOSE', 'Dismisses the popup entirely. Escape while the mini chip is visible closes too.'],
+          ['Click-outside', 'Clicking the dimmed backdrop HIDES the popup rather than closing it — so the content stays available.'],
+        ]) +
+        p('<strong>Search a specific site</strong> for a keyword or phrase: use the <em>site:</em> operator directly in the query.') +
+        kv([
+          ['WEB',   'Passed to DuckDuckGo. Any domain works: <code>site:reddit.com quiet mechanical keyboard</code>.'],
+          ['IMAGE', 'Source is Openverse — <em>site:</em> filters within Openverse\'s indexed providers (flickr, wikimedia, etc.).'],
+          ['VIDEO', 'Default is YouTube. Supported alternate sites: <code>site:rule34video.com</code>. Others fall through to YouTube.'],
+        ]) +
+        ex('EXAMPLE', '<code>site:reddit.com quiet mechanical keyboard</code> in WEB mode — searches only reddit.com. <code>site:rule34video.com QUERY</code> in VIDEO mode — hits rule34video\'s own search and embeds the top result.') +
+        kv([
+          ['Attachment', 'Every mode drops a 🔎/🖼/🎬 chip into the attachment bar — it rides along on your next SEND and is cleared afterward.'],
+          ['Message text', 'If the message box is empty, SEARCH pre-fills a natural prompt so one-click SEARCH → SEND works.'],
+          ['Fast mode', 'In Fast Mode fetched web content is truncated further to save tokens.'],
+        ]) +
+        note('The button turns cyan while the popup is open. Enter to search, Escape to cancel. Escape inside the media popup HIDES it (keeps content); Escape while the mini chip is visible closes it.')
     },
     {
       catId: 'actions', id: 'btn-emotion',
@@ -1077,8 +1123,9 @@ const HelpPanel = (() => {
           ['Gender',             'Optional. Same — leave blank if you don\'t care.'],
           ['Starting context',   'Optional freeform text — a paragraph seeding the opening scene, or blank to let the Storyteller freewheel.'],
         ]) +
-        p('You also pick the initial <em>Settings</em> (all changeable later): segment length, descriptiveness, prose style, NSFW level, and choice frequency. See the "Story Settings" article for what each does.') +
-        p('When you press <em>BEGIN STORY</em>, the Storyteller writes the opening scene automatically — you don\'t have to send a first message.')
+        p('You also pick the initial <em>Settings</em> (all changeable later): segment length, descriptiveness, prose style, NSFW level, choice frequency, and <em>Narrated by</em>. See the "Story Settings" and "Who Narrates a Story" articles for what each does.') +
+        p('When you press <em>BEGIN STORY</em>, the narrator writes the opening scene automatically — you don\'t have to send a first message.') +
+        note('You can skip the wizard entirely: ask your companion in normal chat to write you a story and she\'ll do the whole setup herself. See "Letting Your Companion Build Stories &amp; Adventures".')
     },
     {
       catId: 'story', id: 'story-settings',
@@ -1092,8 +1139,40 @@ const HelpPanel = (() => {
           ['Prose style',      '1 = raw & unadorned. 5 = flowery/literary. Metaphor and cadence scale with this.'],
           ['NSFW level',       'Safe · Adult Themes · NSFW Allowed · Hardcore Integrated. Determines what content can appear on the page.'],
           ['Choice frequency', 'Rare · Normal · Frequent. How often the Storyteller ends a segment with a decision prompt.'],
+          ['Narrated by',      'The Storyteller (default) or Your Companion. See the "Who Narrates a Story" article.'],
         ]) +
         note('These settings are burned into the Storyteller\'s prompt every turn — they shape both what happens and how it\'s written.')
+    },
+    {
+      catId: 'story', id: 'story-narrator-mode',
+      title: 'Who Narrates a Story (Storyteller vs. Companion)',
+      tags: ['narrator', 'narrated by', 'narrator mode', 'companion narrator', 'aria narrates', 'storyteller', 'voice', 'teller', 'who tells the story', 'told by aria'],
+      content:
+        p('Every story has a <strong>narrator</strong>, picked in the new-story wizard and changeable at any time in <em>⚙ SETTINGS → Narrated by</em>. It only changes who is holding the pen; the story, plan, and pacing rules are identical.') +
+        kv([
+          ['The Storyteller <em>(default)</em>', 'A neutral professional novelist with zero companion context — no personality, no memories of you, no moods. This is the right choice for the large majority of stories.'],
+          ['Your Companion',                     'Your companion tells the story herself. Her personality, speech instincts, saved history with you, what she knows about you, and her current emotional baseline all ride in the prompt and shape the prose.'],
+        ]) +
+        p('In companion mode she is the <strong>teller, never a character</strong> — she does not walk into the fiction, does not address you inside the prose, and does not narrate her own feelings on the page. Her fingerprints show up in craft: which details she lingers on, what kind of tenderness or dread she reaches for, which characters she finds interesting, what she thinks will land for you.') +
+        p('A story she narrates is marked with a <em>✎</em> after its title in the header, and flagged in the library list. Switching modes mid-story is safe — the next section is simply written by whoever is now holding the pen.') +
+        note('Companion narration also applies to that story\'s planning passes and its <em>ASK STORYTELLER</em> channel — in a companion-narrated story, asking the "storyteller" a question is asking <em>her</em>.')
+    },
+    {
+      catId: 'story', id: 'story-companion-built',
+      title: 'Letting Your Companion Build Stories & Adventures',
+      tags: ['companion builds', 'aria creates story', 'commission', 'create story from chat', 'author brief', 'workshop', 'authoring', 'she made this', 'ask aria for a story', 'nudge', 'create adventure'],
+      content:
+        p('You do not have to use the wizard. In ordinary <strong>Companion chat</strong>, just ask: <em>"set up a story for me about a lighthouse keeper who stops being able to sleep"</em> — and she does the whole setup herself.') +
+        p('She picks the genre, the length, the content level, the main character, and who narrates it. Most importantly she writes an <strong>Author\'s Brief</strong>: why this story, for you, right now — the feeling she\'s chasing, and which parts of your shared history she\'s quietly building on. That brief is injected into every planning and writing call for the entire book, so her intent shapes all of it, not just the opening.') +
+        kv([
+          ['Story',            'Created instantly, then planned in the background (blueprint → overview → chapters → events → summaries → opening scene). One Claude call per stage, so it takes minutes for a short story and considerably longer for a novel or epic.'],
+          ['Adventure',        'A tone, a dense setting, and her campaign brief. The Game Master still runs it and she is still a party member in it.'],
+          ['Adjustments',      'Ask her to make an existing story darker, change its segment length, or take over narrating it, and she can do that too.'],
+          ['Nudges',           'She can queue a one-shot note to a story\'s narrator, honored on that story\'s next section — e.g. "bring Sera back into the scene".'],
+        ]) +
+        p('A banner at the bottom of the screen shows what she is building and which stage it is on, with a <em>STOP</em> button. When it finishes, the story is sitting in your Story library, fully planned, already at section 1. Stories she commissioned are labelled in the library.') +
+        p('<strong>Your saves are protected.</strong> There is only one adventure slot, so if she designs a campaign while one is already in progress, she cannot overwrite it — you get an explicit <em>REPLACE IT / KEEP MY CAMPAIGN</em> prompt and nothing is touched until you choose.') +
+        note('She cannot delete stories or campaigns, cannot rewrite prose that already exists, and cannot take turns for you. Building and (optionally) narrating is the whole of it — the reading and playing stay yours.')
     },
     {
       catId: 'story', id: 'story-sections',
