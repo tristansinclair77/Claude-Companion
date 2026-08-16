@@ -180,8 +180,6 @@ var CompanionDisplay = (() => {
     frantic_desperation_crying:  { emoji: '😰😭', color: '#b26666', label: 'Frantic & Crying'           },
     laughing_crying:             { emoji: '😄😭', color: '#b29066', label: 'Laughing & Crying'          },
     smug_angry:                  { emoji: '😏😠', color: '#d43390', label: 'Smug & Angry'               },
-    thinking_concerned:          { emoji: '🤔😟', color: '#a188a1', label: 'Thinking & Concerned'       },
-    excited_nervous:             { emoji: '🤩😬', color: '#d4aa22', label: 'Excited & Nervous'          },
     in_pleasure_embarrassed:     { emoji: '🥰😳', color: '#ff88bb', label: 'In Pleasure & Embarrassed'  },
     flirty_nervous:              { emoji: '😘😬', color: '#d48877', label: 'Flirty & Nervous'           },
     wheezing_laughter_exhausted: { emoji: '🤣😴', color: '#b27744', label: 'Wheezing & Exhausted'       },

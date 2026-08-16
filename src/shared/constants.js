@@ -78,8 +78,6 @@ const COMBINED_EMOTIONS = [
   // ── Tier 3 — Niche but expressive ────────────────────────────────────────
   { id: 'laughing_crying',             tier: 3, a: 'laughing',           b: 'crying',               emoji: '😄😭', color: '#b29066', label: 'Laughing & Crying'          },
   { id: 'smug_angry',                  tier: 3, a: 'smug',               b: 'angry',                emoji: '😏😠', color: '#d43390', label: 'Smug & Angry'               },
-  { id: 'thinking_concerned',          tier: 3, a: 'thinking',           b: 'concerned',            emoji: '🤔😟', color: '#a188a1', label: 'Thinking & Concerned'       },
-  { id: 'excited_nervous',             tier: 3, a: 'excited',            b: 'nervous',              emoji: '🤩😬', color: '#d4aa22', label: 'Excited & Nervous'          },
   { id: 'in_pleasure_embarrassed',     tier: 3, a: 'in_pleasure',        b: 'embarrassed',          emoji: '🥰😳', color: '#ff88bb', label: 'In Pleasure & Embarrassed'  },
   { id: 'flirty_nervous',              tier: 3, a: 'flirty',             b: 'nervous',              emoji: '😘😬', color: '#d48877', label: 'Flirty & Nervous'           },
   { id: 'wheezing_laughter_exhausted', tier: 3, a: 'wheezing_laughter',  b: 'exhausted',            emoji: '🤣😴', color: '#b27744', label: 'Wheezing & Exhausted'       },

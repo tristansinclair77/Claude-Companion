@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates placeholder PNGs for all 27 combined/blended emotion pairs.
+// Generates placeholder PNGs for all 25 combined/blended emotion pairs.
 // Colors are the averaged hex of the two constituent emotion colors.
 // Real blended artwork replaces these later.
 
@@ -75,8 +75,6 @@ const COMBINED_PAIRS = [
   // Tier 3
   ['laughing_crying',             'laughing',           'crying'             ],
   ['smug_angry',                  'smug',               'angry'              ],
-  ['thinking_concerned',          'thinking',           'concerned'          ],
-  ['excited_nervous',             'excited',            'nervous'            ],
   ['in_pleasure_embarrassed',     'in_pleasure',        'embarrassed'        ],
   ['flirty_nervous',              'flirty',             'nervous'            ],
   ['wheezing_laughter_exhausted', 'wheezing_laughter',  'exhausted'          ],

@@ -348,7 +348,7 @@ Every Claude response must include `[DIALOGUE]`, `[THOUGHTS]`, and `(emotion_id)
 |---|---|
 | `[DIALOGUE] …` | What Aria says aloud. Goes to the chat pane (and TTS, if enabled). |
 | `[THOUGHTS] …` | Aria's inner monologue — honest, unfiltered. Shown faintly under her dialogue. |
-| `(emotion_id)` | Drives her portrait. Must match one of the 38+27 emotion IDs exactly. |
+| `(emotion_id)` | Drives her portrait. Must match one of the 38+25 emotion IDs exactly. |
 | `[MEMORY] category: fact` | Save a fact about the user → `permanent_memories` (`source != companion_self`). |
 | `[MEMORY_UPDATE] category: fact` | Replace an existing user fact in the same category. |
 | `[SELF] category: fact` | Save a self-fact about Aria → `permanent_memories` (`source = companion_self`). |
@@ -379,7 +379,7 @@ A character pack is a directory under `characters/` containing everything that d
 | `voice-settings.json` | TTS voice ID, pitch, RVC model name, etc. |
 | `character_reference.png`, `character_reference_sheet.png`, `avatar-small.png` | Reference art |
 | `emotions/*.png` | 38 base emotion portraits — one per ID in `constants.js → EMOTIONS` |
-| `emotions/combined/*.png` | 27 blended emotion portraits (`COMBINED_EMOTIONS`) |
+| `emotions/combined/*.png` | 25 blended emotion portraits (`COMBINED_EMOTIONS`) |
 | `art/` | Misc reference/promo art |
 | `knowledge.db` | The character's full SQLite DB. **Created at runtime, not committed.** WAL files (`-shm`, `-wal`) live alongside. |
 | `rpg.db` | RPG addon's separate DB (if used) |

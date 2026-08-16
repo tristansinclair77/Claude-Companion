@@ -66,8 +66,6 @@ const COMBINED_EMOTIONS = [
   { id: 'frantic_desperation_crying', emoji: '😰😭', label: 'Frantic & Crying' },
   { id: 'laughing_crying', emoji: '😄😭', label: 'Laughing & Crying' },
   { id: 'smug_angry', emoji: '😏😠', label: 'Smug & Angry' },
-  { id: 'thinking_concerned', emoji: '🤔😟', label: 'Thinking & Concerned' },
-  { id: 'excited_nervous', emoji: '🤩😬', label: 'Excited & Nervous' },
   { id: 'in_pleasure_embarrassed', emoji: '🥰😳', label: 'In Pleasure & Embarrassed' },
   { id: 'flirty_nervous', emoji: '😘😬', label: 'Flirty & Nervous' },
   { id: 'wheezing_laughter_exhausted', emoji: '🤣😴', label: 'Wheezing & Exhausted' },
