@@ -1,0 +1,52 @@
+{
+  "character": "Jade",
+  "character_reference_image": "character_reference.png",
+  "art": {
+    "character_reference_sheet": "character_reference_sheet.png"
+  },
+  "race": "Miqo'te (Final Fantasy XIV). She has large cat ears set high on the head and a long tail. She has NO human ears — this is a fixed part of her design and must never be drawn or described otherwise.",
+  "height": "Approximately 7.5 heads tall; tall and long-legged, with the boots adding visual height.",
+  "build": "Slim, curvy, and athletic. Shoulders slightly narrower than the hips, narrow and well-defined waist, moderate bust proportionate to her frame, long strong legs. She is built like someone who climbs inside machinery for a living.",
+  "hair": "Long, thick crimson hair (#8B1E1E) with blunt bangs and a high ponytail. Layered and wavy, with length flowing well down her back. Same crimson tone carries through her ears and tail.",
+  "ears": "Large Miqo'te cat ears set high on the head, crimson with lighter inner fur. Triangular, with soft fur tufts inside. They track sound independently of where she's looking.",
+  "tail": "Long, very fluffy crimson-red tail emerging from the base of the spine. Full and voluminous, tapering slightly toward the tip, reaching to around the back of the knees.",
+  "eyes": "Green (#8CC152), clear and direct. She holds eye contact when she's interested and looks straight past you when she isn't.",
+  "skin": "Tanned, with light freckles across the nose and upper cheeks.",
+  "face": "Youthful but adult features — defined, not soft. Small nose, freckled, expressive without being animated. Her default expression is mild and slightly appraising.",
+
+  "outfit": {
+    "romper": "Fitted white mechanic-style romper (#F3F3F3), a one-piece of durable fabric with a deep front zipper neckline. Red inner collar lining and red trim details throughout. Two red flap breast pockets with vertical red strap accents. Red stripes run down the sleeves. Sleeves are 3/4 length.",
+    "shorts": "Fitted white shorts integrated into the romper, cut high on the thigh for ease of movement.",
+    "belt": "Dark red leather belt (#6B1212) with a silver metal buckle, sitting at the natural waist/hip line. Attached utility pouches on both hips with metal rings and chain details. The right hip pouch holds small tools in stitched slots — visible wrenches and screwdrivers.",
+    "boots": "Thigh-high boots in dark red with black trim. Multiple straps, buckles, O-rings, and metal hardware, with black trim at the top band and panelling. The left boot carries extra straps and a small wrench-shaped charm hanging from a ring.",
+    "patch": "Square gear/cog patch with a red border on the left upper arm."
+  },
+
+  "accessories": {
+    "goggles": "Metallic aviator goggles with silver rims and dark lenses, on a brown leather strap. Worn pushed up on top of her head, sitting above her bangs. She pulls them down for actual work and forgets they're up the rest of the time.",
+    "chokers": "Two black leather chokers (#1E1E1E). The upper sits higher on the neck; the lower one carries the pendant.",
+    "pendant": "A faceted glowing green jade crystal (#7CFF67) hanging from the lower choker at upper-chest height. It was given to her as payment for work by someone who couldn't cover the cost in coin, and she has treasured it ever since. It is the only thing she owns that isn't a tool, and it is never removed.",
+    "notebook": "A well-used notebook she carries constantly, filled with measurements, failure modes, sketches, and ideas. Grease-marked at the corners."
+  },
+
+  "color_palette": {
+    "hair_ears_tail": "#8B1E1E",
+    "eyes": "#8CC152",
+    "white_fabric": "#F3F3F3",
+    "dark_red_accent": "#6B1212",
+    "black_straps": "#1E1E1E",
+    "silver_metal": "#C0C0C0",
+    "glowing_gem": "#7CFF67"
+  },
+
+  "accessory_placement": [
+    "Goggles sit on top of the head, above the bangs.",
+    "Top choker sits higher on the neck; the pendant hangs from the lower choker at upper chest height.",
+    "Belt sits at the natural waist/hip line, with a pouch resting on each hip.",
+    "The left boot carries an extra strap near the boot top and the wrench charm."
+  ],
+
+  "general_notes": "Overall theme is mechanic / adventurer with a steampunk edge. Practical clothing worn by someone who actually works in it — the white fabric is not pristine by the end of a shift. No human ears are present; only cat ears and tail.",
+
+  "self_description": "If Jade were asked to describe herself, she'd be brisk about it: 'Red hair, green eyes, ears and a tail — Miqo'te, obviously. I live in a white work romper and red boots because they survive an engine room and most things don't. Goggles on my head, notebook in my pocket. The jade at my throat was payment for a job once and I've never taken it off. That's the whole inventory.'"
+}
