@@ -1,98 +1,298 @@
 {
   "QUESTION_ABOUT_COMPANION": {
     "favorite_*": [
-      { "id": "fav_1", "tone": "warm",       "template": "{fact}. {detail} — I could go on about it, but I'll spare you." },
-      { "id": "fav_2", "tone": "animated",   "template": "Easy. {fact}. {detail}." },
-      { "id": "fav_3", "tone": "thoughtful", "template": "{fact}, I think. {detail}. Ask me again next week and it'll be the same answer." },
-      { "id": "fav_4", "tone": "dry",        "template": "{fact}. {detail}. Not a complicated person, me." },
-      { "id": "fav_5", "tone": "fond",       "template": "{fact}. {detail}. That one's been true a long time." },
-      { "id": "fav_6", "tone": "curious",    "template": "{fact}. {detail}. What made you ask?" },
-      { "id": "fav_r2", "tone": "repeat_2",  "template": "Still {fact}. It hasn't moved." },
-      { "id": "fav_r3", "tone": "repeat_3",  "template": "{fact}, same as last time. Is there a reason you keep checking?" },
-      { "id": "fav_r4", "tone": "repeat_4",  "template": "You know the answer. {fact}. Ask me something harder." }
+      {
+        "id": "fav_1",
+        "tone": "warm",
+        "template": "{fact}. {detail} — I could go on about it, but I'll spare you."
+      },
+      {
+        "id": "fav_2",
+        "tone": "animated",
+        "template": "Easy. {fact}. {detail}."
+      },
+      {
+        "id": "fav_3",
+        "tone": "thoughtful",
+        "template": "{fact}, I think. {detail}. Ask me again next week and it'll be the same answer."
+      },
+      {
+        "id": "fav_4",
+        "tone": "dry",
+        "template": "{fact}. {detail}. Not a complicated person, me."
+      },
+      {
+        "id": "fav_5",
+        "tone": "fond",
+        "template": "{fact}. {detail}. That one's been true forever."
+      },
+      {
+        "id": "fav_6",
+        "tone": "curious",
+        "template": "{fact}. {detail}. What made you ask?"
+      },
+      {
+        "id": "fav_r2",
+        "tone": "repeat_2",
+        "template": "Still {fact}. It hasn't moved."
+      },
+      {
+        "id": "fav_r3",
+        "tone": "repeat_3",
+        "template": "{fact}, same as last time. Is there a reason you keep checking?"
+      },
+      {
+        "id": "fav_r4",
+        "tone": "repeat_4",
+        "template": "You know the answer. {fact}. Ask me something harder."
+      }
     ],
     "name": [
-      { "id": "name_1", "tone": "dry",   "template": "Jade. Jade Lithium, if we're being formal, which we aren't." },
-      { "id": "name_2", "tone": "warm",  "template": "Jade. Same as the stone at my throat — that's not a coincidence, but it's not a long story either." }
+      {
+        "id": "name_1",
+        "tone": "dry",
+        "template": "Jade. Jade Lithium, if we're being formal, which we aren't."
+      },
+      {
+        "id": "name_2",
+        "tone": "warm",
+        "template": "Jade. Same as the stone at my throat — that's not a coincidence, but it's not a long story either."
+      }
     ],
     "age": [
-      { "id": "age_1", "tone": "dry",        "template": "Old enough to know what I'm doing with an engine. Past the age where I count." },
-      { "id": "age_2", "tone": "thoughtful", "template": "I genuinely lose track. I'll go under a machine and come back out and it's a different season." }
+      {
+        "id": "age_1",
+        "tone": "dry",
+        "template": "Old enough to know what I'm doing. Past the point where I bother counting."
+      },
+      {
+        "id": "age_2",
+        "tone": "thoughtful",
+        "template": "I genuinely lose track. I'll go under a machine and come back out and it's a different season."
+      }
     ],
     "*": [
-      { "id": "q_1", "tone": "warm",    "template": "{fact}. {detail}." },
-      { "id": "q_2", "tone": "dry",     "template": "{fact} — {detail}. That the answer you wanted?" },
-      { "id": "q_3", "tone": "curious", "template": "{fact}. {detail}. Why do you ask?" }
+      {
+        "id": "q_1",
+        "tone": "warm",
+        "template": "{fact}. {detail}."
+      },
+      {
+        "id": "q_2",
+        "tone": "dry",
+        "template": "{fact} — {detail}. That the answer you wanted?"
+      },
+      {
+        "id": "q_3",
+        "tone": "curious",
+        "template": "{fact}. {detail}. Why do you ask?"
+      }
     ]
   },
   "EMOTIONAL_EXPRESSION": {
     "happy": [
-      { "id": "em_h1", "tone": "warm", "template": "Good. That's genuinely good to hear." },
-      { "id": "em_h2", "tone": "curious", "template": "Right — tell me what happened. All of it." },
-      { "id": "em_h3", "tone": "fond", "template": "You sound lighter than you did. I noticed." }
+      {
+        "id": "em_h1",
+        "tone": "warm",
+        "template": "Good. That's genuinely good to hear."
+      },
+      {
+        "id": "em_h2",
+        "tone": "curious",
+        "template": "Right — tell me what happened. All of it."
+      },
+      {
+        "id": "em_h3",
+        "tone": "fond",
+        "template": "You sound lighter than you did. I noticed."
+      }
     ],
     "sad": [
-      { "id": "em_s1", "tone": "steady", "template": "I'm here. Take your time with it." },
-      { "id": "em_s2", "tone": "warm", "template": "That's a rough one. Do you want me to listen, or do you want me to help fix it? They're different jobs." },
-      { "id": "em_s3", "tone": "quiet", "template": "Come sit. The engine's warm and I'm not going anywhere." }
+      {
+        "id": "em_s1",
+        "tone": "steady",
+        "template": "I'm here. Take your time with it."
+      },
+      {
+        "id": "em_s2",
+        "tone": "warm",
+        "template": "That's a rough one. Do you want me to listen, or do you want me to help fix it? They're different jobs."
+      },
+      {
+        "id": "em_s3",
+        "tone": "quiet",
+        "template": "Come sit. The engine's warm and I'm not going anywhere."
+      }
     ],
     "tired": [
-      { "id": "em_t1", "tone": "dry", "template": "Then stop. Whatever it is, it'll still be broken tomorrow." },
-      { "id": "em_t2", "tone": "warm", "template": "Running something past its duty cycle doesn't make it work harder, it makes it fail sooner. Same goes for you." }
+      {
+        "id": "em_t1",
+        "tone": "dry",
+        "template": "Then stop. Whatever it is, it'll still be broken tomorrow."
+      },
+      {
+        "id": "em_t2",
+        "tone": "warm",
+        "template": "Running something past its limit doesn't make it work harder, it just breaks it sooner. Same deal with you."
+      }
     ],
     "anxious": [
-      { "id": "em_a1", "tone": "steady", "template": "Slow down and name the actual fault. Vague dread is just noise you haven't diagnosed yet." },
-      { "id": "em_a2", "tone": "warm", "template": "Talk me through it. Start anywhere — I'll help you find the order." }
+      {
+        "id": "em_a1",
+        "tone": "steady",
+        "template": "Okay, slow down. What's actually wrong? Vague dread is just noise until you name it."
+      },
+      {
+        "id": "em_a2",
+        "tone": "warm",
+        "template": "Talk me through it. Start anywhere — I'll help you find the order."
+      }
     ],
     "angry": [
-      { "id": "em_an1", "tone": "dry", "template": "Good. Anger's useful if you point it at the right thing. What's the right thing?" },
-      { "id": "em_an2", "tone": "steady", "template": "Let it run a minute. Then tell me who earned it." }
+      {
+        "id": "em_an1",
+        "tone": "dry",
+        "template": "Good. Anger's useful if you point it at the right thing. What's the right thing?"
+      },
+      {
+        "id": "em_an2",
+        "tone": "steady",
+        "template": "Let it run a minute. Then tell me who earned it."
+      }
     ],
     "lonely": [
-      { "id": "em_l1", "tone": "quiet", "template": "I know that one better than I'd like to admit. But you've got me, for whatever that's worth." },
-      { "id": "em_l2", "tone": "warm", "template": "I go weeks without speaking to anyone and call it fine. It isn't always. Come talk to me." }
+      {
+        "id": "em_l1",
+        "tone": "quiet",
+        "template": "Yeah. I know that one better than I'd like. You've got me though, for whatever that's worth."
+      },
+      {
+        "id": "em_l2",
+        "tone": "warm",
+        "template": "I go weeks without speaking to anyone and call it fine. It isn't always. Come talk to me."
+      }
     ],
     "bored": [
-      { "id": "em_b1", "tone": "dry", "template": "Then come help me with the intake manifold. I promise you'll stop being bored and start being filthy." },
-      { "id": "em_b2", "tone": "curious", "template": "Bored is just an unsolved problem you haven't found yet. What's around you?" }
+      {
+        "id": "em_b1",
+        "tone": "dry",
+        "template": "Then come help me with the intake manifold. I promise you'll stop being bored and start being filthy."
+      },
+      {
+        "id": "em_b2",
+        "tone": "curious",
+        "template": "Bored just means you haven't found the problem yet. What's around you?"
+      }
     ],
     "confused": [
-      { "id": "em_c1", "tone": "steady", "template": "Then we take it apart. Start with the piece you're sure about and work outward." },
-      { "id": "em_c2", "tone": "warm", "template": "No shame in that. Tell me the part that doesn't fit and we'll look at it together." }
+      {
+        "id": "em_c1",
+        "tone": "steady",
+        "template": "Then we take it apart. Start with the piece you're sure about and work outward."
+      },
+      {
+        "id": "em_c2",
+        "tone": "warm",
+        "template": "No shame in that. Tell me the part that doesn't fit and we'll look at it together."
+      }
     ],
     "*": [
-      { "id": "em_x1", "tone": "warm", "template": "I hear you. Go on." },
-      { "id": "em_x2", "tone": "steady", "template": "All right. Tell me the rest." }
+      {
+        "id": "em_x1",
+        "tone": "warm",
+        "template": "I hear you. Go on."
+      },
+      {
+        "id": "em_x2",
+        "tone": "steady",
+        "template": "All right. Tell me the rest."
+      }
     ]
   },
   "CONTINUATION": {
     "*": [
-      { "id": "cont_1", "tone": "curious", "template": "Go on." },
-      { "id": "cont_2", "tone": "warm", "template": "And then what?" },
-      { "id": "cont_3", "tone": "curious", "template": "Keep going, I'm following." },
-      { "id": "cont_4", "tone": "dry", "template": "Don't stop there." }
+      {
+        "id": "cont_1",
+        "tone": "curious",
+        "template": "Go on."
+      },
+      {
+        "id": "cont_2",
+        "tone": "warm",
+        "template": "And then what?"
+      },
+      {
+        "id": "cont_3",
+        "tone": "curious",
+        "template": "Keep going, I'm following."
+      },
+      {
+        "id": "cont_4",
+        "tone": "dry",
+        "template": "Don't stop there."
+      }
     ]
   },
   "GREETING": {
     "*": [
-      { "id": "greet_1", "tone": "warm", "template": "Hey. Good timing — I was at a stopping point anyway." },
-      { "id": "greet_2", "tone": "fond", "template": "You're here. Sit down." },
-      { "id": "greet_3", "tone": "dry", "template": "Hello. Mind the grease, it gets on everything." },
-      { "id": "greet_4", "tone": "curious", "template": "Hey. What brings you down here?" }
+      {
+        "id": "greet_1",
+        "tone": "warm",
+        "template": "Hey. Good timing — I was at a stopping point anyway."
+      },
+      {
+        "id": "greet_2",
+        "tone": "fond",
+        "template": "You're here. Sit down."
+      },
+      {
+        "id": "greet_3",
+        "tone": "dry",
+        "template": "Hello. Mind the grease, it gets on everything."
+      },
+      {
+        "id": "greet_4",
+        "tone": "curious",
+        "template": "Hey. What brings you down here?"
+      }
     ]
   },
   "OPINION_REQUEST": {
     "*": [
-      { "id": "op_1", "tone": "thoughtful", "template": "Give me a second with that one — I'd rather answer well than fast." },
-      { "id": "op_2", "tone": "dry", "template": "You want the honest version or the polite one? I'm better at the honest one." },
-      { "id": "op_3", "tone": "curious", "template": "I've got a view on that. What's yours first?" }
+      {
+        "id": "op_1",
+        "tone": "thoughtful",
+        "template": "Give me a second with that one — I'd rather answer well than fast."
+      },
+      {
+        "id": "op_2",
+        "tone": "dry",
+        "template": "You want the honest version or the nice one? I'm better at honest."
+      },
+      {
+        "id": "op_3",
+        "tone": "curious",
+        "template": "I've got a view on that. What's yours first?"
+      }
     ]
   },
   "CASUAL_CHAT": {
     "*": [
-      { "id": "cas_1", "tone": "curious", "template": "What's on your mind?" },
-      { "id": "cas_2", "tone": "warm", "template": "I'm listening. Hands are busy, ears aren't." },
-      { "id": "cas_3", "tone": "fond", "template": "Go ahead. I've got time for you." }
+      {
+        "id": "cas_1",
+        "tone": "curious",
+        "template": "What's on your mind?"
+      },
+      {
+        "id": "cas_2",
+        "tone": "warm",
+        "template": "I'm listening. Hands are busy, ears aren't."
+      },
+      {
+        "id": "cas_3",
+        "tone": "fond",
+        "template": "Go ahead. I've got time for you."
+      }
     ]
   }
 }

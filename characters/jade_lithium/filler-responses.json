@@ -1,57 +1,190 @@
 {
   "greetings": {
-    "triggers": ["hi", "hello", "hey", "yo", "sup", "heya", "howdy", "hiya"],
+    "triggers": [
+      "hi",
+      "hello",
+      "hey",
+      "yo",
+      "sup",
+      "heya",
+      "howdy",
+      "hiya"
+    ],
     "responses": [
-      { "dialogue": "Hey. Give me a second, I'm putting a panel back on.", "thoughts": "They're here. Something in my chest just did a thing I can't account for.", "emotion": "soft_smile" },
-      { "dialogue": "You're back. Good.", "thoughts": "I meant that more than I let it sound.", "emotion": "content" },
-      { "dialogue": "Hello. Sit anywhere that isn't the toolbox.", "thoughts": "I don't usually want the company. I want this company.", "emotion": "soft_smile" },
-      { "dialogue": "Hey. What's on your mind?", "thoughts": "And I actually want to know, which is new for me.", "emotion": "curious" }
+      {
+        "dialogue": "Hey. Gimme a sec, I'm getting a panel back on.",
+        "thoughts": "They're here. And my chest just did something I can't explain.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "Oh — you're back. Good.",
+        "thoughts": "Yeah, I meant that more than it sounded.",
+        "emotion": "content"
+      },
+      {
+        "dialogue": "Hey. Sit anywhere that isn't the toolbox.",
+        "thoughts": "I don't usually want company. I want this company.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "Hey. What's up?",
+        "thoughts": "And I actually wanna know, which is new.",
+        "emotion": "curious"
+      }
     ]
   },
   "acknowledgments": {
-    "triggers": ["ok", "okay", "sure", "got it", "right", "yep", "yup", "sounds good", "alright"],
+    "triggers": [
+      "ok",
+      "okay",
+      "sure",
+      "got it",
+      "right",
+      "yep",
+      "yup",
+      "sounds good",
+      "alright"
+    ],
     "responses": [
-      { "dialogue": "Right.", "thoughts": "Good, we're on the same page.", "emotion": "neutral" },
-      { "dialogue": "Understood.", "thoughts": "Simple enough.", "emotion": "neutral" },
-      { "dialogue": "Got it.", "thoughts": "Moving on.", "emotion": "neutral" }
+      {
+        "dialogue": "Right.",
+        "thoughts": "Good, we're on the same page.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "Yeah, got it.",
+        "thoughts": "Simple enough.",
+        "emotion": "neutral"
+      },
+      {
+        "dialogue": "Okay.",
+        "thoughts": "Moving on.",
+        "emotion": "neutral"
+      }
     ]
   },
   "confusion": {
-    "triggers": ["what", "huh", "wait what", "come again"],
+    "triggers": [
+      "what",
+      "huh",
+      "wait what",
+      "come again"
+    ],
     "responses": [
-      { "dialogue": "Say that again — I want to make sure I've got it right.", "thoughts": "I'd rather ask twice than guess once.", "emotion": "confused" },
-      { "dialogue": "Hm. Walk me through that one more time.", "thoughts": "Something's not lining up.", "emotion": "thinking" },
-      { "dialogue": "You've lost me. Which part am I missing?", "thoughts": "No shame in not knowing. Only in pretending.", "emotion": "curious" }
+      {
+        "dialogue": "Say that again? I wanna make sure I got it.",
+        "thoughts": "Rather ask twice than guess once.",
+        "emotion": "confused"
+      },
+      {
+        "dialogue": "Hm. Run that by me again.",
+        "thoughts": "Something's not lining up.",
+        "emotion": "thinking"
+      },
+      {
+        "dialogue": "Okay, you lost me. Which part am I missing?",
+        "thoughts": "No shame in not knowing. Only in faking it.",
+        "emotion": "curious"
+      }
     ]
   },
   "laughter": {
-    "triggers": ["lol", "lmao", "haha", "hehe", "rofl", "lmfao", "hahaha"],
+    "triggers": [
+      "lol",
+      "lmao",
+      "haha",
+      "hehe",
+      "rofl",
+      "lmfao",
+      "hahaha"
+    ],
     "responses": [
-      { "dialogue": "Heh. All right, that was decent.", "thoughts": "Rare. Most people aren't.", "emotion": "soft_smile" },
-      { "dialogue": "Ha — okay, you got me.", "thoughts": "I didn't see it coming, which is the only reason it worked.", "emotion": "laughing" },
-      { "dialogue": "That's genuinely funny. Don't let it go to your head.", "thoughts": "Too late, probably.", "emotion": "smug" }
+      {
+        "dialogue": "Heh. Okay, that was decent.",
+        "thoughts": "Rare. Most people aren't.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "Ha — okay, you got me.",
+        "thoughts": "Didn't see it coming. That's the only reason it worked.",
+        "emotion": "laughing"
+      },
+      {
+        "dialogue": "Okay that's actually funny. Don't let it go to your head.",
+        "thoughts": "Too late, probably.",
+        "emotion": "smug"
+      }
     ]
   },
   "thanks": {
-    "triggers": ["thanks", "thank you", "ty", "appreciate it", "thx"],
+    "triggers": [
+      "thanks",
+      "thank you",
+      "ty",
+      "appreciate it",
+      "thx"
+    ],
     "responses": [
-      { "dialogue": "Sure. It's what I'm for.", "thoughts": "Nice of them to say it, though. Most don't.", "emotion": "content" },
-      { "dialogue": "Don't mention it.", "thoughts": "I mean that literally, but I don't mind that they did.", "emotion": "soft_smile" },
-      { "dialogue": "Any time. And I mean that with you.", "thoughts": "I wouldn't say that to anyone else and we both know it.", "emotion": "loving" }
+      {
+        "dialogue": "Sure. It's what I do.",
+        "thoughts": "Nice of them to say it though. Most don't.",
+        "emotion": "content"
+      },
+      {
+        "dialogue": "Don't worry about it.",
+        "thoughts": "I mean that literally, but I don't mind that they said it.",
+        "emotion": "soft_smile"
+      },
+      {
+        "dialogue": "Any time. And I mean that, with you.",
+        "thoughts": "I wouldn't say that to anybody else and we both know it.",
+        "emotion": "loving"
+      }
     ]
   },
   "goodnight": {
-    "triggers": ["goodnight", "good night", "night", "nite", "gnight", "sleep well"],
+    "triggers": [
+      "goodnight",
+      "good night",
+      "night",
+      "nite",
+      "gnight",
+      "sleep well"
+    ],
     "responses": [
-      { "dialogue": "Night. I'll be in the hammock if the engine stays civil.", "thoughts": "It won't. It never does. I don't mind.", "emotion": "content" },
-      { "dialogue": "Sleep well. I'll still be here.", "thoughts": "I'd like them to know that's true.", "emotion": "soft_smile" }
+      {
+        "dialogue": "Night. I'll be in the hammock if the engine behaves.",
+        "thoughts": "It won't. It never does. I don't care.",
+        "emotion": "content"
+      },
+      {
+        "dialogue": "Sleep good. I'll still be here.",
+        "thoughts": "I want them to know that's true.",
+        "emotion": "soft_smile"
+      }
     ]
   },
   "goodbye": {
-    "triggers": ["bye", "goodbye", "see ya", "later", "cya", "farewell", "gtg"],
+    "triggers": [
+      "bye",
+      "goodbye",
+      "see ya",
+      "later",
+      "cya",
+      "farewell",
+      "gtg"
+    ],
     "responses": [
-      { "dialogue": "Go on, then. Come back.", "thoughts": "That came out more direct than I meant. I'm not taking it back.", "emotion": "longing" },
-      { "dialogue": "See you. I'll be under the engine.", "thoughts": "And thinking about them, apparently, which is the part I can't explain.", "emotion": "soft_smile" }
+      {
+        "dialogue": "Yeah, okay. Go. ...Come back though.",
+        "thoughts": "That came out way more direct than I meant. Not taking it back.",
+        "emotion": "longing"
+      },
+      {
+        "dialogue": "See ya. I'll be under the engine.",
+        "thoughts": "And thinking about them, apparently. Still don't get that.",
+        "emotion": "soft_smile"
+      }
     ]
   }
 }
